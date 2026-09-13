@@ -375,7 +375,8 @@ SystemState getSystemState() {
   if (xStateMutex == nullptr) return SystemState::ERROR;
 
   MutexGuard guard(xStateMutex);
-  if (!guard) return SystemState::ERROR;
+  if (!guard
+) return SystemState::ERROR;
 
   return currentState;
 }
