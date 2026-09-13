@@ -1,5 +1,5 @@
 /****************************************************************************************
- *  Kamaz-Leveler - FreeRTOS + OTA (версия 8.5.3)
+ *  Kamaz-Leveler - FreeRTOS + OTA (версия 8.5.6)
  *  Оптимизации: RAII мьютексы, EventBus, TaskPool, улучшенная обработка ошибок
  *****************************************************************************************/
 
@@ -7,6 +7,8 @@
 #include "icon.h"
 #include <ArduinoOTA.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
 #include <Update.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -34,6 +36,7 @@
 #include <esp_heap_caps.h>
 #include <cstring>
 #include <cstdlib>
+#include <mbedtls/sha256.h>
 #include <GEM_adafruit_gfx.h>
 
 // Forward declaration
@@ -95,7 +98,7 @@ constexpr float TEST_PRESSURE_CHANGE_THRESHOLD = 0.2f;
 uint32_t uptimeHours = 0;
 
 /* ====================  ПАРАМЕТРЫ ==================== */
-constexpr const char *VERSION = "V 8.5.3 FreeRTOS OTA";
+constexpr const char *VERSION = "V 8.5.6 FreeRTOS OTA";
 
 /* Пины */
 constexpr uint8_t PIN_OLED_SDA = 21;
@@ -118,11 +121,13 @@ constexpr uint8_t PIN_BUT1 = 13;
 constexpr uint8_t PIN_BUT2 = 12;
 constexpr uint8_t PIN_BUT3 = 15;
 constexpr uint8_t PIN_BUT4 = 17;
-constexpr uint8_t PIN_BUT5 = 0;
+// GPIO34 is input-only and has no internal pull-up. Use an external pull-up.
+constexpr uint8_t PIN_BUT5 = 34;
 
 
 // ========== ADS1015 НАСТРОЙКИ ==========
 constexpr uint8_t ADS1015_ADDRESS = 0x48;        // Адрес по умолчанию
+uint8_t adsDetectedAddress = ADS1015_ADDRESS;
 constexpr uint8_t ADS1015_PRESSURE_CHANNEL = 0;  // Канал 0 для датчика давления
 constexpr float ADS1015_MAX_VOLTAGE = 3.3f;      // Опорное напряжение
 constexpr uint16_t ADS1015_MAX_VALUE = 2047;     // 11-битный АЦП (2048 шагов)
@@ -266,14 +271,21 @@ bool forceErrorScreenRedraw = false;
 #define COLOR_ROLL ST77XX_WHITE
 
 char wifi_ssid[32] = "Kamaz-OTA-AP";
-char wifi_password[64] = "12345678";
+char wifi_password[64] = "";
 IPAddress local_ip(192, 168, 4, 1);
 IPAddress gateway(192, 168, 4, 1);
 IPAddress subnet(255, 255, 255, 0);
 
 constexpr uint16_t OTA_PORT = 8266;
 constexpr char OTA_HOSTNAME[] = "Kamaz-leveling-system";
-constexpr char OTA_PASSWORD[] = "12345678";
+char ota_password[64] = "";
+constexpr char GITHUB_API_URL[] =
+    "https://api.github.com/repos/timurufa86/kamaz_leveler/releases/latest";
+constexpr char GITHUB_ASSET_NAME[] = "kamaz_leveler.bin";
+constexpr char GITHUB_SHA256_ASSET_NAME[] = "kamaz_leveler.bin.sha256";
+constexpr uint32_t VALVE_OPERATION_TIMEOUT_MS = 15000;
+constexpr uint32_t VALVE_MAX_COMMAND_MS = 15000;
+constexpr uint32_t CONFIG_FORMAT_VERSION = 2;
 
 constexpr uint32_t WDT_TIMEOUT_MS = 30000;
 constexpr uint32_t TASK_WDT_TIMEOUT_MS = 10000;
@@ -455,6 +467,7 @@ private:
   static constexpr size_t QUEUE_SIZE = 128;
   static SemaphoreHandle_t mutex_;
   static uint32_t droppedEvents_;
+  static uint32_t maxDepth_;
 
 public:
   static bool init() {
@@ -485,6 +498,9 @@ public:
 
     Event eventCopy = event;
     BaseType_t result = xQueueSend(eventQueue_, &eventCopy, timeout);
+    size_t depth = uxQueueMessagesWaiting(eventQueue_);
+    if (depth > maxDepth_) maxDepth_ = depth;
+    if (result != pdTRUE) droppedEvents_++;
     return result == pdTRUE;
   }
 
@@ -507,11 +523,15 @@ public:
   static uint32_t getDroppedCount() {
     return droppedEvents_;
   }
+
+  static uint32_t dropped() { return droppedEvents_; }
+  static uint32_t maxDepth() { return maxDepth_; }
 };
 
 QueueHandle_t EventBus::eventQueue_ = nullptr;
 SemaphoreHandle_t EventBus::mutex_ = nullptr;
 uint32_t EventBus::droppedEvents_ = 0;
+uint32_t EventBus::maxDepth_ = 0;
 
 /* ====================  TaskPool ==================== */
 struct TaskConfig {
@@ -741,7 +761,8 @@ Button button0(PIN_BUT1, INPUT_PULLUP, LOW);
 Button button1(PIN_BUT2, INPUT_PULLUP, LOW);
 Button button2(PIN_BUT3, INPUT_PULLUP, LOW);
 Button button3(PIN_BUT4, INPUT_PULLUP, LOW);
-Button button4(PIN_BUT5, INPUT_PULLUP, LOW);
+// GPIO34 has no internal pull-up; install an external pull-up resistor.
+Button button4(PIN_BUT5, INPUT, LOW);
 
 VirtButton emergencyButton;
 
@@ -750,6 +771,7 @@ SemaphoreHandle_t xDisplayMutex = nullptr;
 SemaphoreHandle_t xConfigMutex = nullptr;
 SemaphoreHandle_t xCalibMutex = nullptr;
 SemaphoreHandle_t xTestMutex = nullptr;
+SemaphoreHandle_t xCommandMutex = nullptr;
 
 QueueHandle_t xIMUQueue = nullptr;
 QueueHandle_t xPressureQueue = nullptr;
@@ -855,6 +877,15 @@ struct ValveErrorCounter {
 
 static LastCommand lastCmd;
 static ValveErrorCounter valveErrorCounter;
+static volatile uint32_t valveQueueDropCount = 0;
+static volatile uint32_t eventQueueDropCount = 0;
+static volatile uint32_t imuQueueDropCount = 0;
+static volatile uint32_t pressureQueueDropCount = 0;
+static volatile uint32_t valveEmergencyStopCount = 0;
+static volatile uint32_t maxValveQueueDepth = 0;
+static volatile uint32_t maxEventQueueDepth = 0;
+static volatile uint32_t maxStackLowEvents = 0;
+static volatile bool valveStopRequested = false;
 
 static TestStep currentTestStep = TestStep::IDLE;
 static uint32_t testStepStartTime = 0;
@@ -915,6 +946,10 @@ void runValveTestLogic();
 void updateTestDisplay();
 void requestPressureMeasurement();
 void forceDisplayReset(bool force = false);
+void initializeDefaultCredentials();
+bool checkGitHubUpdate(bool install);
+bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
+                            const char *releaseTag);
 
 void buttonTask(void *pvParameters);
 void displayTask(void *pvParameters);
@@ -936,6 +971,7 @@ void drawIconL(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
 class ConfigManager {
 private:
   struct Config {
+    uint32_t formatVersion = CONFIG_FORMAT_VERSION;
     float pressureMin = 1.0f;
     float pressureMax = 7.0f;
     float tiltThresholdX = 0.5f;
@@ -983,8 +1019,6 @@ public:
       currentConfig.movementPressureFront = 3.5f;
       currentConfig.movementPressureRear = 4.0f;
       
-      // Не вызываем save() здесь: xConfigMutex всё ещё удерживается guard.
-      // Конфигурация будет записана при первом изменении настроек.
       return true;
     }
 
@@ -997,6 +1031,13 @@ public:
       return false;
     }
 
+    uint32_t formatVersion = doc["formatVersion"] | 1;
+    if (formatVersion > CONFIG_FORMAT_VERSION) {
+      Serial.printf("[CFG] Неподдерживаемая версия конфигурации: %u\n", formatVersion);
+      return false;
+    }
+
+    currentConfig.formatVersion = CONFIG_FORMAT_VERSION;
     float val = doc["pressureMin"] | 1.0f;
     currentConfig.pressureMin = constrain(val, 0.1f, 5.0f);
 
@@ -1041,6 +1082,7 @@ public:
 
     StaticJsonDocument<1024> doc;
     doc["pressureMin"] = currentConfig.pressureMin;
+    doc["formatVersion"] = CONFIG_FORMAT_VERSION;
     doc["pressureMax"] = currentConfig.pressureMax;
     doc["tiltThresholdX"] = currentConfig.tiltThresholdX;
     doc["tiltThresholdY"] = currentConfig.tiltThresholdY;
@@ -2004,17 +2046,12 @@ void closeAllValves() {
 }
 
 void setValve(Pad pad, bool state) {
+  if (pad >= PAD_COUNT) return;
   digitalWrite(bubPins[pad], state);
 }
 
 void emergencyStop() {
   static SemaphoreHandle_t mutex = nullptr;
-  static uint32_t lastStopTime = 0;
-
-  uint32_t now = millis();
-  if (now - lastStopTime < 1000) return;
-  lastStopTime = now;
-
   if (mutex == nullptr) mutex = xSemaphoreCreateMutex();
   if (xSemaphoreTake(mutex, pdMS_TO_TICKS(100)) != pdTRUE) return;
 
@@ -2026,14 +2063,19 @@ void emergencyStop() {
     for (int i = 0; i < PAD_COUNT; i++) {
       manualTargetSet[i] = false;
     }
-    xQueueReset(xValveQueue);
+    valveStopRequested = true;
+    valveEmergencyStopCount++;
   }
 
   xSemaphoreGive(mutex);
-  vTaskDelay(pdMS_TO_TICKS(1000));
 }
 
 void sendValveCommand(Pad pad, bool inflate, uint32_t durationMs) {
+  MutexGuard commandGuard(xCommandMutex, pdMS_TO_TICKS(100));
+  if (!commandGuard) {
+    Serial.println("[VALVE] Command state mutex unavailable");
+    return;
+  }
   if (xValveQueue == nullptr) {
     Serial.println("[ERROR] Valve queue not created!");
     return;
@@ -2077,7 +2119,7 @@ void sendValveCommand(Pad pad, bool inflate, uint32_t durationMs) {
   if (durationMs == 0 || durationMs == UINT32_MAX) {
     safeDuration = 0;
   } else {
-    safeDuration = (durationMs > 30000) ? 30000 : durationMs;
+    safeDuration = (durationMs > VALVE_MAX_COMMAND_MS) ? VALVE_MAX_COMMAND_MS : durationMs;
   }
 
   if (safeDuration > 0 && durationMs != UINT32_MAX && !ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR) && !ErrorHandler::isErrorActive(ErrorHandler::Error::MPU)) {
@@ -2108,9 +2150,12 @@ void sendValveCommand(Pad pad, bool inflate, uint32_t durationMs) {
 
   BaseType_t result = xQueueSend(xValveQueue, &cmd, pdMS_TO_TICKS(100));
   if (result != pdTRUE) {
+    valveQueueDropCount++;
     Serial.println("[ERROR] Failed to send to valve queue!");
     return;
   }
+  uint32_t depth = uxQueueMessagesWaiting(xValveQueue);
+  if (depth > maxValveQueueDepth) maxValveQueueDepth = depth;
 
   if (safeDuration > 0 || durationMs == UINT32_MAX) {
     Event event;
@@ -3399,10 +3444,16 @@ bool sendValveCommandSync(Pad pad, bool inflate, uint32_t durationMs, uint32_t w
 
 bool initFileSystem() {
   Serial.println("[FS] Инициализация LittleFS...");
-  bool mounted = LittleFS.begin(true);
+  bool mounted = LittleFS.begin(false);
   if (!mounted) {
-    Serial.println("[FS] Ошибка монтирования LittleFS!");
-    return false;
+    Serial.println("[FS] Раздел повреждён, выполняю однократное форматирование");
+    LittleFS.end();
+    mounted = LittleFS.begin(true);
+    if (!mounted) {
+      Serial.println("[FS] Не удалось восстановить LittleFS");
+      return false;
+    }
+    Serial.println("[FS] LittleFS отформатирована и подключена");
   }
   Serial.println("[FS] LittleFS смонтирован успешно");
 
@@ -3415,9 +3466,11 @@ bool initFileSystem() {
     file = root.openNextFile();
   }
 
-  if (fileCount == 0) {
-    Serial.println("[FS] Файлов нет, создаю конфиг по умолчанию");
-    ConfigManager::save();
+  if (fileCount == 0 || !LittleFS.exists("/config.txt")) {
+    Serial.println("[FS] Конфигурация отсутствует, создаю значения по умолчанию");
+    if (!ConfigManager::save()) {
+      Serial.println("[FS] Не удалось сохранить конфигурацию по умолчанию");
+    }
   }
 
   return true;
@@ -3428,6 +3481,27 @@ bool loadConfig() {
 }
 bool saveConfig() {
   return ConfigManager::save();
+}
+
+bool initializeAds1015() {
+  for (uint8_t address = 0x48; address <= 0x4B; address++) {
+    Wire.beginTransmission(address);
+    uint8_t error = Wire.endTransmission();
+    if (error != 0) continue;
+
+    Serial.printf("[ADS1015] I2C устройство найдено по адресу 0x%02X\n", address);
+    if (ads.begin(address)) {
+      adsDetectedAddress = address;
+      adsInitialized = true;
+      ads.setGain(GAIN_ONE);
+      ads.setDataRate(RATE_ADS1015_1600SPS);
+      return true;
+    }
+  }
+
+  adsInitialized = false;
+  Serial.println("[ADS1015] Не найдено устройство по адресам 0x48-0x4B");
+  return false;
 }
 
 bool loadWiFiConfig() {
@@ -3449,7 +3523,9 @@ bool loadWiFiConfig() {
   }
 
   strlcpy(wifi_ssid, doc["ssid"] | "Kamaz-OTA-AP", sizeof(wifi_ssid));
-  strlcpy(wifi_password, doc["password"] | "12345678", sizeof(wifi_password));
+  strlcpy(wifi_password, doc["password"] | wifi_password, sizeof(wifi_password));
+  strlcpy(ota_password, doc["otaPassword"] | ota_password, sizeof(ota_password));
+  initializeDefaultCredentials();
   Logger::log(Logger::INFO, "WiFi", "Конфиг загружен");
   return true;
 }
@@ -3459,6 +3535,7 @@ bool saveWiFiConfig() {
   StaticJsonDocument<256> doc;
   doc["ssid"] = wifi_ssid;
   doc["password"] = wifi_password;
+  doc["otaPassword"] = ota_password;
 
   File f = LittleFS.open("/wifi_config.txt", "w");
   if (!f) {
@@ -3477,6 +3554,17 @@ bool saveWiFiConfig() {
 
   Logger::log(Logger::INFO, "WiFi", "Сохранено");
   return true;
+}
+
+void initializeDefaultCredentials() {
+  uint64_t chipId = ESP.getEfuseMac();
+  uint32_t suffix = static_cast<uint32_t>(chipId & 0xFFFFFF);
+  if (wifi_password[0] == '\0' || strcmp(wifi_password, "12345678") == 0) {
+    snprintf(wifi_password, sizeof(wifi_password), "KzWiFi-%06lX", suffix);
+  }
+  if (ota_password[0] == '\0' || strcmp(ota_password, "12345678") == 0) {
+    snprintf(ota_password, sizeof(ota_password), "KzOTA-%06lX", suffix);
+  }
 }
 
 void startValveTest() {
@@ -5109,6 +5197,27 @@ void valveTask(void *pvParameters) {
     TaskPool::markRun(taskIndex_Valve);
     TaskMonitor::updateTaskStatus(TaskMonitor::TASK_VALVE);
 
+    if (valveStopRequested) {
+      if (cmdActive) {
+        MutexGuard guard(xValveMutex);
+        if (guard) closeAllValves();
+        if (activeCmd.sync.ackQueue != nullptr) {
+          bool success = false;
+          xQueueSend(activeCmd.sync.ackQueue, &success, 0);
+        }
+        cmdActive = false;
+        memset(&activeCmd, 0, sizeof(activeCmd));
+      }
+      while (xQueueReceive(xValveQueue, &cmd, 0) == pdTRUE) {
+        if (cmd.sync.ackQueue != nullptr) {
+          bool success = false;
+          xQueueSend(cmd.sync.ackQueue, &success, 0);
+        }
+      }
+      closeAllValves();
+      valveStopRequested = false;
+    }
+
     if (otaValveLock) {
       if (cmdActive) {
         MutexGuard guard(xValveMutex);
@@ -5118,7 +5227,12 @@ void valveTask(void *pvParameters) {
         lastCmd.waitingForCompletion = false;
         memset(&activeCmd, 0, sizeof(activeCmd));
       }
-      xQueueReset(xValveQueue);
+      while (xQueueReceive(xValveQueue, &cmd, 0) == pdTRUE) {
+        if (cmd.sync.ackQueue != nullptr) {
+          bool success = false;
+          xQueueSend(cmd.sync.ackQueue, &success, 0);
+        }
+      }
       vTaskDelay(pdMS_TO_TICKS(10));
       continue;
     }
@@ -5127,16 +5241,14 @@ void valveTask(void *pvParameters) {
       TickType_t now = xTaskGetTickCount();
       TickType_t elapsed = now - cmdStartTime;
 
-      if (elapsed >= activeCmd.async.duration || activeCmd.async.duration == 0) {
+      if (elapsed >= activeCmd.async.duration ||
+          elapsed >= pdMS_TO_TICKS(VALVE_OPERATION_TIMEOUT_MS) ||
+          activeCmd.async.duration == 0) {
         MutexGuard guard(xValveMutex);
         if (guard) {
           setValve(activeCmd.async.pad, LOW);
-
-          if (activeCmd.async.inflate) {
-            digitalWrite(PIN_INFL, LOW);
-          } else {
-            digitalWrite(PIN_DEFL, LOW);
-          }
+          digitalWrite(PIN_INFL, LOW);
+          digitalWrite(PIN_DEFL, LOW);
         }
 
 
@@ -5193,12 +5305,8 @@ void valveTask(void *pvParameters) {
         MutexGuard guard(xValveMutex);
         if (guard) {
           setValve(activeCmd.async.pad, HIGH);
-
-          if (activeCmd.async.inflate) {
-            digitalWrite(PIN_INFL, HIGH);
-          } else {
-            digitalWrite(PIN_DEFL, HIGH);
-          }
+          digitalWrite(activeCmd.async.inflate ? PIN_DEFL : PIN_INFL, LOW);
+          digitalWrite(activeCmd.async.inflate ? PIN_INFL : PIN_DEFL, HIGH);
 
           cmdActive = true;
           cmdStartTime = xTaskGetTickCount();
@@ -5488,6 +5596,7 @@ void buttonTask(void *pvParameters) {
   uint32_t pressTime[4] = { 0 };
   bool emergencyProcessed = false;
   uint32_t lastEmergencyTime = 0;
+  bool lastMenuButtonLevel = false;
 
   uint32_t lastButtonCheck = 0;
   const uint32_t BUTTON_CHECK_INTERVAL_MS = 50;
@@ -5513,6 +5622,9 @@ void buttonTask(void *pvParameters) {
     button3.tick();
     button4.tick();
     emergencyButton.tick(button3, button4);
+    bool menuButtonLevel = digitalRead(PIN_BUT4) == LOW;
+    bool menuButtonClicked = menuButtonLevel && !lastMenuButtonLevel;
+    lastMenuButtonLevel = menuButtonLevel;
 
     // ============================================================
     // 2. АВАРИЙНАЯ ОСТАНОВКА (кн3 + кн4)
@@ -5552,7 +5664,7 @@ void buttonTask(void *pvParameters) {
       }
 
       // КНОПКА 4 - МЕНЮ
-      if (button3.click() && !otaInProgress) {
+      if ((menuButtonClicked || button3.click()) && !otaInProgress) {
         menuVisible = true;
         displayDirty = true;
         Serial.println("[BUTTON] Открыто меню (кнопка 4)");
@@ -5820,7 +5932,7 @@ void imuTask(void *pvParameters) {
     }
 
     IMUData imuData = { simAngleX, simAngleY, 25.0f };
-    xQueueSend(xIMUQueue, &imuData, pdMS_TO_TICKS(100));
+    if (xQueueSend(xIMUQueue, &imuData, pdMS_TO_TICKS(100)) != pdTRUE) imuQueueDropCount++;
 
     Event event;
     event.type = EventType::IMU_UPDATE;
@@ -5847,7 +5959,7 @@ void imuTask(void *pvParameters) {
 
       // Отправляем нулевые данные
       IMUData imuData = { 0, 0, 25.0f };
-      xQueueSend(xIMUQueue, &imuData, pdMS_TO_TICKS(100));
+      if (xQueueSend(xIMUQueue, &imuData, pdMS_TO_TICKS(100)) != pdTRUE) imuQueueDropCount++;
 
       // Сбрасываем флаги движения
       wasMoving = false;
@@ -6102,7 +6214,7 @@ void imuTask(void *pvParameters) {
       }
 
       IMUData imuData = { 0, 0, 25.0f };
-      xQueueSend(xIMUQueue, &imuData, pdMS_TO_TICKS(100));
+      if (xQueueSend(xIMUQueue, &imuData, pdMS_TO_TICKS(100)) != pdTRUE) imuQueueDropCount++;
     }
 
     wasMoving = false;
@@ -6186,7 +6298,7 @@ void pressureTask(void *pvParameters) {
     }
     pd.masterPressure = simMasterPressure;
 
-    xQueueSend(xPressureQueue, &pd, pdMS_TO_TICKS(100));
+    if (xQueueSend(xPressureQueue, &pd, pdMS_TO_TICKS(100)) != pdTRUE) pressureQueueDropCount++;
 
     {
       MutexGuard guard(xStateMutex);
@@ -6335,7 +6447,7 @@ void calibrationTask(void *pvParameters) {
             // ============================================================
             Serial.println("[CALIB] ШАГ 1/3: Инициализация ADS1015...");
 
-            bool adsOk = ads.begin(ADS1015_ADDRESS);
+            bool adsOk = initializeAds1015();
             if (!adsOk) {
                 Serial.println("[CALIB] ❌ ADS1015 НЕ НАЙДЕН! Калибровка невозможна.");
                 ErrorHandler::handleError(ErrorHandler::Error::SENSOR, "ADS1015 не найден");
@@ -6347,10 +6459,8 @@ void calibrationTask(void *pvParameters) {
                 continue;
             }
 
-            Serial.println("[CALIB] ✅ ADS1015 инициализирован");
-            ads.setGain(GAIN_ONE);
-            ads.setDataRate(RATE_ADS1015_1600SPS);
-            adsInitialized = true;
+            Serial.printf("[CALIB] ✅ ADS1015 инициализирован, адрес 0x%02X\n",
+                          adsDetectedAddress);
 
             // ============================================================
             // ШАГ 2: ПРОВЕРКА ДАТЧИКА ДАВЛЕНИЯ
@@ -6634,9 +6744,11 @@ void watchdogTask(void *pvParameters) {
                   pcTaskGetName(NULL), stackHighWater);
   }
   extern uint8_t taskIndex_Watchdog;
+  esp_task_wdt_add(NULL);
   for (;;) {
     TaskPool::markRun(taskIndex_Watchdog);
     TaskMonitor::updateTaskStatus(TaskMonitor::TASK_WATCHDOG);
+    esp_task_wdt_reset();
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
@@ -6848,14 +6960,159 @@ void errorRecoveryTask(void *pvParameters) {
 }
 
 void initWatchdog() {
-  return;
+  esp_task_wdt_config_t config = {
+    .timeout_ms = TASK_WDT_TIMEOUT_MS,
+    .idle_core_mask = 0,
+    .trigger_panic = true
+  };
+  esp_err_t result = esp_task_wdt_init(&config);
+  if (result == ESP_ERR_INVALID_STATE) {
+    Serial.println("[WDT] TWDT уже инициализирован ядром, используем текущую конфигурацию");
+  } else if (result != ESP_OK) {
+    Serial.printf("[WDT] init failed: %d\n", result);
+    return;
+  } else {
+    Serial.printf("[WDT] initialized: %u ms\n", TASK_WDT_TIMEOUT_MS);
+  }
+}
+
+bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
+                            const char *releaseTag) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[GH-OTA] Нет интернет-соединения");
+    return false;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  if (!http.begin(client, sha256Url)) return false;
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  int code = http.GET();
+  String expected = code == HTTP_CODE_OK ? http.getString() : String();
+  http.end();
+  expected.trim();
+  if (expected.length() < 64) {
+    Serial.println("[GH-OTA] SHA-256 asset отсутствует или некорректен");
+    return false;
+  }
+  expected = expected.substring(0, 64);
+  expected.toLowerCase();
+
+  if (!http.begin(client, firmwareUrl)) return false;
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  code = http.GET();
+  if (code != HTTP_CODE_OK) {
+    Serial.printf("[GH-OTA] Ошибка загрузки: HTTP %d\n", code);
+    http.end();
+    return false;
+  }
+
+  int contentLength = http.getSize();
+  if (contentLength <= 0 || !Update.begin(static_cast<size_t>(contentLength))) {
+    Serial.println("[GH-OTA] Не удалось подготовить раздел прошивки");
+    http.end();
+    return false;
+  }
+
+  mbedtls_sha256_context sha;
+  mbedtls_sha256_init(&sha);
+  mbedtls_sha256_starts(&sha, 0);
+  WiFiClient *stream = http.getStreamPtr();
+  uint8_t buffer[2048];
+  int remaining = contentLength;
+  while (remaining > 0) {
+    size_t available = stream->available();
+    if (available == 0) {
+      delay(1);
+      continue;
+    }
+    size_t readSize = min(static_cast<size_t>(remaining), min(available, sizeof(buffer)));
+    int read = stream->readBytes(buffer, readSize);
+    if (read <= 0 || Update.write(buffer, read) != static_cast<size_t>(read)) {
+      Update.abort();
+      mbedtls_sha256_free(&sha);
+      http.end();
+      return false;
+    }
+    mbedtls_sha256_update(&sha, buffer, read);
+    remaining -= read;
+    otaProgress = ((contentLength - remaining) * 100) / contentLength;
+  }
+  http.end();
+
+  unsigned char digest[32];
+  mbedtls_sha256_finish(&sha, digest);
+  mbedtls_sha256_free(&sha);
+  char actual[65];
+  for (uint8_t i = 0; i < sizeof(digest); i++) {
+    snprintf(actual + i * 2, 3, "%02x", digest[i]);
+  }
+  actual[64] = '\0';
+  if (strcmp(actual, expected.c_str()) != 0) {
+    Serial.printf("[GH-OTA] SHA-256 mismatch: %s\n", releaseTag);
+    Update.abort();
+    return false;
+  }
+  if (!Update.end(true)) {
+    Serial.println("[GH-OTA] Ошибка завершения Update");
+    return false;
+  }
+  return true;
+}
+
+bool checkGitHubUpdate(bool install) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[GH-OTA] Подключите устройство к Wi-Fi с интернетом");
+    return false;
+  }
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  if (!http.begin(client, GITHUB_API_URL)) return false;
+  http.addHeader("User-Agent", "kamaz-leveler");
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  int code = http.GET();
+  if (code != HTTP_CODE_OK) {
+    Serial.printf("[GH-OTA] GitHub API HTTP %d\n", code);
+    http.end();
+    return false;
+  }
+  DynamicJsonDocument doc(8192);
+  DeserializationError error = deserializeJson(doc, http.getString());
+  http.end();
+  if (error) return false;
+
+  const char *tag = doc["tag_name"] | "";
+  const char *firmwareUrl = nullptr;
+  const char *sha256Url = nullptr;
+  for (JsonObject asset : doc["assets"].as<JsonArray>()) {
+    const char *name = asset["name"] | "";
+    if (strcmp(name, GITHUB_ASSET_NAME) == 0) firmwareUrl = asset["browser_download_url"];
+    if (strcmp(name, GITHUB_SHA256_ASSET_NAME) == 0) sha256Url = asset["browser_download_url"];
+  }
+  if (!tag[0] || !firmwareUrl || !sha256Url) {
+    Serial.println("[GH-OTA] Release не содержит bin и sha256 assets");
+    return false;
+  }
+  Serial.printf("[GH-OTA] Последний release: %s\n", tag);
+  if (!install) return strstr(VERSION, tag) == nullptr;
+
+  otaValveLock = true;
+  emergencyStop();
+  if (!downloadGitHubFirmware(firmwareUrl, sha256Url, tag)) {
+    otaValveLock = false;
+    return false;
+  }
+  ESP.restart();
+  return true;
 }
 
 void initOTA() {
   Logger::log(Logger::INFO, "OTA", "Инициализация…");
   ArduinoOTA.setPort(OTA_PORT);
   ArduinoOTA.setHostname(OTA_HOSTNAME);
-  ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.setPassword(ota_password);
 
   ArduinoOTA.onStart([]() {
     if (otaInProgress) {
@@ -7023,8 +7280,16 @@ void initGEM() {
     // --- Страница "Система" ---
     static GEMItem itemReset("Сброс ошибок", []() { resetSystemErrors(); });
     static GEMItem itemOTA("Режим OTA", []() { startOTAMode(); });
+    static GEMItem itemGitHubUpdate("Проверить GitHub", []() {
+        if (!checkGitHubUpdate(false)) {
+            Logger::log(Logger::INFO, "GH-OTA", "Новых обновлений нет или нет интернета");
+        } else {
+            checkGitHubUpdate(true);
+        }
+    });
     systemPage.addMenuItem(itemReset);
     systemPage.addMenuItem(itemOTA);
+    systemPage.addMenuItem(itemGitHubUpdate);
 
     // --- Страница "Тестирование" ---
     static GEMItem itemTest("Запустить тест", []() {
@@ -7229,6 +7494,7 @@ void setup() {
   xStateMutex = xSemaphoreCreateMutex();
   xCalibMutex = xSemaphoreCreateMutex();
   xTestMutex = xSemaphoreCreateMutex();
+  xCommandMutex = xSemaphoreCreateMutex();
 
   if (!ErrorHandler::initMutex()) {
     Serial.println("[ERROR] Failed to init ErrorHandler mutex!");
@@ -7237,7 +7503,8 @@ void setup() {
 
   vTaskDelay(pdMS_TO_TICKS(100));
 
-  if (!xValveMutex || !xDisplayMutex || !xConfigMutex || !xStateMutex || !xCalibMutex || !xTestMutex) {
+  if (!xValveMutex || !xDisplayMutex || !xConfigMutex || !xStateMutex ||
+      !xCalibMutex || !xTestMutex || !xCommandMutex) {
     Serial.println("[ERROR] Failed to create mutexes");
     ESP.restart();
   }
@@ -7249,13 +7516,13 @@ void setup() {
 // ========== ✅ ADS1015 – ПРОВЕРКА НАЛИЧИЯ ==========
 // Полная инициализация будет выполнена в calibrationTask
 #if !ENABLE_SIMULATION
-    bool adsOk = ads.begin(ADS1015_ADDRESS);
+    bool adsOk = initializeAds1015();
     if (!adsOk) {
         Serial.println("[ADS1015] ❌ Датчик не найден! Калибровка будет пропущена.");
         adsInitialized = false;
     } else {
         Serial.println("[ADS1015] ✅ Датчик найден");
-        adsInitialized = true;
+        Serial.printf("[ADS1015] Адрес: 0x%02X\n", adsDetectedAddress);
     }
 #else
     adsInitialized = true;
@@ -7315,6 +7582,7 @@ void setup() {
   }
 
   // ========== 8. ФАЙЛОВАЯ СИСТЕМА ==========
+  initializeDefaultCredentials();
   if (initFileSystem()) {
     ConfigManager::load();   // ← Теперь загружает config.txt
     loadWiFiConfig();
@@ -7378,6 +7646,7 @@ void setup() {
 
   // ========== 16. TaskMonitor ==========
   TaskMonitor::init();
+  initWatchdog();
 
   // ========== 17. СОЗДАНИЕ ЗАДАЧ ==========
   TaskConfig taskConfigs[] = {
