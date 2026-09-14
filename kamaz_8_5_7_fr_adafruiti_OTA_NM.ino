@@ -1,5 +1,5 @@
 /****************************************************************************************
- *  Kamaz-Leveler - FreeRTOS + OTA (версия 8.5.6)
+ *  Kamaz-Leveler - FreeRTOS + OTA (версия 8.5.7)
  *  Оптимизации: RAII мьютексы, EventBus, TaskPool, улучшенная обработка ошибок
  *****************************************************************************************/
 
@@ -98,7 +98,7 @@ constexpr float TEST_PRESSURE_CHANGE_THRESHOLD = 0.2f;
 uint32_t uptimeHours = 0;
 
 /* ====================  ПАРАМЕТРЫ ==================== */
-constexpr const char *VERSION = "V 8.5.6 FreeRTOS OTA";
+constexpr const char *VERSION = "V 8.5.7 FreeRTOS OTA";
 
 /* Пины */
 constexpr uint8_t PIN_OLED_SDA = 21;
@@ -272,6 +272,16 @@ bool forceErrorScreenRedraw = false;
 
 char wifi_ssid[32] = "Kamaz-OTA-AP";
 char wifi_password[64] = "";
+char sta_ssid[33] = "";
+constexpr char WIFI_STA_PASSWORD[] = "asd12345";
+constexpr uint8_t WIFI_SCAN_MAX_NETWORKS = 8;
+char wifi_scan_ssids[WIFI_SCAN_MAX_NETWORKS][33] = {};
+int8_t wifi_scan_rssi[WIFI_SCAN_MAX_NETWORKS] = {};
+uint8_t wifi_scan_count = 0;
+uint8_t wifi_scan_selected = 0;
+volatile bool wifiSetupActive = false;
+volatile bool wifiScanInProgress = false;
+volatile bool wifiConnected = false;
 IPAddress local_ip(192, 168, 4, 1);
 IPAddress gateway(192, 168, 4, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -921,6 +931,7 @@ void startOTAMode();
 void stopOTAMode();
 void handleOTA();
 void displayOTAScreen();
+void displayWiFiSetupScreen();
 void displayErrorScreen();
 void displayMainScreen();
 void displayCalibrationScreen();
@@ -930,6 +941,9 @@ bool loadConfig();
 bool saveConfig();
 bool loadWiFiConfig();
 bool saveWiFiConfig();
+void startWiFiSetup();
+void connectConfiguredWiFi();
+void startFallbackAccessPoint();
 void initializeDMP();
 void resetSystemErrors();
 bool checkPressureLimits();
@@ -3514,7 +3528,7 @@ bool loadWiFiConfig() {
     }
     return false;
   }
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<384> doc;
   DeserializationError err = deserializeJson(doc, f);
   f.close();
   if (err) {
@@ -3525,6 +3539,7 @@ bool loadWiFiConfig() {
   strlcpy(wifi_ssid, doc["ssid"] | "Kamaz-OTA-AP", sizeof(wifi_ssid));
   strlcpy(wifi_password, doc["password"] | wifi_password, sizeof(wifi_password));
   strlcpy(ota_password, doc["otaPassword"] | ota_password, sizeof(ota_password));
+  strlcpy(sta_ssid, doc["staSsid"] | "", sizeof(sta_ssid));
   initializeDefaultCredentials();
   Logger::log(Logger::INFO, "WiFi", "Конфиг загружен");
   return true;
@@ -3532,10 +3547,11 @@ bool loadWiFiConfig() {
 
 bool saveWiFiConfig() {
   Logger::log(Logger::INFO, "WiFi", "Сохранение");
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<384> doc;
   doc["ssid"] = wifi_ssid;
   doc["password"] = wifi_password;
   doc["otaPassword"] = ota_password;
+  doc["staSsid"] = sta_ssid;
 
   File f = LittleFS.open("/wifi_config.txt", "w");
   if (!f) {
@@ -3554,6 +3570,111 @@ bool saveWiFiConfig() {
 
   Logger::log(Logger::INFO, "WiFi", "Сохранено");
   return true;
+}
+
+void startFallbackAccessPoint() {
+  WiFi.disconnect(true, true);
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  if (!WiFi.softAP(wifi_ssid, wifi_password)) {
+    Serial.println("[WiFi] Не удалось запустить резервную точку доступа");
+    wifiConnected = false;
+    return;
+  }
+  wifiConnected = false;
+  Serial.printf("[WiFi] AP fallback: %s, IP %s\n",
+                wifi_ssid, WiFi.softAPIP().toString().c_str());
+}
+
+void connectConfiguredWiFi() {
+  if (sta_ssid[0] == '\0') {
+    Serial.println("[WiFi] SSID роутера не выбран, запущен fallback AP");
+    startFallbackAccessPoint();
+    return;
+  }
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(sta_ssid, WIFI_STA_PASSWORD);
+  Serial.printf("[WiFi] Подключение к \"%s\"\n", sta_ssid);
+  uint32_t started = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - started < 15000) {
+    delay(250);
+    Serial.print('.');
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiConnected = true;
+    Serial.printf("[WiFi] STA подключен, IP %s, RSSI %d dBm\n",
+                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  } else {
+    Serial.println("[WiFi] STA не подключен, переход в fallback AP");
+    startFallbackAccessPoint();
+  }
+}
+
+void startWiFiSetup() {
+  if (wifiScanInProgress) return;
+  wifiScanInProgress = true;
+  wifiSetupActive = false;
+  menuVisible = false;
+  displayDirty = true;
+  Serial.println("[WiFi] Сканирование сетей...");
+
+  WiFi.mode(WIFI_STA);
+  int found = WiFi.scanNetworks(false, true);
+  wifi_scan_count = 0;
+  for (int i = 0; i < found && wifi_scan_count < WIFI_SCAN_MAX_NETWORKS; i++) {
+    String name = WiFi.SSID(i);
+    if (name.length() == 0) continue;
+    bool duplicate = false;
+    for (uint8_t j = 0; j < wifi_scan_count; j++) {
+      if (name.equals(wifi_scan_ssids[j])) {
+        duplicate = true;
+        break;
+      }
+    }
+    if (duplicate) continue;
+    strlcpy(wifi_scan_ssids[wifi_scan_count], name.c_str(),
+            sizeof(wifi_scan_ssids[wifi_scan_count]));
+    wifi_scan_rssi[wifi_scan_count] = static_cast<int8_t>(WiFi.RSSI(i));
+    wifi_scan_count++;
+  }
+  WiFi.scanDelete();
+  wifiScanInProgress = false;
+  wifi_scan_selected = 0;
+  wifiSetupActive = wifi_scan_count > 0;
+  displayDirty = true;
+  Serial.printf("[WiFi] Найдено сетей: %u\n", wifi_scan_count);
+  if (wifi_scan_count == 0) {
+    Serial.println("[WiFi] Сети не найдены, возвращаюсь к fallback AP");
+    startFallbackAccessPoint();
+    menuVisible = true;
+  }
+}
+
+void displayWiFiSetupScreen() {
+  tft.fillScreen(COLOR_BG);
+  tft.setTextColor(COLOR_TEXT);
+  tft.setTextSize(1);
+  tft.setCursor(8, 18);
+  tft.println("ВЫБОР WI-FI");
+  tft.setCursor(8, 34);
+  tft.println("КН1/КН2: выбор  КН3: OK");
+  tft.setCursor(8, 48);
+  tft.println("КН4: отмена");
+  if (wifiScanInProgress) {
+    tft.setCursor(8, 80);
+    tft.println("Сканирование...");
+    return;
+  }
+  for (uint8_t i = 0; i < wifi_scan_count; i++) {
+    tft.setCursor(8, 72 + i * 18);
+    tft.print(i == wifi_scan_selected ? "> " : "  ");
+    tft.print(wifi_scan_ssids[i]);
+    tft.print(" ");
+    tft.print(wifi_scan_rssi[i]);
+  }
 }
 
 void initializeDefaultCredentials() {
@@ -5649,6 +5770,36 @@ void buttonTask(void *pvParameters) {
       forceDisplayReset(true);
     }
 
+    if (wifiSetupActive) {
+      if (button0.click() && wifi_scan_count > 0) {
+        wifi_scan_selected = wifi_scan_selected == 0
+                                 ? wifi_scan_count - 1
+                                 : wifi_scan_selected - 1;
+        displayDirty = true;
+      }
+      if (button1.click() && wifi_scan_count > 0) {
+        wifi_scan_selected = (wifi_scan_selected + 1) % wifi_scan_count;
+        displayDirty = true;
+      }
+      if (button2.click() && wifi_scan_count > 0) {
+        strlcpy(sta_ssid, wifi_scan_ssids[wifi_scan_selected], sizeof(sta_ssid));
+        saveWiFiConfig();
+        wifiSetupActive = false;
+        Serial.printf("[WiFi] Выбрана сеть \"%s\"\n", sta_ssid);
+        connectConfiguredWiFi();
+        menuVisible = true;
+        displayDirty = true;
+      }
+      if (button3.click()) {
+        wifiSetupActive = false;
+        menuVisible = true;
+        displayDirty = true;
+        Serial.println("[WiFi] Настройка отменена");
+      }
+      vTaskDelay(pdMS_TO_TICKS(50));
+      continue;
+    }
+
     // ============================================================
     // 3. РЕЖИМ ОШИБОК
     // ============================================================
@@ -6665,6 +6816,14 @@ void displayTask(void *pvParameters) {
         continue;
       }
 
+      if (wifiSetupActive || wifiScanInProgress) {
+        displayWiFiSetupScreen();
+        displayDirty = false;
+        xSemaphoreGive(xDisplayMutex);
+        vTaskDelay(framePeriod);
+        continue;
+      }
+
       // ============================================================
       // 2. ОБРАБОТКА ОШИБОК
       // ============================================================
@@ -7280,6 +7439,7 @@ void initGEM() {
     // --- Страница "Система" ---
     static GEMItem itemReset("Сброс ошибок", []() { resetSystemErrors(); });
     static GEMItem itemOTA("Режим OTA", []() { startOTAMode(); });
+    static GEMItem itemWiFi("Настроить WiFi", []() { startWiFiSetup(); });
     static GEMItem itemGitHubUpdate("Проверить GitHub", []() {
         if (!checkGitHubUpdate(false)) {
             Logger::log(Logger::INFO, "GH-OTA", "Новых обновлений нет или нет интернета");
@@ -7289,6 +7449,7 @@ void initGEM() {
     });
     systemPage.addMenuItem(itemReset);
     systemPage.addMenuItem(itemOTA);
+    systemPage.addMenuItem(itemWiFi);
     systemPage.addMenuItem(itemGitHubUpdate);
 
     // --- Страница "Тестирование" ---
@@ -7587,6 +7748,7 @@ void setup() {
     ConfigManager::load();   // ← Теперь загружает config.txt
     loadWiFiConfig();
   }
+  connectConfiguredWiFi();
 
   // ========== 9. ПАМЯТЬ ==========
   MemoryMonitor::init();
