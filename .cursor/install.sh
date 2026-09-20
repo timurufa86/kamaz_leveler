@@ -8,6 +8,11 @@
 #
 #   arduino-cli compile -b esp32:esp32:esp32 <sketch-folder>
 #
+# Compile with `--warnings none` (this matches the Arduino IDE default warning
+# level the firmware is authored against). One of its libraries, GEM, ships a
+# function that is missing a return statement, which the ESP32 core's
+# `-Werror=return-type` turns into a hard error at higher warning levels.
+#
 # The script is idempotent: rerunning it converges to the same toolchain
 # without duplicating configuration or rebuilding what is already present.
 
@@ -96,7 +101,7 @@ main() {
   arduino-cli version
   arduino-cli core list
   echo "Environment ready. Compile the firmware with:"
-  echo "  arduino-cli compile -b esp32:esp32:esp32 <sketch-folder>"
+  echo "  arduino-cli compile -b esp32:esp32:esp32 --warnings none <sketch-folder>"
 }
 
 main "$@"
