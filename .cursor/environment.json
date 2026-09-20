@@ -1,0 +1,5 @@
+{
+  "name": "Kamaz Leveler (ESP32 Arduino firmware)",
+  "user": "ubuntu",
+  "install": "./.cursor/install.sh"
+}
