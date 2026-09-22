@@ -2,8 +2,8 @@
 
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
-- Базовая ветка разработки: **`8.5.9`**
-- Скетч: `kamaz_8_5_9_fr_adafruiti_OTA_NM/`
+- Базовая ветка разработки: **`8.6.0`**
+- Скетч: `kamaz_8_6_0_fr_adafruiti_OTA_NM/`
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Toolchain
@@ -31,16 +31,28 @@
 ```powershell
 arduino-cli compile --config-file arduino-cli.yaml `
   -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=16M" --warnings none --export-binaries `
-  kamaz_8_5_9_fr_adafruiti_OTA_NM
+  --build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition `
+  kamaz_8_6_0_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
 > `return`, которую ядро ESP32 превращает в ошибку через `-Werror=return-type`.
+> (Значение можно передавать как `-Wl,--allow-multiple-definition` или через
+> `-D`, главное — попасть в `compiler.c.elf.extra_flags`.)
+
+> `--build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition`
+> обязателен, начиная с 8.6.0: библиотека GEM компилируется целиком (включая
+> `GEM_u8g2.cpp`), из-за чего в сборку попадает библиотека `U8g2`, а её
+> `src/clib/u8g2_fonts.c` дублирует символы шрифтов из
+> `U8g2_for_Adafruit_GFX/src/u8g2_fonts.c`. Флаг разрешает дубликаты: линковщик
+> оставляет первое определение, неиспользуемые секции удаляются `--gc-sections`.
+> Без флага сборка падает на этапе линковки с `multiple definition of
+> 'u8g2_font_...'`.
 
 ## Карта флеша (16 МБ, своя таблица разделов)
 
 Плата оснащена **16 МБ** флеш-памяти, поэтому используется **своя схема
-разделов** (`kamaz_8_5_9_fr_adafruiti_OTA_NM/partitions.csv`, включается
+разделов** (`kamaz_8_6_0_fr_adafruiti_OTA_NM/partitions.csv`, включается
 через `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
@@ -75,10 +87,39 @@ arduino-cli compile --config-file arduino-cli.yaml `
 | GEM | 1.8.1 |
 | GyverFilters | 3.2.0 |
 | MPU6050 | 1.4.5 |
-| U8g2 | 2.36.19 |
+| U8g2_for_Adafruit_GFX | 1.8.0 |
+| U8g2 (только как источник шрифтов, напрямую не подключается) | 2.36.19 |
 
 ## Версионирование и релиз
 
-- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.5.9`).
+- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.6.0`).
 - OTA-релиз: см. `.cursor/rules/github-ota-release.mdc`
-  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.5.9`).
+  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.6.0`).
+
+## Типографика и визуализация (8.6.0)
+
+Весь текст на экранах выводится через **U8g2_for_Adafruit_GFX** (UTF-8, честные
+размеры шрифтов, кириллица) — слой из трёх модулей:
+
+| Модуль | Назначение |
+|---|---|
+| `ui_theme.h` | палитра RGB565, сетка и метрики экрана (отступы, радиусы, высоты строк) |
+| `ui_fonts.h` | шрифтовая лестница `UiFont` (Tiny…Huge) — кириллические шрифты U8g2 |
+| `ui_text.h` / `.cpp` | класс `UiText` (экземпляр `ui`): печать по базовой линии, выравнивание и вертикальное центрирование в прямоугольнике, `printf`-варианты без динамической памяти, усечение строк с `..` |
+
+Шрифтовая сетка (все с кириллицей):
+
+| Роль | Шрифт | Применение |
+|---|---|---|
+| Tiny | `u8g2_font_5x7_t_cyrillic` | подсказки, подписи шкал |
+| Small | `u8g2_font_6x13_t_cyrillic` | основной мелкий текст, списки |
+| SmallB | `u8g2_font_6x13B_t_cyrillic` | акценты и подписи карточек |
+| Body / BodyWide | `u8g2_font_7x13` / `8x13_t_cyrillic` | основной текст |
+| Med | `u8g2_font_10x20_t_cyrillic` | заголовки экранов, значения |
+| Large / XLarge / Huge | `u8g2_font_inr24/33/46_t_cyrillic` | крупные значения, сплэш |
+
+Важно: `U8g2_for_Adafruit_GFX` **не масштабирует** текст (аналога `setTextSize`
+нет), поэтому размер задаётся выбором шрифта — глифы остаются пиксель-в-пиксель
+вместо растягивания. Меню GEM (`GEM_adafruit_gfx`) по-прежнему работает на
+Adafruit-GFX-шрифтах `CourierCyr7`/`CourierCyr9` из `FontsRus/` — только для
+пунктов меню; все остальные экраны переведены на U8g2.
