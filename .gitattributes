@@ -1,0 +1,15 @@
+# Normalize line endings for text files in the repo
+* text=auto eol=lf
+
+# Binary / generated assets
+*.bin binary
+*.bin.sha256 binary
+*.elf binary
+*.hex binary
+*.png binary
+*.jpg binary
+*.ico binary
+
+# Git config files
+.gitattributes text eol=lf
+.gitignore text eol=lf

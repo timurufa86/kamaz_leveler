@@ -1,0 +1,48 @@
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# --- Cursor / Continue (local tool state) ---
+.cursor/*.json
+.continue/*.log
+
+# --- Arduino / ESP32 build artifacts ---
+build/
+build_*/
+*.bin
+*.bin.sha256
+*.elf
+*.map
+*.hex
+ota_release_*/
+
+# --- Compiled objects / libraries ---
+*.o
+*.obj
+*.lo
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.gcno
+*.gcda
+*.pdb
+*.ilk
+
+# --- Precompiled / generated headers ---
+*.gch
+*.pch
+
+# --- Logs / temp ---
+*.log
+*.tmp
+.env
+
+# --- Python (tooling) ---
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,0 +1,29 @@
+---
+description: Publish Kamaz-Leveler OTA assets to GitHub Releases
+alwaysApply: true
+---
+
+# GitHub OTA release (Kamaz-Leveler)
+
+Firmware checks: `https://api.github.com/repos/timurufa86/kamaz_leveler/releases/latest`
+
+## Required release assets (exact names)
+
+1. `kamaz_leveler.bin` — application firmware (ESP32 app image, same as `*.ino.bin`)
+2. `kamaz_leveler.bin.sha256` — hex SHA-256 of that bin (64 chars, typically one line)
+
+## On every version that should be available via OTA
+
+1. Bump SemVer per `semantic-versioning` rule (`8_5_7` ↔ `8.5.7`).
+2. Build firmware; copy app bin to `ota_release_X_Y_Z/kamaz_leveler.bin`.
+3. Write matching `kamaz_leveler.bin.sha256`.
+4. Create/update GitHub Release on `timurufa86/kamaz_leveler`:
+   - Tag: `vMAJOR.MINOR.PATCH` (e.g. `v8.5.7`) — must be the **latest** release for devices to see it
+   - Upload both assets with the exact names above
+5. Confirm with `gh release view <tag> -R timurufa86/kamaz_leveler` that both assets exist.
+
+## Do not
+
+- Upload only the `.bin` without `.sha256` (device rejects incomplete releases).
+- Rename assets (code looks up fixed names).
+- Leave a newer draft/prerelease as "latest" if devices should not install it yet.

@@ -1,0 +1,32 @@
+---
+description: Semantic versioning for Kamaz-Leveler firmware (8_5_7 → 8.5.7)
+alwaysApply: true
+---
+
+# Semantic Versioning (Kamaz-Leveler)
+
+Folder / build names use underscores: `8_5_7` = SemVer **`8.5.7`** (`MAJOR.MINOR.PATCH`).
+
+In code the display string is like: `VERSION = "V 8.5.7 FreeRTOS OTA"`.
+
+## Bump rules — apply on every change that ships
+
+| Change | Bump | Example |
+|--------|------|---------|
+| Breaking behavior, pinout, config format, OTA protocol incompatible with old devices | **MAJOR** | 8.5.7 → **9.0.0** |
+| New feature, new mode, meaningful UI/logic addition (backward-compatible) | **MINOR** | 8.5.7 → **8.6.0** |
+| Bugfix, small tweak, no new capability | **PATCH** | 8.5.7 → **8.5.8** |
+
+## Keep in sync on every version bump
+
+1. `VERSION` in the main `.ino`
+2. Sketch / folder name segment (`kamaz_X_Y_Z_...`)
+3. Build / OTA artifact names (`build_kamaz_X_Y_Z`, `ota_release_X_Y_Z`, `kamaz_leveler.bin` release metadata if used)
+4. Any user-visible version string in UI / OTA hostname comments
+
+## Agent checklist
+
+- Before releasing or proposing a build: state current SemVer and which field you bump and why.
+- Do not leave `VERSION` and folder/build names mismatched.
+- Do not invent a different scheme (dates, letters-only) unless the user explicitly changes policy.
+- If the build is for OTA: also publish to GitHub per `github-ota-release` rule.
