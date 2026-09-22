@@ -1,4 +1,4 @@
-# --- OS / Editor ---
+﻿# --- OS / Editor ---
 .DS_Store
 Thumbs.db
 *.swp
@@ -18,6 +18,9 @@ build_*/
 *.hex
 ota_release_*/
 
+# Compiler cache created inside the project by arduino-cli/IDE
+libraries/
+
 # --- Compiled objects / libraries ---
 *.o
 *.obj
@@ -31,6 +34,7 @@ ota_release_*/
 *.gcda
 *.pdb
 *.ilk
+*.d
 
 # --- Precompiled / generated headers ---
 *.gch
