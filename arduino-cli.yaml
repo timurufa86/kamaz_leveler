@@ -4,7 +4,7 @@
 #
 # Usage:
 #   arduino-cli compile --config-file arduino-cli.yaml \
-#     -b esp32:esp32:esp32 --warnings none kamaz_8_5_8_fr_adafruiti_OTA_NM
+#     -b esp32:esp32:esp32 --warnings none kamaz_8_5_9_fr_adafruiti_OTA_NM
 board_manager:
   additional_urls:
     - https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json

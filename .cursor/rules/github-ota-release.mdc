@@ -7,6 +7,20 @@ alwaysApply: true
 
 Firmware checks: `https://api.github.com/repos/timurufa86/kamaz_leveler/releases/latest`
 
+## Build the OTA image with the SAME partition scheme
+
+The OTA asset must be built for the device's flash map, otherwise it will be
+rejected / mis-sized. Use the project build helper (custom 16MB partition table,
+see `kamaz_8_5_9_fr_adafruiti_OTA_NM/partitions.csv`):
+
+```powershell
+./build.cmd
+# which compiles with:
+#   -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=16M"
+```
+
+The app image is `build/esp32.esp32.esp32/<sketch>.ino.bin`.
+
 ## Required release assets (exact names)
 
 1. `kamaz_leveler.bin` — application firmware (ESP32 app image, same as `*.ino.bin`)

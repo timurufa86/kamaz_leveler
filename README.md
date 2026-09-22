@@ -2,8 +2,8 @@
 
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
-- Базовая ветка разработки: **`8.5.8`**
-- Скетч: `kamaz_8_5_8_fr_adafruiti_OTA_NM/`
+- Базовая ветка разработки: **`8.5.9`**
+- Скетч: `kamaz_8_5_9_fr_adafruiti_OTA_NM/`
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Toolchain
@@ -30,12 +30,35 @@
 
 ```powershell
 arduino-cli compile --config-file arduino-cli.yaml `
-  -b esp32:esp32:esp32 --warnings none --export-binaries `
-  kamaz_8_5_8_fr_adafruiti_OTA_NM
+  -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=16M" --warnings none --export-binaries `
+  kamaz_8_5_9_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
 > `return`, которую ядро ESP32 превращает в ошибку через `-Werror=return-type`.
+
+## Карта флеша (16 МБ, своя таблица разделов)
+
+Плата оснащена **16 МБ** флеш-памяти, поэтому используется **своя схема
+разделов** (`kamaz_8_5_9_fr_adafruiti_OTA_NM/partitions.csv`, включается
+через `PartitionScheme=custom`):
+
+| Раздел | Смещение | Размер | Назначение |
+|---|---|---|---|
+| `nvs` | 0x9000 | 20 КБ | Wi-Fi/настройки IDF |
+| `otadata` | 0xe000 | 8 КБ | выбор OTA-слота |
+| `app0` (ota_0) | 0x10000 | **6.25 МБ** | основной слот прошивки |
+| `app1` (ota_1) | 0x650000 | **6.25 МБ** | слот для OTA-обновления |
+| `spiffs` | 0xC90000 | 3.375 МБ | LittleFS (`/config.txt`) |
+| `coredump` | 0xFF0000 | 64 КБ | дамп при сбое |
+
+Скetch занимает ~1.31 МБ, то есть в каждом app-слоте остаётся **~80%**
+свободно (ранее на дефолтной схеме 4 МБ было ~0.04%).
+
+> ⚠️ **Смена карты флеша требует разовой прошивки по USB** (bootloader +
+> partitions + app). OTA-обновление с прежней 4-мегабайтной схемы разделы
+> НЕ переносит — такие устройства нужно один раз прошить кабелем.
+> Устройства, уже собранные на этой схеме, дальше обновляются по воздуху как обычно.
 
 ## Используемые библиотеки
 
@@ -56,6 +79,6 @@ arduino-cli compile --config-file arduino-cli.yaml `
 
 ## Версионирование и релиз
 
-- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.5.8`).
+- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.5.9`).
 - OTA-релиз: см. `.cursor/rules/github-ota-release.mdc`
-  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.5.8`).
+  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.5.9`).
