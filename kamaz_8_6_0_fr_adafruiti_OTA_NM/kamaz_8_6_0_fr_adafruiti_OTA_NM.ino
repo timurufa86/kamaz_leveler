@@ -26,7 +26,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 #include <Adafruit_ADS1X15.h>
-//#include <U8g2_for_Adafruit_GFX.h>
+#include <U8g2_for_Adafruit_GFX.h>   // типографика (также включается из ui_fonts.h/ui_text.h)
 #include <SPI.h>
 #include <EncButton.h>
 
