@@ -2,8 +2,8 @@
 
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
-- Базовая ветка разработки: **`8.6.1`**
-- Скетч: `kamaz_8_6_1_fr_adafruiti_OTA_NM/`
+- Базовая ветка разработки: **`8.7.0`**
+- Скетч: `kamaz_8_7_0_fr_adafruiti_OTA_NM/`
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Toolchain
@@ -32,7 +32,7 @@
 arduino-cli compile --config-file arduino-cli.yaml `
   -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=16M" --warnings none --export-binaries `
   --build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition `
-  kamaz_8_6_1_fr_adafruiti_OTA_NM
+  kamaz_8_7_0_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
@@ -52,7 +52,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 ## Карта флеша (16 МБ, своя таблица разделов)
 
 Плата оснащена **16 МБ** флеш-памяти, поэтому используется **своя схема
-разделов** (`kamaz_8_6_1_fr_adafruiti_OTA_NM/partitions.csv`, включается
+разделов** (`kamaz_8_7_0_fr_adafruiti_OTA_NM/partitions.csv`, включается
 через `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
@@ -90,11 +90,28 @@ arduino-cli compile --config-file arduino-cli.yaml `
 | U8g2_for_Adafruit_GFX | 1.8.0 |
 | U8g2 (только как источник шрифтов, напрямую не подключается) | 2.36.19 |
 
+## Меню и обновления (8.7.0)
+
+- **Вход в меню** — удержание пары **КН3 + КН4** (GPIO15 + GPIO17, 2 с) из любого
+  режима и экрана. **Аварийный стоп** — удержание пары **КН4 + КН5**
+  (GPIO17 + GPIO34, 2 с); он обрабатывается первым и подавляет открытие меню.
+- В меню: Кн1/Кн2 — навигация, Кн3 — ОК, Кн4 — назад (пункт «Назад» создаёт GEM для
+  подстраниц), Кн5 — сохранить и выйти. Подсказка дублируется в шапке меню.
+- Раздел **«Обновления»**: проверка GitHub, список до 5 релизов
+  (`/releases?per_page=5`), карточка релиза (дата, размер, статус, SHA-256),
+  установка последней или выбранной версии, режим ArduinoOTA (Wi-Fi).
+- Экран прогресса обновления показывается в любом режиме, шапка «ОБНОВЛЕНИЕ»,
+  крупный процент и предупреждение «Не выключайте питание».
+- Wi-Fi: пароль единый (`asd12345`), экран выбора сети переведён на U8g2 (шкала
+  уровня сигнала, усечение длинных имён).
+- Страница «Информация» в меню — живая: версия, режим, MPU, давление в магистрали,
+  Wi-Fi (SSID/RSSI), аптайм и свободная RAM, число активных ошибок.
+
 ## Версионирование и релиз
 
-- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.6.1`).
+- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.7.0`).
 - OTA-релиз: см. `.cursor/rules/github-ota-release.mdc`
-  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.6.1`).
+  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.7.0`).
 
 ## Типографика и визуализация (появились в 8.6.0)
 
