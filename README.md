@@ -2,8 +2,8 @@
 
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
-- Базовая ветка разработки: **`8.6.0`**
-- Скетч: `kamaz_8_6_0_fr_adafruiti_OTA_NM/`
+- Базовая ветка разработки: **`8.6.1`**
+- Скетч: `kamaz_8_6_1_fr_adafruiti_OTA_NM/`
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Toolchain
@@ -32,7 +32,7 @@
 arduino-cli compile --config-file arduino-cli.yaml `
   -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=16M" --warnings none --export-binaries `
   --build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition `
-  kamaz_8_6_0_fr_adafruiti_OTA_NM
+  kamaz_8_6_1_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
@@ -52,7 +52,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 ## Карта флеша (16 МБ, своя таблица разделов)
 
 Плата оснащена **16 МБ** флеш-памяти, поэтому используется **своя схема
-разделов** (`kamaz_8_6_0_fr_adafruiti_OTA_NM/partitions.csv`, включается
+разделов** (`kamaz_8_6_1_fr_adafruiti_OTA_NM/partitions.csv`, включается
 через `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
@@ -92,11 +92,11 @@ arduino-cli compile --config-file arduino-cli.yaml `
 
 ## Версионирование и релиз
 
-- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.6.0`).
+- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.6.1`).
 - OTA-релиз: см. `.cursor/rules/github-ota-release.mdc`
-  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.6.0`).
+  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.6.1`).
 
-## Типографика и визуализация (8.6.0)
+## Типографика и визуализация (появились в 8.6.0)
 
 Весь текст на экранах выводится через **U8g2_for_Adafruit_GFX** (UTF-8, честные
 размеры шрифтов, кириллица) — слой из трёх модулей:
