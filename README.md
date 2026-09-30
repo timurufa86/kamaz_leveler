@@ -2,8 +2,8 @@
 
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
-- Базовая ветка разработки: **`8.9.0`**
-- Скетч: `kamaz_8_9_0_fr_adafruiti_OTA_NM/`
+- Базовая ветка разработки: **`9.0.18`**
+- Скетч: `kamaz_9_0_18_fr_adafruiti_OTA_NM/`
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Toolchain
@@ -30,9 +30,9 @@
 
 ```powershell
 arduino-cli compile --config-file arduino-cli.yaml `
-  -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=16M" --warnings none --export-binaries `
+  -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M" --warnings none --export-binaries `
   --build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition `
-  kamaz_8_9_0_fr_adafruiti_OTA_NM
+  kamaz_9_0_18_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
@@ -49,28 +49,25 @@ arduino-cli compile --config-file arduino-cli.yaml `
 > Без флага сборка падает на этапе линковки с `multiple definition of
 > 'u8g2_font_...'`.
 
-## Карта флеша (16 МБ, своя таблица разделов)
+## Карта флеша (4 МБ, своя таблица разделов)
 
-Плата оснащена **16 МБ** флеш-памяти, поэтому используется **своя схема
-разделов** (`kamaz_8_9_0_fr_adafruiti_OTA_NM/partitions.csv`, включается
-через `PartitionScheme=custom`):
+Плата оснащена **4 МБ** флеш-памяти. Штатные OTA-слоты ядра (1.25 МБ) малы
+для скетча (~1.42 МБ), поэтому используется **своя схема разделов**
+(`kamaz_9_0_18_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
 |---|---|---|---|
 | `nvs` | 0x9000 | 20 КБ | Wi-Fi/настройки IDF |
 | `otadata` | 0xe000 | 8 КБ | выбор OTA-слота |
-| `app0` (ota_0) | 0x10000 | **6.25 МБ** | основной слот прошивки |
-| `app1` (ota_1) | 0x650000 | **6.25 МБ** | слот для OTA-обновления |
-| `spiffs` | 0xC90000 | 3.375 МБ | LittleFS (`/config.txt`) |
-| `coredump` | 0xFF0000 | 64 КБ | дамп при сбое |
+| `app0` (ota_0) | 0x10000 | **1.75 МБ** | основной слот прошивки |
+| `app1` (ota_1) | 0x1D0000 | **1.75 МБ** | слот для OTA-обновления |
+| `spiffs` | 0x390000 | 384 КБ | LittleFS (`/config.txt`) |
+| `coredump` | 0x3F0000 | 64 КБ | дамп при сбое |
 
-Скетч занимает ~1.35 МБ (1 416 746 Б, 8 % от 16 МБ), то есть в каждом app-слоте
-остаётся **~79%** свободно (ранее на дефолтной схеме 4 МБ было ~0.04%).
+Скетч ~1.42 МБ занимает ~81% слота; запас роста ~320 КБ на слот.
 
 > ⚠️ **Смена карты флеша требует разовой прошивки по USB** (bootloader +
-> partitions + app). OTA-обновление с прежней 4-мегабайтной схемы разделы
-> НЕ переносит — такие устройства нужно один раз прошить кабелем.
-> Устройства, уже собранные на этой схеме, дальше обновляются по воздуху как обычно.
+> partitions + app). OTA с прежней 16-мегабайтной схемы разделы НЕ переносит.
 
 ## Используемые библиотеки
 
@@ -165,9 +162,9 @@ arduino-cli compile --config-file arduino-cli.yaml `
 
 ## Версионирование и релиз
 
-- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `8.9.0`).
+- SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `9.0.0`).
 - OTA-релиз: см. `.cursor/rules/github-ota-release.mdc`
-  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v8.9.0`).
+  (ассеты `kamaz_leveler.bin` + `kamaz_leveler.bin.sha256`, тег `v9.0.0`).
 
 ## Типографика и визуализация (появились в 8.6.0)
 

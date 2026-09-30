@@ -6,24 +6,18 @@ REM  Uses the project-local arduino-cli.yaml, which points the sketchbook at
 REM  C:\my so that libraries are resolved from C:\my\libraries.
 REM
 REM  Usage:
-REM    build.cmd              ^<-- compile the current 8.9.0 sketch
-REM    build.cmd upload COM5  ^<-- compile + upload to a board
+REM    build.cmd         ^<-- compile the current 10.1.22 sketch
+REM    build.cmd COM5    ^<-- compile + upload to a board
 REM
-REM  The board uses a CUSTOM 16MB partition table (see
-REM  %SKETCH%\partitions.csv) so the OTA app slots are 6.25MB each instead
-REM  of the stock 1.25MB. FlashSize=16M must match the physical chip.
-REM
-REM  --build-property compiler.c.elf.extra_flags=...
-REM    GEM 1.8.1 компилируется целиком (включая GEM_u8g2.cpp), из-за чего
-REM    в сборку попадает библиотека U8g2, а её u8g2_fonts.c дублирует
-REM    символы шрифтов из U8g2_for_Adafruit_GFX. Флаг разрешает дубликаты:
-REM    линковщик оставляет первое определение (набор шрифтов Adafruit-GFX).
+REM  The board uses a CUSTOM 4MB partition table (see
+REM  %SKETCH%\partitions.csv) so the OTA app slots are 1.75MB each instead
+REM  of the stock 1.25MB. FlashSize=4M must match the physical chip.
 REM ============================================================================
 
 setlocal
 
-set SKETCH=kamaz_8_9_0_fr_adafruiti_OTA_NM
-set FQBN=esp32:esp32:esp32:PartitionScheme=custom,FlashSize=16M
+set SKETCH=kamaz_10_1_22_fr_adafruiti_OTA_NM
+set FQBN=esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
 set CONFIG=arduino-cli.yaml
 set LINKFLAGS=-Wl,--allow-multiple-definition
 
