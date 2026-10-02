@@ -8,7 +8,10 @@
 #include <Arduino.h>
 #include <new>
 #include "mutex_guard.h"
+#include "app_version.h"
+#include "app_pins.h"
 #include "app_types.h"
+#include "app_globals.h"
 #include "event_bus.h"
 #include "task_pool.h"
 #include "logger.h"
@@ -164,7 +167,7 @@ constexpr float TEST_PRESSURE_CHANGE_THRESHOLD = 0.2f;
 uint32_t uptimeHours = 0;
 
 /* ====================  ПАРАМЕТРЫ ==================== */
-constexpr const char *VERSION = "V 10.4.7 FreeRTOS OTA";
+// VERSION now in app_version.h
 
 
 
@@ -173,32 +176,10 @@ constexpr const char *VERSION = "V 10.4.7 FreeRTOS OTA";
    прототипов (MvData — структура данных экрана ДВИЖЕНИЯ) объявляем заранее. */
 struct MvData;
 
-/* Пины */
-constexpr uint8_t PIN_OLED_SDA = 21;
-constexpr uint8_t PIN_OLED_SCL = 22;
-constexpr uint8_t PIN_TFT_MOSI = 23;
-constexpr uint8_t PIN_TFT_SCLK = 18;
-constexpr uint8_t PIN_TFT_CS = 5;
-constexpr uint8_t PIN_TFT_DC = 16;
-constexpr uint8_t PIN_TFT_RST = 19;
-constexpr uint8_t PIN_TFT_BL = 4;
+/* Пины — see app_pins.h */
 static constexpr int CONTRAST_MIN = 10;   // мин. яркость в меню
 static constexpr int CONTRAST_DIM = 5;    // уровень приглушения по бездействию
 static constexpr int CONTRAST_MAX = 100;
-
-constexpr uint8_t PIN_BUB1 = 32;
-constexpr uint8_t PIN_BUB2 = 33;
-constexpr uint8_t PIN_BUB3 = 25;
-constexpr uint8_t PIN_BUB4 = 26;
-constexpr uint8_t PIN_INFL = 27;
-constexpr uint8_t PIN_DEFL = 14;
-
-constexpr uint8_t PIN_BUT1 = 13;
-constexpr uint8_t PIN_BUT2 = 12;
-constexpr uint8_t PIN_BUT3 = 15;
-constexpr uint8_t PIN_BUT4 = 17;
-// GPIO34 is input-only and has no internal pull-up. Use an external pull-up.
-constexpr uint8_t PIN_BUT5 = 34;
 
 
 // ========== JHM1200 (KY-3V3-IIC) 0..10 бар ==========
@@ -381,53 +362,7 @@ GEMSpinner spinnerImuSlewDps(spinnerFloatSlew);         // макс. скоро�
 GEMSpinner spinnerImuPreset(spinnerInt0_2);             // Пресет: Плавно/Быстро/Баланс
 
 /* Переменные состояния */
-enum Pad : uint8_t {
-  PAD_FRONT_LEFT,
-  PAD_FRONT_RIGHT,
-  PAD_REAR_LEFT,
-  PAD_REAR_RIGHT,
-  PAD_COUNT_ENUM
-};
-
-enum class SystemState {
-  BOOT,
-  CALIBRATING,
-  RUNNING,
-  ERROR,
-  OTA_MODE
-};
-
-enum class SystemMode : uint8_t {
-  MANUAL,
-  AUTO,
-  MOVEMENT
-};
-
-enum class TestState {
-  IDLE,
-  STARTING,
-  TESTING_PAD,
-  WAITING_BETWEEN_PHASES,
-  COMPLETED
-};
-
-enum class Mode : uint8_t {
-  MANUAL,
-  AUTO
-};
-
-enum class TestStep : uint8_t {
-  IDLE = 0,
-  PREPARE_CHECK_SUPPLY,
-  PREPARE_WAIT_PRESSURIZE,
-  PREPARE_EQUALIZE_PADS,
-  TEST_DEFLATE_VALVE,
-  TEST_INFLATE_VALVE,
-  TEST_PAD_VALVE_RESET,
-  TEST_PAD_VALVE_OPEN,
-  TEST_PAD_VALVE_CLOSE,
-  COMPLETED
-};
+// Pad, SystemState, SystemMode, TestState, Mode, TestStep — see app_types.h
 
 constexpr uint16_t COLOR_BG = ST77XX_BLACK;
 constexpr uint16_t COLOR_TEXT = ST77XX_WHITE;
@@ -441,7 +376,7 @@ constexpr uint16_t COLOR_WHITE = ST77XX_WHITE;
 /* Глобальные переменные */
 bool errorScreenBlocking = false;
 
-volatile bool calibrationCompleted = false;          // флаг калибровки
+// calibrationCompleted — see app_globals.cpp
 volatile bool firstPressureMeasurementDone = false;  // < ДОБАВИТЬ
 
 bool forceErrorScreenRedraw = false;
@@ -461,11 +396,8 @@ char wifi_scan_ssids[WIFI_SCAN_MAX_NETWORKS][33] = {};
 int8_t wifi_scan_rssi[WIFI_SCAN_MAX_NETWORKS] = {};
 uint8_t wifi_scan_count = 0;
 uint8_t wifi_scan_selected = 0;
-volatile bool wifiSetupActive = false;
-volatile bool wifiScanInProgress = false;
-volatile bool wifiSetupRequested = false;  // GEM > otaTask (scan не на стеке ButtonTask)
+// wifiSetupActive, wifiScanInProgress, wifiSetupRequested, wifiConnected — see app_globals.cpp
 volatile bool wifiUiFullRedraw = false;  // только явный полный кадр экрана Wi-Fi
-volatile bool wifiConnected = false;
 IPAddress local_ip(192, 168, 4, 1);
 IPAddress gateway(192, 168, 4, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -491,16 +423,7 @@ constexpr uint32_t MANUAL_TARGET_CHECK_INTERVAL_MS = 120000;
 constexpr uint32_t MANUAL_ADJUSTMENT_COOLDOWN_MS = 3000;
 constexpr float MANUAL_PRESSURE_TOLERANCE = 0.1f;
 
-/* ========== МЬЮТЕКС ДЛЯ ЗАЩИТЫ currentState ========== */
-SemaphoreHandle_t xStateMutex = nullptr;
-
-SystemState currentState = SystemState::BOOT;
-SystemMode currentSystemMode = SystemMode::MANUAL;
-SystemMode previousMode = SystemMode::MANUAL;
-TestState currentTestState = TestState::IDLE;
-
-// ========== ГЛОБАЛЬНАЯ ПЕРЕМЕННАЯ displayDirty (ОБЪЯВЛЕНА) ==========
-volatile bool displayDirty = true;
+/* ========== МЬЮТЕКС / STATE / displayDirty — see app_globals.cpp ========== */
 
 
 
@@ -547,17 +470,7 @@ static void otaConfigureTls(WiFiClientSecure *client) {
   client->setInsecure();
 }
 
-uint8_t taskIndex_Event = 0xFF;
-uint8_t taskIndex_Button = 0xFF;
-uint8_t taskIndex_Display = 0xFF;
-uint8_t taskIndex_IMU = 0xFF;
-uint8_t taskIndex_Pressure = 0xFF;
-uint8_t taskIndex_Control = 0xFF;
-uint8_t taskIndex_Calib = 0xFF;
-uint8_t taskIndex_Watchdog = 0xFF;
-uint8_t taskIndex_OTA = 0xFF;
-uint8_t taskIndex_ErrRec = 0xFF;
-uint8_t taskIndex_Valve = 0xFF;
+// taskIndex_* — see app_globals.cpp
 
 /* ====================  ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==================== */
 SPIClass spi(VSPI);
@@ -616,18 +529,7 @@ Button button4(PIN_BUT5, INPUT, LOW);
 
 VirtButton emergencyButton;  // КН1+КН4 авария
 
-SemaphoreHandle_t xValveMutex = nullptr;
-SemaphoreHandle_t xDisplayMutex = nullptr;
-SemaphoreHandle_t xConfigMutex = nullptr;
-SemaphoreHandle_t xCalibMutex = nullptr;
-SemaphoreHandle_t xTestMutex = nullptr;
-SemaphoreHandle_t xCommandMutex = nullptr;
-SemaphoreHandle_t xI2CMutex = nullptr;  // JHM1200 + MPU6050 на одной шине Wire
-
-QueueHandle_t xIMUQueue = nullptr;
-QueueHandle_t xPressureQueue = nullptr;
-QueueHandle_t xValveQueue = nullptr;
-QueueHandle_t xPressureWakeupQueue = nullptr;
+// xValveMutex … xPressureWakeupQueue — see app_globals.cpp
 
 struct ValveCommandMsg {
   union {
@@ -656,7 +558,7 @@ struct PressureData {
   float masterPressure;
 };
 
-float angleX = 0, angleY = 0, temperature = 0;
+// angleX, angleY, temperature — see app_globals.cpp
 float pressure[PAD_COUNT] = { 0 };
 float masterPressure = 0;
 uint32_t pressureStampMs[PAD_COUNT] = { 0 };  // millis() последнего удачного замера
@@ -667,8 +569,7 @@ uint32_t valveCycleCount[PAD_COUNT] = { 0 };
 uint32_t valveOpenAccumMs[PAD_COUNT] = { 0 };
 static volatile bool leakSuspect = false;
 static char leakSuspectPad[8] = "";
-volatile bool mpuOk = false;
-volatile bool menuVisible = false;
+// mpuOk, menuVisible — see app_globals.cpp
 //bool menuRendered = false;         // < ДОБАВИТЬ!
 uint32_t lastMenuInteraction = 0;  // < ДОБАВИТЬ!
 
@@ -746,8 +647,7 @@ uint32_t manualStartTime = 0;
 Mode currentMode = Mode::MANUAL;
 
 bool otaMode = false;
-volatile bool otaInProgress = false;
-volatile bool otaValveLock = false;
+// otaInProgress, otaValveLock — see app_globals.cpp
 int otaProgress = 0;
 char otaStatus[32] = "";
 
@@ -777,7 +677,7 @@ int8_t movementLastAdjustRearDir = 0;
 uint32_t movementStartMs = 0;             // начало обнаруженного движения (для «в движении N с»)
 bool mvScreenWasActive = false;           // активен ли сейчас экран ДВИЖЕНИЯ
 
-volatile bool calibrationValid = false;
+// calibrationValid — see app_globals.cpp
 float g_pressureZeroBar = 0.0f;  // программный нуль (бар) после калибровки
 
 
@@ -919,29 +819,15 @@ void drawIconL(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
  *  Сетевые операции выполняет otaTask (см. github_ota_request.h), здесь —
  *  хранение списка, страницы GEM и обработчики пунктов меню.
  */
-constexpr uint8_t OTA_LIST_MAX = 3;
-constexpr uint8_t OTA_FETCH_MAX = 6;
+// OTA_LIST_MAX, OTA_FETCH_MAX, OtaRelease — see app_types.h
 // Список: по одному релизу за запрос (полный JSON ~8–12 КБ) — надёжнее на ESP32
 constexpr char GITHUB_RELEASES_URL[] =
     "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=1";
 constexpr char GITHUB_RELEASES_URL_SMALL[] =
     "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=1&page=1";
 
-struct OtaRelease {
-  char tag[16] = "";
-  char date[11] = "";   // YYYY-MM-DD
-  uint32_t size = 0;
-  char binUrl[176] = "";
-  char shaUrl[176] = "";
-  char sha256[65] = "";  // заполняется проверкой sha256-ассета
-};
-
-OtaRelease otaReleases[OTA_LIST_MAX];
-volatile uint8_t otaReleaseCount = 0;
-volatile int8_t otaSelectedIndex = -1;
-char otaListStatus[64] = "нажмите Проверить";
-char otaLatestTag[16] = "";
-volatile bool otaUiNeedFullRedraw = false;  // полный кадр экрана прогресса OTA
+// otaReleases, otaReleaseCount, otaSelectedIndex, otaListStatus,
+// otaLatestTag, otaUiNeedFullRedraw — see app_globals.cpp
 
 // --- Страницы раздела ---
 GEMPage otaPage("Обновления", mainPage);

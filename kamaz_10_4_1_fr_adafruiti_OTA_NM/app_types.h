@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+/* ───── Event types / Event struct ───── */
+
 enum class EventType : uint8_t {
   NONE = 0,
   IMU_UPDATE,
@@ -67,4 +69,70 @@ struct Event {
       uint32_t minHeap;
     } memory;
   } data;
+};
+
+/* ───── Pad ───── */
+
+enum Pad : uint8_t {
+  PAD_FRONT_LEFT,
+  PAD_FRONT_RIGHT,
+  PAD_REAR_LEFT,
+  PAD_REAR_RIGHT,
+  PAD_COUNT_ENUM
+};
+
+/* ───── System / mode / test enums ───── */
+
+enum class SystemState {
+  BOOT,
+  CALIBRATING,
+  RUNNING,
+  ERROR,
+  OTA_MODE
+};
+
+enum class SystemMode : uint8_t {
+  MANUAL,
+  AUTO,
+  MOVEMENT
+};
+
+enum class TestState {
+  IDLE,
+  STARTING,
+  TESTING_PAD,
+  WAITING_BETWEEN_PHASES,
+  COMPLETED
+};
+
+enum class Mode : uint8_t {
+  MANUAL,
+  AUTO
+};
+
+enum class TestStep : uint8_t {
+  IDLE = 0,
+  PREPARE_CHECK_SUPPLY,
+  PREPARE_WAIT_PRESSURIZE,
+  PREPARE_EQUALIZE_PADS,
+  TEST_DEFLATE_VALVE,
+  TEST_INFLATE_VALVE,
+  TEST_PAD_VALVE_RESET,
+  TEST_PAD_VALVE_OPEN,
+  TEST_PAD_VALVE_CLOSE,
+  COMPLETED
+};
+
+/* ───── OTA release list ───── */
+
+constexpr uint8_t OTA_LIST_MAX  = 3;
+constexpr uint8_t OTA_FETCH_MAX = 6;
+
+struct OtaRelease {
+  char tag[16]     = "";
+  char date[11]    = "";      // YYYY-MM-DD
+  uint32_t size    = 0;
+  char binUrl[176] = "";
+  char shaUrl[176] = "";
+  char sha256[65]  = "";      // заполняется проверкой sha256-ассета
 };
