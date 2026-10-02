@@ -1,4 +1,5 @@
 #include "app_globals.h"
+#include "app_pins.h"
 
 /* ───── Mutexes ───── */
 SemaphoreHandle_t xStateMutex   = nullptr;
@@ -62,6 +63,52 @@ uint32_t movementLastAdjustFront = 0;
 uint32_t movementLastAdjustRear = 0;
 int8_t  movementLastAdjustFrontDir = 0;
 int8_t  movementLastAdjustRearDir = 0;
+
+/* ───── Pressure state (phase 3) ───── */
+float pressure[PAD_COUNT] = { 0 };
+float masterPressure = 0;
+uint32_t pressureStampMs[PAD_COUNT] = { 0 };
+uint32_t masterStampMs = 0;
+bool pressureValid[PAD_COUNT] = { false };
+bool masterValid = false;
+bool jhmReady = false;
+volatile bool firstPressureMeasurementDone = false;
+float g_pressureZeroBar = 0.0f;
+bool pressureLimitReached = false;
+
+/* ───── Valve / manual state (phase 3) ───── */
+const uint8_t bubPins[PAD_COUNT] = { PIN_BUB1, PIN_BUB2, PIN_BUB3, PIN_BUB4 };
+const char * const padNames[PAD_COUNT] = { "ПЛ", "ПП", "ЗЛ", "ЗП" };
+
+bool manualControlActive = false;
+Pad  manualPadIndex = PAD_FRONT_LEFT;
+bool manualInflate = false;
+uint32_t manualStartTime = 0;
+float manualTargetPressure[PAD_COUNT] = { 3.0f, 3.0f, 3.0f, 3.0f };
+bool  manualTargetSet[PAD_COUNT] = { true, true, true, true };
+
+Mode currentMode = Mode::MANUAL;
+bool otaMode = false;
+
+LastCommand lastCmd;
+ValveErrorCounter valveErrorCounter;
+volatile uint32_t valveQueueDropCount = 0;
+volatile uint32_t valveEmergencyStopCount = 0;
+volatile uint32_t maxValveQueueDepth = 0;
+volatile bool valveStopRequested = false;
+uint32_t valveCycleCount[PAD_COUNT] = { 0 };
+uint32_t valveOpenAccumMs[PAD_COUNT] = { 0 };
+
+volatile bool leakSuspect = false;
+char leakSuspectPad[8] = "";
+
+/* ───── Leveling / control timing (phase 3) ───── */
+uint32_t lastLevelingCheckTime = 0;
+uint32_t lastLevelingAttemptTime = 0;
+volatile uint32_t levelingAttemptsThisHour = 0;
+uint32_t lastHourResetTime = 0;
+uint32_t lastMasterPressureCheckTime = 0;
+uint32_t lastManualPressureCheckTime = 0;
 
 /* ───── Queue drop counter (IMU) ───── */
 volatile uint32_t imuQueueDropCount = 0;

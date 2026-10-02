@@ -84,6 +84,94 @@ extern uint32_t movementLastAdjustRear;
 extern int8_t  movementLastAdjustFrontDir;
 extern int8_t  movementLastAdjustRearDir;
 
+/* ───── Pressure state (phase 3) ───── */
+extern float pressure[PAD_COUNT];
+extern float masterPressure;
+extern uint32_t pressureStampMs[PAD_COUNT];
+extern uint32_t masterStampMs;
+extern bool pressureValid[PAD_COUNT];
+extern bool masterValid;
+extern bool jhmReady;
+extern volatile bool firstPressureMeasurementDone;
+extern float g_pressureZeroBar;
+extern bool pressureLimitReached;
+
+/* ───── Valve / manual state (phase 3) ───── */
+
+struct ValveCommandMsg {
+  union {
+    struct {
+      Pad pad;
+      bool inflate;
+      uint32_t durationMs;
+      QueueHandle_t ackQueue;
+    } sync;
+    struct {
+      Pad pad;
+      bool inflate;
+      TickType_t duration;
+    } async;
+  };
+};
+
+struct LastCommand {
+  uint32_t startTime = 0;
+  uint32_t duration = 0;
+  Pad pad;
+  bool inflate;
+  float pressureBefore = 0;
+  bool waitingForCompletion = false;
+  bool commandActive = false;
+};
+
+struct ValveErrorCounter {
+  uint8_t consecutiveFailures = 0;
+  uint8_t requiredFailures = 3;
+  uint32_t lastFailureTime = 0;
+  bool valveErrorActive = false;
+};
+
+extern const uint8_t bubPins[PAD_COUNT];
+extern const char * const padNames[PAD_COUNT];
+
+extern bool manualControlActive;
+extern Pad  manualPadIndex;
+extern bool manualInflate;
+extern uint32_t manualStartTime;
+extern float manualTargetPressure[PAD_COUNT];
+extern bool  manualTargetSet[PAD_COUNT];
+
+extern Mode currentMode;
+extern bool otaMode;
+
+extern LastCommand lastCmd;
+extern ValveErrorCounter valveErrorCounter;
+extern volatile uint32_t valveQueueDropCount;
+extern volatile uint32_t valveEmergencyStopCount;
+extern volatile uint32_t maxValveQueueDepth;
+extern volatile bool valveStopRequested;
+extern uint32_t valveCycleCount[PAD_COUNT];
+extern uint32_t valveOpenAccumMs[PAD_COUNT];
+
+extern volatile bool leakSuspect;
+extern char leakSuspectPad[8];
+
+/* ───── Leveling / control timing (phase 3) ───── */
+extern uint32_t lastLevelingCheckTime;
+extern uint32_t lastLevelingAttemptTime;
+extern volatile uint32_t levelingAttemptsThisHour;
+extern uint32_t lastHourResetTime;
+extern uint32_t lastMasterPressureCheckTime;
+extern uint32_t lastManualPressureCheckTime;
+
+/* ───── Valve / pressure constants (phase 3) ───── */
+constexpr uint32_t VALVE_OPERATION_TIMEOUT_MS = 15000;
+constexpr uint32_t VALVE_MAX_COMMAND_MS       = 15000;
+constexpr uint32_t MANUAL_TARGET_CHECK_INTERVAL_MS  = 120000;
+constexpr uint32_t MANUAL_ADJUSTMENT_COOLDOWN_MS    = 3000;
+constexpr float    MANUAL_PRESSURE_TOLERANCE        = 0.1f;
+constexpr uint32_t MANUAL_PRESSURE_CHECK_INTERVAL_MS = 120000;
+
 /* ───── Queue drop counter (IMU) ───── */
 extern volatile uint32_t imuQueueDropCount;
 

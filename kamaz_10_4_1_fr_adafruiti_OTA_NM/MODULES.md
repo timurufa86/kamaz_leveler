@@ -33,13 +33,27 @@
 | app_types | app_types.h | ✅ extracted |
 | app_globals | app_globals.h, app_globals.cpp | ✅ extracted |
 
-## Планируемые модули (Phase 1+)
+## Извлечённые модули (Phase 2 — IMU)
 
-- ota_net, ota_list, ota_install
-- ui_ota_menu, ui_marquee
-- imu_dmp, imu_motion, task_imu
-- pressure_read, task_calib
-- valve_ctrl, auto_level, task_valve
+| Модуль | Файлы | Статус |
+|---|---|---|
+| imu_dmp | imu_dmp.h, imu_dmp.cpp | ✅ extracted |
+| imu_motion | imu_motion.h, imu_motion.cpp | ✅ extracted |
+| task_imu | task_imu.h, task_imu.cpp | ✅ extracted |
+
+## Извлечённые модули (Phase 3 — пневматика)
+
+| Модуль | Файлы | Статус |
+|---|---|---|
+| pressure_read | pressure_read.h, pressure_read.cpp | ✅ extracted |
+| valve_ctrl | valve_ctrl.h, valve_ctrl.cpp | ✅ extracted |
+| auto_level | auto_level.h, auto_level.cpp | ✅ extracted |
+| task_pressure | task_pressure.h, task_pressure.cpp | ✅ extracted |
+| task_valve | task_valve.h, task_valve.cpp | ✅ extracted |
+| task_control | task_control.h, task_control.cpp | ✅ extracted |
+| task_calib | task_calib.h, task_calib.cpp | ✅ extracted |
+
+## Планируемые модули (Phase 4+)
+
 - error_handler, task_recovery, task_watchdog
-- wifi_setup
 - config_manager, ui_menu_build

@@ -27,6 +27,13 @@
 #include "imu_dmp.h"
 #include "imu_motion.h"
 #include "task_imu.h"
+#include "pressure_read.h"
+#include "valve_ctrl.h"
+#include "auto_level.h"
+#include "task_pressure.h"
+#include "task_valve.h"
+#include "task_control.h"
+#include "task_calib.h"
 #include "icon.h"
 #include "ui_theme.h"    // палитра и сетка UI
 #include "ui_fonts.h"    // шрифтовая сетка U8g2
@@ -103,7 +110,7 @@ struct AngleBarState {
   int16_t valX = 0, valY = 0, valW = 0;
 };
 
-bool jhmReady = false;  // флаг готовности JHM1200
+// jhmReady — see app_globals.cpp
 
 /* ====================  КОНСТАНТЫ ==================== */
 constexpr int16_t SCREEN_WIDTH = 320;
@@ -173,7 +180,7 @@ static constexpr int CONTRAST_MAX = 100;
 constexpr uint32_t CALIB_TIME_MS = 15000;
 constexpr uint32_t MANUAL_MAX_TIME = 10000;
 constexpr uint32_t MASTER_PRESSURE_CHECK_INTERVAL_MS = 240000;
-constexpr uint32_t MANUAL_PRESSURE_CHECK_INTERVAL_MS = 120000;
+// MANUAL_PRESSURE_CHECK_INTERVAL_MS — see app_globals.h
 constexpr uint32_t LEVELING_ATTEMPT_COOLDOWN_MS = 3600000;
 constexpr uint32_t PRESSURE_LIMIT_WARNING_DURATION_MS = 5000;
 constexpr uint32_t MOVEMENT_PRESSURE_CHECK_INTERVAL_MS = 120000;
@@ -362,7 +369,7 @@ constexpr uint16_t COLOR_WHITE = ST77XX_WHITE;
 bool errorScreenBlocking = false;
 
 // calibrationCompleted — see app_globals.cpp
-volatile bool firstPressureMeasurementDone = false;  // < ДОБАВИТЬ
+// firstPressureMeasurementDone — see app_globals.cpp
 
 bool forceErrorScreenRedraw = false;
 
@@ -394,8 +401,7 @@ constexpr char GITHUB_API_URL[] =
     "https://api.github.com/repos/timurufa86/kamaz_leveler/releases/latest";
 constexpr char GITHUB_ASSET_NAME[] = "kamaz_leveler.bin";
 constexpr char GITHUB_SHA256_ASSET_NAME[] = "kamaz_leveler.bin.sha256";
-constexpr uint32_t VALVE_OPERATION_TIMEOUT_MS = 15000;
-constexpr uint32_t VALVE_MAX_COMMAND_MS = 15000;
+// VALVE_OPERATION_TIMEOUT_MS, VALVE_MAX_COMMAND_MS — see app_globals.h
 // 9.2.0: формат 5 — EMA/slew/FIFO + тюнинг углов в меню «IMU».
 // Файлы версий 1–4 читаются, новые поля = значения по умолчанию.
 constexpr uint32_t CONFIG_FORMAT_VERSION = 8;
@@ -404,9 +410,8 @@ constexpr uint32_t WDT_TIMEOUT_MS = 30000;
 constexpr uint32_t TASK_WDT_TIMEOUT_MS = 10000;
 constexpr uint8_t TASK_COUNT = 11;  // Event..Valve + ErrorRecovery (индекс 0..10)
 
-constexpr uint32_t MANUAL_TARGET_CHECK_INTERVAL_MS = 120000;
-constexpr uint32_t MANUAL_ADJUSTMENT_COOLDOWN_MS = 3000;
-constexpr float MANUAL_PRESSURE_TOLERANCE = 0.1f;
+// MANUAL_TARGET_CHECK_INTERVAL_MS, MANUAL_ADJUSTMENT_COOLDOWN_MS,
+// MANUAL_PRESSURE_TOLERANCE — see app_globals.h
 
 /* ========== МЬЮТЕКС / STATE / displayDirty — see app_globals.cpp ========== */
 
@@ -500,35 +505,14 @@ VirtButton emergencyButton;  // КН1+КН4 авария
 
 // xValveMutex … xPressureWakeupQueue — see app_globals.cpp
 
-struct ValveCommandMsg {
-  union {
-    struct {
-      Pad pad;
-      bool inflate;
-      uint32_t durationMs;
-      QueueHandle_t ackQueue;
-    } sync;
-    struct {
-      Pad pad;
-      bool inflate;
-      TickType_t duration;
-    } async;
-  };
-};
+// ValveCommandMsg, LastCommand, ValveErrorCounter — see app_globals.h
+// lastCmd, valveErrorCounter, valveQueueDropCount, etc. — see app_globals.cpp
 
 // IMUData, PressureData — see app_types.h
 
 // angleX, angleY, temperature — see app_globals.cpp
-float pressure[PAD_COUNT] = { 0 };
-float masterPressure = 0;
-uint32_t pressureStampMs[PAD_COUNT] = { 0 };  // millis() последнего удачного замера
-uint32_t masterStampMs = 0;
-bool pressureValid[PAD_COUNT] = { false };
-bool masterValid = false;
-uint32_t valveCycleCount[PAD_COUNT] = { 0 };
-uint32_t valveOpenAccumMs[PAD_COUNT] = { 0 };
-static volatile bool leakSuspect = false;
-static char leakSuspectPad[8] = "";
+// pressure[], masterPressure, pressureStampMs[], masterStampMs,
+// pressureValid[], masterValid — see app_globals.cpp
 // mpuOk, menuVisible — see app_globals.cpp
 //bool menuRendered = false;         // < ДОБАВИТЬ!
 uint32_t lastMenuInteraction = 0;  // < ДОБАВИТЬ!
@@ -551,31 +535,22 @@ static volatile bool g_testDebugDump = false;
 
 // isMoving, prolongedMovementDetected, movementStartTime — see app_globals.cpp
 
-bool manualControlActive = false;
-Pad manualPadIndex = PAD_FRONT_LEFT;
-bool manualInflate = false;
-uint32_t manualStartTime = 0;
+// manualControlActive, manualPadIndex, manualInflate, manualStartTime — see app_globals.cpp
 
-Mode currentMode = Mode::MANUAL;
+// currentMode — see app_globals.cpp
 
-bool otaMode = false;
+// otaMode — see app_globals.cpp
 // otaInProgress, otaValveLock — see app_globals.cpp
 int otaProgress = 0;
 char otaStatus[32] = "";
 
-constexpr uint8_t bubPins[PAD_COUNT] = { PIN_BUB1, PIN_BUB2, PIN_BUB3, PIN_BUB4 };
-constexpr const char *padNames[PAD_COUNT] = { "ПЛ", "ПП", "ЗЛ", "ЗП" };
+// bubPins[], padNames[] — see app_globals.cpp
 
-uint32_t lastLevelingCheckTime = 0;
-uint32_t lastLevelingAttemptTime = 0;
-volatile uint32_t levelingAttemptsThisHour = 0;
-uint32_t lastHourResetTime = 0;
+// lastLevelingCheckTime, lastLevelingAttemptTime, levelingAttemptsThisHour, lastHourResetTime — see app_globals.cpp
 
-uint32_t lastMasterPressureCheckTime = 0;
-uint32_t lastManualPressureCheckTime = 0;
-float manualTargetPressure[PAD_COUNT] = { 3.0f, 3.0f, 3.0f, 3.0f };
-bool manualTargetSet[PAD_COUNT] = { true, true, true, true };
-bool pressureLimitReached = false;
+// lastMasterPressureCheckTime, lastManualPressureCheckTime,
+// manualTargetPressure[], manualTargetSet[] — see app_globals.cpp
+// pressureLimitReached — see app_globals.cpp
 
 // movementEndTime, movementModeActive, movementPressureLastCheck — see app_globals.cpp
 
@@ -584,7 +559,7 @@ bool pressureLimitReached = false;
 bool mvScreenWasActive = false;           // активен ли сейчас экран ДВИЖЕНИЯ
 
 // calibrationValid — see app_globals.cpp
-float g_pressureZeroBar = 0.0f;  // программный нуль (бар) после калибровки
+// g_pressureZeroBar — see app_globals.cpp
 
 
 IMUData lastDisplayedIMU = { 0 };
@@ -592,34 +567,13 @@ PressureData lastDisplayedPressure = { 0 };
 SystemMode lastDisplayedMode = SystemMode::MANUAL;
 bool lastDisplayedMoving = false;
 
-struct LastCommand {
-  uint32_t startTime = 0;
-  uint32_t duration = 0;
-  Pad pad;
-  bool inflate;
-  float pressureBefore = 0;
-  bool waitingForCompletion = false;
-  bool commandActive = false;
-};
-
-struct ValveErrorCounter {
-  uint8_t consecutiveFailures = 0;
-  uint8_t requiredFailures = 3;
-  uint32_t lastFailureTime = 0;
-  bool valveErrorActive = false;
-};
-
-static LastCommand lastCmd;
-static ValveErrorCounter valveErrorCounter;
-static volatile uint32_t valveQueueDropCount = 0;
+// LastCommand, ValveErrorCounter structs — see app_globals.h
+// lastCmd, valveErrorCounter, valveQueueDropCount, etc. instances — see app_globals.cpp
 static volatile uint32_t eventQueueDropCount = 0;
 // imuQueueDropCount — see app_globals.cpp
-static volatile uint32_t pressureQueueDropCount = 0;
-static volatile uint32_t valveEmergencyStopCount = 0;
-static volatile uint32_t maxValveQueueDepth = 0;
+// pressureQueueDropCount — see task_pressure.cpp
 static volatile uint32_t maxEventQueueDepth = 0;
 static volatile uint32_t maxStackLowEvents = 0;
-static volatile bool valveStopRequested = false;
 
 static TestStep currentTestStep = TestStep::IDLE;
 static uint32_t testStepStartTime = 0;
@@ -641,14 +595,9 @@ struct TestResult {
 static TestResult testResult;
 
 /* ====================  ПРОТОТИПЫ ==================== */
-void setDisplayDirty();
-void emergencyStop();
-void startManualOperation(Pad padIdx, bool inflate);
-void stopManualOperation();
-void closeAllValves();
-void setValve(Pad pad, bool state);
-void sendValveCommand(Pad pad, bool inflate, uint32_t durationMs);
-float readPressure();
+// setDisplayDirty, emergencyStop, startManualOperation, stopManualOperation,
+// closeAllValves, setValve, sendValveCommand — see valve_ctrl.h
+// readPressure — see pressure_read.h
 void initWatchdog();
 void initOTA();
 void startOTAMode();
@@ -675,27 +624,25 @@ bool saveWiFiConfig();
 // connectConfiguredWiFi -> wifi_setup.h
 // startFallbackAccessPoint -> wifi_setup.h
 // initializeDMP — see imu_dmp.h
-bool initializeJhm1200();
+// initializeJhm1200 — see pressure_read.h
 void resetSystemErrors();
-bool checkPressureLimits();
+// checkPressureLimits — see pressure_read.h
 void saveMenuSettings();
 void applyRuntimeSettings();  // 8.8.0: применение настроек к железу без перезагрузки
 void requestMenuOpen(const char *via);
 void requestMenuClose(const char *via);
 static void processSerialTestCommands();
 void processTestCommandLine(char *line);
-bool sendValveCommandSync(Pad pad, bool inflate, uint32_t durationMs, uint32_t waitAfterMs);
-void maintainMovementPressure();
+// sendValveCommandSync — see valve_ctrl.h
+// maintainMovementPressure — see pressure_read.h
 // detectMotionFromIMU — see imu_motion.h
-void checkAndAdjustMasterPressure();
-void maintainManualPressure();
-void setManualTargetPressure(Pad pad);
-void setAllManualTargetsFromCurrent();
+// checkAndAdjustMasterPressure, maintainManualPressure — see pressure_read.h
+// setManualTargetPressure, setAllManualTargetsFromCurrent — see pressure_read.h
 void setManualTargetsFromParkingPolicy();
 void startValveTest();
 void runValveTestLogic();
 void updateTestDisplay();
-void requestPressureMeasurement();
+// requestPressureMeasurement — see pressure_read.h
 void forceDisplayReset(bool force = false);
 // initializeDefaultCredentials -> wifi_setup.h
 // checkGitHubUpdate -> ota_install.h
@@ -704,13 +651,13 @@ void forceDisplayReset(bool force = false);
 void buttonTask(void *pvParameters);
 void displayTask(void *pvParameters);
 // imuTask — see task_imu.h
-void pressureTask(void *pvParameters);
-void controlTask(void *pvParameters);
-void calibrationTask(void *pvParameters);
+// pressureTask — see task_pressure.h
+// controlTask — see task_control.h
+// calibrationTask — see task_calib.h
 void watchdogTask(void *pvParameters);
 // otaTask -> task_ota.h
 void errorRecoveryTask(void *pvParameters);
-void valveTask(void *pvParameters);
+// valveTask — see task_valve.h
 void eventHandlerTask(void *pvParameters);
 
 void drawIconB(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
@@ -1775,194 +1722,36 @@ bool ErrorHandler::hasError = false;
 bool cfg_errorIsActive(uint8_t err) { return ErrorHandler::isErrorActive(static_cast<ErrorHandler::Error>(err)); }
 void cfg_errorMarkCleared(uint8_t err) { ErrorHandler::markErrorCleared(static_cast<ErrorHandler::Error>(err)); }
 void cfg_errorRemove(uint8_t err) { ErrorHandler::removeError(static_cast<ErrorHandler::Error>(err)); }
+void cfg_errorHandle(uint8_t err, const char *msg) { ErrorHandler::handleError(static_cast<ErrorHandler::Error>(err), msg); }
+void cfg_errorUpdateTime(uint8_t err) { ErrorHandler::updateErrorTime(static_cast<ErrorHandler::Error>(err)); }
+bool cfg_errorIsPendingClear(uint8_t err) { return ErrorHandler::isPendingClear(static_cast<ErrorHandler::Error>(err)); }
+void cfg_errorCancelClear(uint8_t err) { ErrorHandler::cancelClear(static_cast<ErrorHandler::Error>(err)); }
+bool cfg_errorHasActive() { return ErrorHandler::hasActiveErrors(); }
+bool cfg_errorHasCriticalPneumatic() { return ErrorHandler::hasCriticalPneumaticErrors(); }
 // cfg_taskMonitorUpdate — placed after TaskMonitor class definition below
 
-class ZeroCalibrator {
-private:
-  bool calibrationDone_ = false;
-  uint32_t stepStartTime_ = 0;
-  enum CalibStep : uint8_t {
-    STEP_IDLE,
-    STEP_OPEN_VALVE,
-    STEP_WAIT_STABILIZE,
-    STEP_MEASURE,
-    STEP_CLOSE_VALVE,
-    STEP_DONE
-  } currentStep_ = STEP_IDLE;
-  float measurements_[20] = { 0 };
-  uint8_t measureCount_ = 0;
-  float finalZeroBar_ = 0.0f;
+/* ── Bridge functions for ConfigManager (pressure/valve/auto-level modules) ── */
+float cfg_getPressureMin()          { return ConfigManager::getPressureMin(); }
+float cfg_getPressureMax()          { return ConfigManager::getPressureMax(); }
+float cfg_getPressureDeadband()     { return ConfigManager::getPressureDeadband(); }
+float cfg_getMasterLowBar()         { return ConfigManager::getMasterLowBar(); }
+float cfg_getParkingPressureBar()   { return ConfigManager::getParkingPressureBar(); }
+int   cfg_getInflateDelay()         { return ConfigManager::getInflateDelay(); }
+int   cfg_getReleaseDelay()         { return ConfigManager::getReleaseDelay(); }
+int   cfg_getMasterCheckSec()       { return ConfigManager::getMasterCheckSec(); }
+int   cfg_getMovementCheckSec()     { return ConfigManager::getMovementCheckSec(); }
+int   cfg_getManualMaxTimeSec()     { return ConfigManager::getManualMaxTimeSec(); }
+int   cfg_getPressureStabilizeMs()  { return ConfigManager::getPressureStabilizeMs(); }
+int   cfg_getPressureIdleMin()      { return ConfigManager::getPressureIdleMin(); }
+float cfg_getRedrawPressureThr()    { return ConfigManager::getRedrawPressureThr(); }
+float cfg_getTiltThresholdX()       { return ConfigManager::getTiltThresholdX(); }
+float cfg_getTiltThresholdY()       { return ConfigManager::getTiltThresholdY(); }
+float cfg_getCoarseZoneRatio()      { return ConfigManager::getCoarseZoneRatio(); }
+float cfg_getWorseningRatio()       { return ConfigManager::getWorseningRatio(); }
+float cfg_getFineZoneRatio()        { return ConfigManager::getFineZoneRatio(); }
+int   cfg_getNivCount()             { return ConfigManager::getNivCount(); }
 
-  // При открытом сбросе абсолютное показание JHM1200 (до вычитания нуля)
-  // должно быть около атмосферного/нуля модуля — обычно |bar| < 1.5.
-  static constexpr float ZERO_ABS_MAX = 1.5f;
-  static constexpr float ZERO_SPREAD_MAX = 0.15f;
-
-public:
-  void start() {
-    if (calibrationDone_) {
-      Serial.println("[CALIB] start() ignored - already done");
-      return;
-    }
-    if (currentStep_ != STEP_IDLE) {
-      Serial.println("[CALIB] start() ignored - already started");
-      return;
-    }
-
-#if ENABLE_SIMULATION
-    Serial.println("[CALIB] SIM: Запуск калибровки пропущен");
-    calibrationDone_ = true;
-    return;
-#else
-    calibrationDone_ = false;
-    currentStep_ = STEP_OPEN_VALVE;
-    stepStartTime_ = millis();
-    measureCount_ = 0;
-    finalZeroBar_ = 0.0f;
-
-    float testBar = 0.0f;
-    bool ok = false;
-    {
-      MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(100));
-      if (i2c) ok = Jhm1200::readBar(testBar);
-    }
-    Serial.printf("[CALIB] start(): probe=%s bar=%.3f status=0x%02X\n",
-                  ok ? "ok" : "fail", testBar, Jhm1200::lastStatus());
-
-    Serial.println("\n========================================");
-    Serial.println("     АВТОМАТИЧЕСКАЯ КАЛИБРОВКА НУЛЯ");
-    Serial.println("     (JHM1200 0..10 бар)");
-    Serial.println("========================================");
-#endif
-  }
-
-  void process() {
-    if (calibrationDone_) return;
-
-#if ENABLE_SIMULATION
-    calibrationDone_ = true;
-    Serial.println("[CALIB] SIM: Калибровка пропущена");
-    return;
-#endif
-
-    uint32_t now = millis();
-
-    switch (currentStep_) {
-      case STEP_OPEN_VALVE:
-        {
-          MutexGuard guard(xValveMutex);
-          if (guard) {
-            closeAllValves();
-            digitalWrite(PIN_DEFL, HIGH);
-            Serial.println("[CALIB] Клапан сброса ОТКРЫТ");
-            currentStep_ = STEP_WAIT_STABILIZE;
-            stepStartTime_ = now;
-          }
-          break;
-        }
-
-      case STEP_WAIT_STABILIZE:
-        {
-          if (now - stepStartTime_ >= 3000) {
-            Serial.println("[CALIB] Ожидание стабилизации завершено");
-            currentStep_ = STEP_MEASURE;
-            stepStartTime_ = now;
-            measureCount_ = 0;
-          }
-          break;
-        }
-
-      case STEP_MEASURE:
-        if (measureCount_ < 20) {
-          static uint32_t lastMeasureTime = 0;
-          if (now - lastMeasureTime >= 200) {
-            float bar = 0.0f;
-            bool ok = false;
-            {
-              MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(120));
-              if (i2c) ok = Jhm1200::readBar(bar);
-            }
-            lastMeasureTime = now;
-            if (!ok) {
-              Serial.println("[CALIB] JHM1200 read fail (пропуск)");
-              break;
-            }
-            measurements_[measureCount_++] = bar;
-            Serial.printf("[CALIB] Измерение %u: %.3f бар\n", measureCount_, bar);
-          }
-        } else {
-          float sum = 0.0f;
-          float minVal = measurements_[5];
-          float maxVal = measurements_[5];
-          for (int i = 5; i < 20; i++) {
-            sum += measurements_[i];
-            if (measurements_[i] < minVal) minVal = measurements_[i];
-            if (measurements_[i] > maxVal) maxVal = measurements_[i];
-          }
-          finalZeroBar_ = sum / 15.0f;
-          const float range = maxVal - minVal;
-          Serial.printf("[CALIB] Среднее: %.3f бар, разброс: %.3f\n", finalZeroBar_, range);
-
-          if (fabsf(finalZeroBar_) > ZERO_ABS_MAX) {
-            Serial.printf("[CALIB] Необычный ноль |%.3f| > %.1f бар\n", finalZeroBar_, ZERO_ABS_MAX);
-            if (!ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-              ErrorHandler::handleError(ErrorHandler::Error::SENSOR,
-                                        "JHM1200 - аномальный ноль");
-            }
-            calibrationValid = false;
-          } else {
-            if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-              ErrorHandler::removeError(ErrorHandler::Error::SENSOR);
-            }
-            calibrationValid = true;
-          }
-          if (range > ZERO_SPREAD_MAX) {
-            Serial.printf("[CALIB] Нестабильные измерения, разброс %.3f бар\n", range);
-          }
-
-          currentStep_ = STEP_CLOSE_VALVE;
-          stepStartTime_ = now;
-        }
-        break;
-
-      case STEP_CLOSE_VALVE:
-        {
-          MutexGuard guard(xValveMutex);
-          if (guard) {
-            digitalWrite(PIN_DEFL, LOW);
-            Serial.println("[CALIB] Клапан сброса ЗАКРЫТ");
-            currentStep_ = STEP_DONE;
-          }
-          break;
-        }
-
-      case STEP_DONE:
-        {
-          MutexGuard guard(xCalibMutex);
-          if (guard) {
-            g_pressureZeroBar = finalZeroBar_;
-            calibrationDone_ = true;
-            Serial.printf("[CALIB] Ноль сохранён: %.3f бар\n", g_pressureZeroBar);
-            Serial.println("========================================");
-            Serial.println("     КАЛИБРОВКА НУЛЯ ЗАВЕРШЕНА");
-            Serial.println("========================================\n");
-
-            Event event;
-            event.type = EventType::CALIBRATION_DONE;
-            event.timestamp = millis();
-            EventBus::publish(event);
-          }
-          break;
-        }
-
-      default:
-        break;
-    }
-  }
-
-  bool isDone() const { return calibrationDone_; }
-  float getZeroValue() const { return finalZeroBar_; }
-};
+// ZeroCalibrator — moved to task_calib.cpp
 
 
 /* ====================  ПЕРЕМЕННЫЕ ДЛЯ СИМУЛЯЦИИ ==================== */
@@ -2161,157 +1950,13 @@ void setDisplayDirty() {
   EventBus::publish(event, 0);
 }
 
-void closeAllValves() {
-  for (auto pin : bubPins) digitalWrite(pin, LOW);
-  digitalWrite(PIN_INFL, LOW);
-  digitalWrite(PIN_DEFL, LOW);
-}
+// closeAllValves — moved to valve_ctrl.cpp
 
-void setValve(Pad pad, bool state) {
-  if (pad >= PAD_COUNT) return;
-  digitalWrite(bubPins[pad], state);
-}
+// setValve — moved to valve_ctrl.cpp
 
-void emergencyStop() {
-  static SemaphoreHandle_t mutex = nullptr;
-  if (mutex == nullptr) mutex = xSemaphoreCreateMutex();
+// emergencyStop — moved to valve_ctrl.cpp
 
-  if (!takeMutexWithRetry(mutex, pdMS_TO_TICKS(100), 3, "emergencyStop/outer")) {
-    Serial.println("[EMERGENCY] outer mutex failed — forcing valve pins LOW");
-    for (auto pin : bubPins) digitalWrite(pin, LOW);
-    digitalWrite(PIN_INFL, LOW);
-    digitalWrite(PIN_DEFL, LOW);
-    valveStopRequested = true;
-    return;
-  }
-
-  if (!takeMutexWithRetry(xValveMutex, pdMS_TO_TICKS(150), 3, "emergencyStop/valve")) {
-    Serial.println("[EMERGENCY] valve mutex failed — forcing valve pins LOW");
-    closeAllValves();
-    valveStopRequested = true;
-    xSemaphoreGive(mutex);
-    return;
-  }
-
-  Logger::log(Logger::WARNING, "EMERGENCY", "Остановка всех клапанов!");
-  closeAllValves();
-  manualControlActive = false;
-  for (int i = 0; i < PAD_COUNT; i++) {
-    manualTargetSet[i] = false;
-  }
-  valveStopRequested = true;
-  valveEmergencyStopCount++;
-  xSemaphoreGive(xValveMutex);
-  xSemaphoreGive(mutex);
-}
-
-void sendValveCommand(Pad pad, bool inflate, uint32_t durationMs) {
-  for (int attempt = 0; attempt < 3; attempt++) {
-    MutexGuard commandGuard(xCommandMutex, pdMS_TO_TICKS(100));
-    if (!commandGuard) {
-      if (attempt == 2) {
-        Serial.println("[VALVE] Command state mutex unavailable after retries");
-      }
-      continue;
-    }
-
-    if (xValveQueue == nullptr) {
-      Serial.println("[ERROR] Valve queue not created!");
-      return;
-    }
-
-    if (otaMode || otaInProgress || otaValveLock) {
-      Serial.println("[VALVE] Command rejected while OTA mode is active");
-      lastCmd.waitingForCompletion = false;
-      lastCmd.commandActive = false;
-      return;
-    }
-
-    if (pad >= PAD_COUNT) {
-      Serial.printf("[ERROR] Invalid pad: %d\n", (int)pad);
-      return;
-    }
-
-    // Низкая магистраль блокирует только НАКАЧКУ; сброс должен оставаться доступен.
-    if (durationMs > 0 && inflate) {
-      float currentMaster;
-      {
-        MutexGuard guard(xStateMutex);
-        if (!guard) return;
-        currentMaster = masterPressure;
-      }
-
-      float minPressure = ConfigManager::getPressureMin();
-      if (currentMaster < minPressure - ConfigManager::getPressureDeadband()) {
-        static uint32_t lastLog = 0;
-        if (millis() - lastLog > 5000) {
-          lastLog = millis();
-          Serial.printf("[VALVE] Накачка заблокирована: МП %.1f < мин %.1f\n",
-                        currentMaster, minPressure);
-        }
-
-        lastCmd.waitingForCompletion = false;
-        lastCmd.commandActive = false;
-        return;
-      }
-    }
-    uint32_t safeDuration;
-    // UINT32_MAX = удержание до stopManualOperation / таймаута (не «закрыть»).
-    if (durationMs == 0) {
-      safeDuration = 0;
-    } else if (durationMs == UINT32_MAX) {
-      safeDuration = VALVE_MAX_COMMAND_MS;
-    } else {
-      safeDuration = (durationMs > VALVE_MAX_COMMAND_MS) ? VALVE_MAX_COMMAND_MS : durationMs;
-    }
-
-    if (safeDuration > 0 && !ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-
-      if (lastCmd.waitingForCompletion) {
-        Serial.println("[VALVE] Новая команда до анализа предыдущей, предыдущая отменена");
-        lastCmd.waitingForCompletion = false;
-      }
-
-      lastCmd.startTime = millis();
-      lastCmd.duration = safeDuration;
-      lastCmd.pad = pad;
-      lastCmd.inflate = inflate;
-      lastCmd.waitingForCompletion = (durationMs != UINT32_MAX);
-      lastCmd.commandActive = true;
-
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        lastCmd.pressureBefore = pressure[pad];
-      }
-    }
-
-    ValveCommandMsg cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.async.pad = pad;
-    cmd.async.inflate = inflate;
-    cmd.async.duration = (safeDuration == 0) ? 0 : pdMS_TO_TICKS(safeDuration);
-
-    BaseType_t result = xQueueSend(xValveQueue, &cmd, pdMS_TO_TICKS(100));
-    if (result != pdTRUE) {
-      valveQueueDropCount++;
-      Serial.println("[ERROR] Failed to send to valve queue!");
-      return;
-    }
-    uint32_t depth = uxQueueMessagesWaiting(xValveQueue);
-    if (depth > maxValveQueueDepth) maxValveQueueDepth = depth;
-
-    if (safeDuration > 0) {
-      Event event;
-      event.type = EventType::VALVE_COMMAND;
-      event.timestamp = millis();
-      event.data.valve.pad = static_cast<uint8_t>(pad);
-      event.data.valve.inflate = inflate;
-      event.data.valve.duration = durationMs;
-      EventBus::publish(event, pdMS_TO_TICKS(100));
-    }
-    return;
-  }
-}
+// sendValveCommand — moved to valve_ctrl.cpp
 
 /* ===== Подсветка: рабочая яркость / приглушение по бездействию ===== */
 bool backlightDimmed = false;     // true = подсветка на уровне CONTRAST_DIM (не OFF)
@@ -3379,156 +3024,14 @@ void saveMenuSettings() {
   Logger::log(Logger::INFO, "MENU", "Настройки сохранены");
 }
 
-void setManualTargetPressure(Pad pad) {
-  MutexGuard guard(xStateMutex);
-  if (guard) {
-    manualTargetPressure[pad] = pressure[pad];
-    manualTargetSet[pad] = true;
-  }
-  Serial.printf("[MANUAL] Установлено целевое давление для %s: %.1f бар\n",
-                padNames[pad], manualTargetPressure[pad]);
-  setDisplayDirty();
-}
+// setManualTargetPressure — moved to pressure_read.cpp
+// setAllManualTargetsFromCurrent — moved to pressure_read.cpp
+// setManualTargetsFromParkingPolicy — moved to pressure_read.cpp
+// maintainManualPressure — moved to pressure_read.cpp
 
-void setAllManualTargetsFromCurrent() {
-  MutexGuard guard(xStateMutex);
-  if (guard) {
-    for (uint8_t i = 0; i < PAD_COUNT; i++) {
-      manualTargetPressure[i] = pressure[i];
-      manualTargetSet[i] = true;
-    }
-  }
-  Serial.println("[MANUAL] Установлены целевые давления для всех подушек из текущих значений");
-  setDisplayDirty();
-}
+// detectMotionFromIMU — moved to imu_motion.cpp
 
-/** После ДВИЖЕНИЕ→РУЧ: цели из «Давл.стоянки»; 0.00 = перед/зад режима движения. */
-void setManualTargetsFromParkingPolicy() {
-  const float parking = ConfigManager::getParkingPressureBar();
-  float targets[PAD_COUNT];
-  if (parking > 0.00f) {
-    for (uint8_t i = 0; i < PAD_COUNT; i++) {
-      targets[i] = parking;
-    }
-  } else {
-    const float front = ConfigManager::getMovementPressureFront();
-    const float rear = ConfigManager::getMovementPressureRear();
-    targets[PAD_FRONT_LEFT] = front;
-    targets[PAD_FRONT_RIGHT] = front;
-    targets[PAD_REAR_LEFT] = rear;
-    targets[PAD_REAR_RIGHT] = rear;
-  }
-
-  MutexGuard guard(xStateMutex);
-  if (guard) {
-    for (uint8_t i = 0; i < PAD_COUNT; i++) {
-      manualTargetPressure[i] = targets[i];
-      manualTargetSet[i] = true;
-    }
-  }
-  Serial.printf("[MANUAL] Цели стоянки: FL=%.2f FR=%.2f RL=%.2f RR=%.2f (parking=%.2f)\n",
-                targets[PAD_FRONT_LEFT], targets[PAD_FRONT_RIGHT],
-                targets[PAD_REAR_LEFT], targets[PAD_REAR_RIGHT], parking);
-  setDisplayDirty();
-}
-
-void maintainManualPressure() {
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-    static uint32_t lastLog = 0;
-    if (millis() - lastLog > 30000) {
-      lastLog = millis();
-      Serial.println("[MANUAL] Датчик давления неисправен, поддержание давления приостановлено");
-    }
-    return;
-  }
-
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
-    static uint32_t lastLog = 0;
-    if (millis() - lastLog > 30000) {
-      lastLog = millis();
-      Serial.println("[MANUAL] Поддержание давления приостановлено: LOW_PRESSURE");
-    }
-    return;
-  }
-
-  static uint32_t lastAdjustmentTime[PAD_COUNT] = { 0 };
-  static const uint32_t ADJUSTMENT_COOLDOWN_MS = 3000;
-  static uint32_t lastPressureRequest = 0;
-
-  uint32_t currentTime = millis();
-
-  if (currentTime - lastPressureRequest >= MANUAL_TARGET_CHECK_INTERVAL_MS) {
-    requestPressureMeasurement();
-    lastPressureRequest = currentTime;
-    vTaskDelay(pdMS_TO_TICKS(200));
-  }
-
-  for (uint8_t i = 0; i < PAD_COUNT; i++) {
-    float currentPressure, targetPressure;
-    bool targetIsSet;
-    float minPressure = ConfigManager::getPressureMin();
-    float maxPressure = ConfigManager::getPressureMax();
-
-    {
-      MutexGuard guard(xStateMutex);
-      if (!guard) continue;
-
-      targetIsSet = manualTargetSet[i];
-      if (!targetIsSet) {
-        manualTargetPressure[i] = pressure[i];
-        manualTargetSet[i] = true;
-        continue;
-      }
-      currentPressure = pressure[i];
-      targetPressure = manualTargetPressure[i];
-    }
-
-    // Если давление ниже минимума - подкачать
-    if (currentPressure < minPressure - 0.1f) {
-      if (currentTime - lastAdjustmentTime[i] >= ADJUSTMENT_COOLDOWN_MS) {
-        // Импульс = значение меню в секундах (AUTO и ручной)
-        int duration = ConfigManager::getInflateDelay() * 1000;
-        sendValveCommand(Pad(i), true, duration);
-        lastAdjustmentTime[i] = currentTime;
-        setDisplayDirty();
-        requestPressureMeasurement();
-      }
-      continue;
-    }
-
-    // Если давление выше максимума - стравить
-    if (currentPressure > maxPressure + 0.1f) {
-      if (currentTime - lastAdjustmentTime[i] >= ADJUSTMENT_COOLDOWN_MS) {
-        int duration = ConfigManager::getReleaseDelay() * 1000;
-        sendValveCommand(Pad(i), false, duration);
-        lastAdjustmentTime[i] = currentTime;
-        setDisplayDirty();
-        requestPressureMeasurement();
-      }
-      continue;
-    }
-
-    if (currentPressure < 0) continue;
-
-    float pressureDiff = targetPressure - currentPressure;
-
-    if (abs(pressureDiff) > MANUAL_PRESSURE_TOLERANCE && (currentTime - lastAdjustmentTime[i] >= MANUAL_ADJUSTMENT_COOLDOWN_MS)) {
-
-      if (pressureDiff > 0) {
-        if (currentPressure >= maxPressure - ConfigManager::getPressureDeadband()) continue;
-        int duration = ConfigManager::getInflateDelay() * 1000;
-        sendValveCommand(Pad(i), true, duration);
-      } else {
-        if (currentPressure <= minPressure + ConfigManager::getPressureDeadband()) continue;
-        int duration = ConfigManager::getReleaseDelay() * 1000;
-        sendValveCommand(Pad(i), false, duration);
-      }
-      lastAdjustmentTime[i] = currentTime;
-      setDisplayDirty();
-      requestPressureMeasurement();
-    }
-  }
-}
+// maintainManualPressure — see pressure_read.cpp
 
 #if ENABLE_SIMULATION
 void updateSimulationData() {
@@ -3691,59 +3194,7 @@ void updateSimulationData() {
 }
 #endif
 
-void checkAndAdjustMasterPressure() {
-  if (!calibrationCompleted || !firstPressureMeasurementDone) return;
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) return;
-  if (manualControlActive || otaValveLock || otaMode || otaInProgress) return;
-
-  uint32_t now = millis();
-  if (now - lastMasterPressureCheckTime < (uint32_t)ConfigManager::getMasterCheckSec() * 1000UL) {  // 8.8.0: период из меню
-    return;
-  }
-  lastMasterPressureCheckTime = now;
-
-  requestPressureMeasurement();
-
-  float localMaster = 0.0f;
-  {
-    MutexGuard guard(xStateMutex, pdMS_TO_TICKS(200));
-    if (!guard) {
-      Serial.println("[MASTER] state mutex timeout — skip adjust");
-      return;
-    }
-    localMaster = masterPressure;
-  }
-
-  float minP = ConfigManager::getPressureMin();
-  float maxP = ConfigManager::getPressureMax();
-  Serial.printf("[MASTER] periodic check: %.2f bar (min=%.1f max=%.1f)\n",
-                localMaster, minP, maxP);
-
-  // Обновить LOW_PRESSURE по текущему значению магистрали
-  checkPressureLimits();
-
-  // Избыток в магистрали: краткий сброс через DEFL (подушки закрыты)
-  if (localMaster > maxP + ConfigManager::getPressureDeadband()) {
-    if (!takeMutexWithRetry(xValveMutex, pdMS_TO_TICKS(200), 3, "MASTER/relieve")) {
-      Serial.println("[MASTER] cannot relieve — valve mutex busy");
-      return;
-    }
-    closeAllValves();
-    digitalWrite(PIN_DEFL, HIGH);
-    xSemaphoreGive(xValveMutex);
-
-    vTaskDelay(pdMS_TO_TICKS(400));
-
-    if (takeMutexWithRetry(xValveMutex, pdMS_TO_TICKS(200), 3, "MASTER/relieve-off")) {
-      digitalWrite(PIN_DEFL, LOW);
-      xSemaphoreGive(xValveMutex);
-    } else {
-      digitalWrite(PIN_DEFL, LOW);  // fail-safe без мьютекса
-    }
-    requestPressureMeasurement();
-    Serial.println("[MASTER] relieved excess pressure on supply line");
-  }
-}
+// checkAndAdjustMasterPressure — see pressure_read.cpp
 
 // detectMotionFromIMU — moved to imu_motion.cpp
 // i2cBusRecover, i2cScanLog — moved to imu_dmp.cpp
@@ -4052,751 +3503,11 @@ static void updateMainTiltLive() {
   updateMainInfoLine(localIsMoving);
 }
 
-void maintainMovementPressure() {
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
-    static uint32_t lastWaitLog = 0;
-    if (millis() - lastWaitLog > 30000) {
-      lastWaitLog = millis();
-      Serial.println("[MOVEMENT] Ожидание нормализации давления в магистрали...");
-    }
-    return;
-  }
+// maintainMovementPressure — see pressure_read.cpp
 
-  static uint32_t lastAdjustmentTimeFront = 0;
-  static uint32_t lastAdjustmentTimeRear = 0;
-  static const uint32_t ADJUSTMENT_COOLDOWN_MS = 5000;
-  static uint32_t lastPressureCheck = 0;
+// AutoLevelingController — see auto_level.h
 
-  uint32_t currentTime = millis();
-
-  if (currentTime - lastPressureCheck >= 120000) {
-    requestPressureMeasurement();
-    lastPressureCheck = currentTime;
-    vTaskDelay(pdMS_TO_TICKS(200));
-  }
-
-  float targetPressureFront = ConfigManager::getMovementPressureFront();
-  float targetPressureRear = ConfigManager::getMovementPressureRear();
-  float minPressure = ConfigManager::getPressureMin();
-
-  float avgPressureFront, avgPressureRear;
-  float currentPressure[PAD_COUNT];
-  float currentMaster;
-
-  {
-    MutexGuard guard(xStateMutex);
-    if (!guard) return;
-    memcpy(currentPressure, pressure, sizeof(pressure));
-    currentMaster = masterPressure;
-    avgPressureFront = (currentPressure[PAD_FRONT_LEFT] + currentPressure[PAD_FRONT_RIGHT]) / 2.0f;
-    avgPressureRear = (currentPressure[PAD_REAR_LEFT] + currentPressure[PAD_REAR_RIGHT]) / 2.0f;
-  }
-
-  float masterLow = ConfigManager::getMasterLowBar();
-  if (masterLow > 0.0f && currentMaster < masterLow) {
-    Serial.printf("[MOVEMENT] Низкое давление в магистрали: %.1f бар < %.1f\n",
-                  currentMaster, masterLow);
-
-    if (!ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
-      ErrorHandler::handleError(ErrorHandler::Error::LOW_PRESSURE,
-                                "Низкое давление в магистрали");
-      errorScreenBlocking = true;
-      emergencyStop();
-    }
-    return;
-  }
-
-  float diffFront = targetPressureFront - avgPressureFront;
-  float maxPressure = ConfigManager::getPressureMax();
-
-  bool canAdjustFront = true;
-  if (diffFront > 0) {
-    if (currentPressure[PAD_FRONT_LEFT] >= maxPressure - ConfigManager::getPressureDeadband() || currentPressure[PAD_FRONT_RIGHT] >= maxPressure - ConfigManager::getPressureDeadband()) {
-      canAdjustFront = false;
-      Serial.println("[MOVEMENT] Передние подушки достигли MAX давления!");
-    }
-  } else if (diffFront < 0) {
-    if (currentPressure[PAD_FRONT_LEFT] <= minPressure + ConfigManager::getPressureDeadband() || currentPressure[PAD_FRONT_RIGHT] <= minPressure + ConfigManager::getPressureDeadband()) {
-      canAdjustFront = false;
-      Serial.println("[MOVEMENT] Передние подушки достигли MIN давления!");
-    }
-  }
-
-  if (canAdjustFront && abs(diffFront) > ConfigManager::getMovementTolerance() && (currentTime - lastAdjustmentTimeFront >= ADJUSTMENT_COOLDOWN_MS)) {
-
-    if (diffFront > 0) {
-      Serial.printf("[MOVEMENT] Накачка передних: %.1f -> %.1f\n", avgPressureFront, targetPressureFront);
-      sendValveCommand(PAD_FRONT_LEFT, true, 800);
-      sendValveCommand(PAD_FRONT_RIGHT, true, 800);
-    } else {
-      Serial.printf("[MOVEMENT] Стравливание передних: %.1f -> %.1f\n", avgPressureFront, targetPressureFront);
-      sendValveCommand(PAD_FRONT_LEFT, false, 600);
-      sendValveCommand(PAD_FRONT_RIGHT, false, 600);
-    }
-    lastAdjustmentTimeFront = currentTime;
-    movementLastAdjustFront = currentTime;                              // 8.9.0: экран ДВИЖЕНИЯ
-    movementLastAdjustFrontDir = (diffFront > 0) ? 1 : -1;
-    setDisplayDirty();
-    requestPressureMeasurement();
-  }
-
-  float diffRear = targetPressureRear - avgPressureRear;
-
-  bool canAdjustRear = true;
-  if (diffRear > 0) {
-    if (currentPressure[PAD_REAR_LEFT] >= maxPressure - ConfigManager::getPressureDeadband() || currentPressure[PAD_REAR_RIGHT] >= maxPressure - ConfigManager::getPressureDeadband()) {
-      canAdjustRear = false;
-      Serial.println("[MOVEMENT] Задние подушки достигли MAX давления!");
-    }
-  } else if (diffRear < 0) {
-    if (currentPressure[PAD_REAR_LEFT] <= minPressure + ConfigManager::getPressureDeadband() || currentPressure[PAD_REAR_RIGHT] <= minPressure + ConfigManager::getPressureDeadband()) {
-      canAdjustRear = false;
-      Serial.println("[MOVEMENT] Задние подушки достигли MIN давления!");
-    }
-  }
-
-  if (canAdjustRear && abs(diffRear) > ConfigManager::getMovementTolerance() && (currentTime - lastAdjustmentTimeRear >= ADJUSTMENT_COOLDOWN_MS)) {
-
-    if (diffRear > 0) {
-      Serial.printf("[MOVEMENT] Накачка задних: %.1f -> %.1f\n", avgPressureRear, targetPressureRear);
-      sendValveCommand(PAD_REAR_LEFT, true, 2000);
-      sendValveCommand(PAD_REAR_RIGHT, true, 2000);
-    } else {
-      Serial.printf("[MOVEMENT] Стравливание задних: %.1f -> %.1f\n", avgPressureRear, targetPressureRear);
-      sendValveCommand(PAD_REAR_LEFT, false, 1500);
-      sendValveCommand(PAD_REAR_RIGHT, false, 1500);
-    }
-    lastAdjustmentTimeRear = currentTime;
-    movementLastAdjustRear = currentTime;                               // 8.9.0: экран ДВИЖЕНИЯ
-    movementLastAdjustRearDir = (diffRear > 0) ? 1 : -1;
-    setDisplayDirty();
-    requestPressureMeasurement();
-  }
-}
-
-class AutoLevelingController {
-private:
-  // ? ВЫНЕСЕНЫ В КОНСТАНТЫ КЛАССА
-  static constexpr float STABLE_THRESHOLD = 0.1f;
-  static constexpr uint32_t STABLE_DURATION_MS = 1000;
-  static constexpr uint32_t READ_TIMEOUT_MS = 100;
-  static constexpr float FINE_TUNING_SCALE = 1.0f;
-  static constexpr uint8_t MAX_FINE_TUNING_ITERATIONS = 10;
-
-  enum class LevelingStage {
-    IDLE,
-    COARSE_ROLL,
-    COARSE_PITCH,
-    FINE_TUNING,
-    WAITING_STABLE,
-    COMPLETED
-  };
-
-  LevelingStage currentStage = LevelingStage::IDLE;
-  uint8_t coarseStep = 0;
-  uint8_t fineTuningIterations = 0;
-  uint32_t stageStartTime = 0;
-
-  bool waitForStability(float targetX, float targetY, uint32_t timeoutMs = 5000) {
-    uint32_t startTime = millis();
-    uint32_t stableStartTime = 0;
-    uint32_t lastReadTime = 0;
-
-    while (millis() - startTime < timeoutMs) {
-      if (millis() - lastReadTime < READ_TIMEOUT_MS) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-        continue;
-      }
-      lastReadTime = millis();
-
-      float currentX, currentY;
-      {
-        MutexGuard guard(xStateMutex);
-        if (!guard) {
-          vTaskDelay(pdMS_TO_TICKS(50));
-          continue;
-        }
-        currentX = angleX;
-        currentY = angleY;
-      }
-
-      float deltaX = abs(currentX - targetX);
-      float deltaY = abs(currentY - targetY);
-
-      if (deltaX <= STABLE_THRESHOLD && deltaY <= STABLE_THRESHOLD) {
-        if (stableStartTime == 0) {
-          stableStartTime = millis();
-        } else if (millis() - stableStartTime >= STABLE_DURATION_MS) {
-          Serial.println("[AUTO] Система стабилизировалась");
-          return true;
-        }
-      } else {
-        stableStartTime = 0;
-      }
-
-      vTaskDelay(pdMS_TO_TICKS(50));
-    }
-
-    Serial.println("[AUTO] Таймаут ожидания стабилизации");
-    return false;
-  }
-
-  bool executeValveCommand(Pad pad, bool inflate, uint32_t durationMs, uint32_t stabilizeMs = 500) {
-    Serial.printf("[AUTO] Выполнение: %s %s на %d мс\n",
-                  padNames[pad], inflate ? "НАКАЧКА" : "СТРАВЛИВАНИЕ", durationMs);
-
-    float pressureBefore;
-    {
-      MutexGuard guard(xStateMutex);
-      if (!guard) return false;
-      pressureBefore = pressure[pad];
-    }
-
-    if (!sendValveCommandSync(pad, inflate, durationMs, stabilizeMs)) {
-      Serial.printf("[AUTO] Ошибка выполнения команды для %s\n", padNames[pad]);
-      return false;
-    }
-
-    requestPressureMeasurement();
-    vTaskDelay(pdMS_TO_TICKS(500));
-
-    float pressureAfter;
-    {
-      MutexGuard guard(xStateMutex);
-      if (!guard) return false;
-      pressureAfter = pressure[pad];
-    }
-
-    float pressureDelta = pressureAfter - pressureBefore;
-
-    if (abs(pressureDelta) < 0.1f) {
-      Serial.printf("[AUTO] ?? Давление не изменилось! Было: %.1f, Стало: %.1f\n",
-                    pressureBefore, pressureAfter);
-      return false;
-    }
-
-    return true;
-  }
-
-public:
-  void process() {
-    // Базовые проверки
-    if (currentSystemMode != SystemMode::AUTO) return;
-    if (currentState != SystemState::RUNNING) return;
-
-    // Проверка ошибок
-    if (ErrorHandler::hasActiveErrors()) {
-      static uint32_t lastErrorLog = 0;
-      uint32_t now = millis();
-      if (currentStage != LevelingStage::IDLE) {
-        if (now - lastErrorLog > 5000) {
-          lastErrorLog = now;
-          Serial.println("[AUTO] Выравнивание прервано из-за ошибок");
-        }
-        currentStage = LevelingStage::IDLE;
-        coarseStep = 0;
-        fineTuningIterations = 0;
-      }
-      return;
-    }
-
-    // Проверка MPU
-    if (!mpuOk) {
-      static uint32_t lastMpuLog = 0;
-      uint32_t now = millis();
-      if (currentStage != LevelingStage::IDLE) {
-        if (now - lastMpuLog > 5000) {
-          lastMpuLog = now;
-          Serial.println("[AUTO] Выравнивание прервано: MPU не исправен");
-        }
-        currentStage = LevelingStage::IDLE;
-        coarseStep = 0;
-        fineTuningIterations = 0;
-      }
-      return;
-    }
-
-    // Проверка движения
-    if (isMoving) {
-      static uint32_t lastMoveLog = 0;
-      uint32_t now = millis();
-      if (currentStage != LevelingStage::IDLE) {
-        if (now - lastMoveLog > 5000) {
-          lastMoveLog = now;
-          Serial.println("[AUTO] Выравнивание прервано из-за движения");
-        }
-        currentStage = LevelingStage::IDLE;
-        coarseStep = 0;
-        fineTuningIterations = 0;
-      }
-      return;
-    }
-
-    // Проверка давления
-    float currentMaster;
-    {
-      MutexGuard guard(xStateMutex);
-      if (!guard) return;
-      currentMaster = masterPressure;
-    }
-
-    float minPressure = ConfigManager::getPressureMin();
-    if (currentMaster < minPressure) {
-      static uint32_t lastPressureLog = 0;
-      uint32_t now = millis();
-      if (now - lastPressureLog > 10000) {
-        lastPressureLog = now;
-        Serial.printf("[AUTO] Низкое давление в магистрали (%.1f < %.1f), выравнивание невозможно\n",
-                      currentMaster, minPressure);
-      }
-      if (currentStage != LevelingStage::IDLE) {
-        currentStage = LevelingStage::IDLE;
-        coarseStep = 0;
-        fineTuningIterations = 0;
-      }
-      return;
-    }
-
-    // Ограничение частоты
-    static uint32_t lastProcessTime = 0;
-    uint32_t now = millis();
-
-    if (now - lastProcessTime < 500) return;
-    lastProcessTime = now;
-
-    // Получение данных
-    float currentX, currentY;
-    float thX = ConfigManager::getTiltThresholdX();
-    float thY = ConfigManager::getTiltThresholdY();
-
-    {
-      MutexGuard guard(xStateMutex);
-      if (!guard) return;
-      currentX = angleX;
-      currentY = angleY;
-    }
-
-    bool needLeveling = (abs(currentX) > thX) || (abs(currentY) > thY);
-
-    // Основной автомат
-    switch (currentStage) {
-      case LevelingStage::IDLE:
-        if (needLeveling) {
-          if (levelingAttemptsThisHour >= ConfigManager::getNivCount()) {
-            static uint32_t lastLimitLog = 0;
-            if (now - lastLimitLog > 60000) {
-              lastLimitLog = now;
-              Serial.printf("[AUTO] Лимит попыток: %d/%d\n",
-                            levelingAttemptsThisHour, ConfigManager::getNivCount());
-            }
-            return;
-          }
-
-          if (now - lastLevelingAttemptTime < 30000) {
-            return;
-          }
-
-          Serial.printf("[AUTO] Начало выравнивания: X=%.2f° (порог=%.1f°), Y=%.2f° (порог=%.1f°)\n",
-                        currentX, thX, currentY, thY);
-
-          levelingAttemptsThisHour++;
-          lastLevelingAttemptTime = now;
-          currentStage = LevelingStage::COARSE_ROLL;
-          coarseStep = 0;
-          stageStartTime = now;
-        }
-        break;
-
-      case LevelingStage::COARSE_ROLL:
-        if (abs(currentX) > thX * ConfigManager::getCoarseZoneRatio()) {
-          float prevX = currentX;
-
-          if (coarseStep == 0) {
-            if (currentX > thX * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: КРЕН ВЛЕВО - стравливание правых");
-              if (executeValveCommand(PAD_FRONT_RIGHT, false,
-                                      ConfigManager::getReleaseDelay() * 1000, 500)
-                  && executeValveCommand(PAD_REAR_RIGHT, false,
-                                         ConfigManager::getReleaseDelay() * 1000, 500)) {
-                coarseStep = 1;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            } else if (currentX < -thX * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: КРЕН ВПРАВО - стравливание левых");
-              if (executeValveCommand(PAD_FRONT_LEFT, false,
-                                      ConfigManager::getReleaseDelay() * 1000, 500)
-                  && executeValveCommand(PAD_REAR_LEFT, false,
-                                         ConfigManager::getReleaseDelay() * 1000, 500)) {
-                coarseStep = 1;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            }
-            stageStartTime = now;
-
-          } else if (coarseStep == 1) {
-            if (currentX > thX * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: КРЕН ВЛЕВО - накачка левых");
-              if (executeValveCommand(PAD_FRONT_LEFT, true,
-                                      ConfigManager::getInflateDelay() * 1000, 500)
-                  && executeValveCommand(PAD_REAR_LEFT, true,
-                                         ConfigManager::getInflateDelay() * 1000, 500)) {
-                coarseStep = 0;
-                currentStage = LevelingStage::WAITING_STABLE;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            } else if (currentX < -thX * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: КРЕН ВПРАВО - накачка правых");
-              if (executeValveCommand(PAD_FRONT_RIGHT, true,
-                                      ConfigManager::getInflateDelay() * 1000, 500)
-                  && executeValveCommand(PAD_REAR_RIGHT, true,
-                                         ConfigManager::getInflateDelay() * 1000, 500)) {
-                coarseStep = 0;
-                currentStage = LevelingStage::WAITING_STABLE;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            }
-            stageStartTime = now;
-          }
-
-          vTaskDelay(pdMS_TO_TICKS(500));
-          {
-            MutexGuard guard(xStateMutex);
-            if (guard) {
-              currentX = angleX;
-            }
-          }
-          if (abs(currentX) > abs(prevX) * ConfigManager::getWorseningRatio() && abs(prevX) > 0.1f) {
-            Serial.printf("[AUTO] ?? Положение ухудшилось! Было: %.2f, Стало: %.2f\n",
-                          prevX, currentX);
-            if (coarseStep > 0) {
-              coarseStep--;
-              Serial.printf("[AUTO] Возврат к шагу %d\n", coarseStep);
-            }
-          }
-        } else {
-          Serial.println("[AUTO] Крен в норме, переход к тангажу");
-          currentStage = LevelingStage::COARSE_PITCH;
-          coarseStep = 0;
-          stageStartTime = now;
-        }
-        break;
-
-      case LevelingStage::COARSE_PITCH:
-        if (abs(currentY) > thY * ConfigManager::getCoarseZoneRatio()) {
-          float prevY = currentY;
-
-          if (coarseStep == 0) {
-            if (currentY > thY * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: НОС ВВЕРХ - стравливание передних");
-              if (executeValveCommand(PAD_FRONT_LEFT, false,
-                                      ConfigManager::getReleaseDelay() * 1000, 500)
-                  && executeValveCommand(PAD_FRONT_RIGHT, false,
-                                         ConfigManager::getReleaseDelay() * 1000, 500)) {
-                coarseStep = 1;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            } else if (currentY < -thY * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: НОС ВНИЗ - стравливание задних");
-              if (executeValveCommand(PAD_REAR_LEFT, false,
-                                      ConfigManager::getReleaseDelay() * 1000, 500)
-                  && executeValveCommand(PAD_REAR_RIGHT, false,
-                                         ConfigManager::getReleaseDelay() * 1000, 500)) {
-                coarseStep = 1;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            }
-            stageStartTime = now;
-
-          } else if (coarseStep == 1) {
-            if (currentY > thY * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: НОС ВВЕРХ - накачка задних");
-              if (executeValveCommand(PAD_REAR_LEFT, true,
-                                      ConfigManager::getInflateDelay() * 1000, 500)
-                  && executeValveCommand(PAD_REAR_RIGHT, true,
-                                         ConfigManager::getInflateDelay() * 1000, 500)) {
-                coarseStep = 0;
-                currentStage = LevelingStage::WAITING_STABLE;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            } else if (currentY < -thY * ConfigManager::getCoarseZoneRatio()) {
-              Serial.println("[AUTO] Грубо: НОС ВНИЗ - накачка передних");
-              if (executeValveCommand(PAD_FRONT_LEFT, true,
-                                      ConfigManager::getInflateDelay() * 1000, 500)
-                  && executeValveCommand(PAD_FRONT_RIGHT, true,
-                                         ConfigManager::getInflateDelay() * 1000, 500)) {
-                coarseStep = 0;
-                currentStage = LevelingStage::WAITING_STABLE;
-              } else {
-                Serial.println("[AUTO] ? Ошибка выполнения команды, завершение");
-                currentStage = LevelingStage::COMPLETED;
-              }
-            }
-            stageStartTime = now;
-          }
-
-          vTaskDelay(pdMS_TO_TICKS(500));
-          {
-            MutexGuard guard(xStateMutex);
-            if (guard) {
-              currentY = angleY;
-            }
-          }
-          if (abs(currentY) > abs(prevY) * ConfigManager::getWorseningRatio() && abs(prevY) > 0.1f) {
-            Serial.printf("[AUTO] ?? Положение ухудшилось! Было: %.2f, Стало: %.2f\n",
-                          prevY, currentY);
-            if (coarseStep > 0) {
-              coarseStep--;
-              Serial.printf("[AUTO] Возврат к шагу %d\n", coarseStep);
-            }
-          }
-        } else {
-          if (abs(currentX) <= thX && abs(currentY) <= thY) {
-            Serial.println("[AUTO] Выравнивание завершено успешно");
-            currentStage = LevelingStage::COMPLETED;
-          } else {
-            Serial.println("[AUTO] Тангаж в норме, переход к точной настройке");
-            currentStage = LevelingStage::FINE_TUNING;
-            fineTuningIterations = 0;
-            stageStartTime = now;
-          }
-        }
-        break;
-
-      case LevelingStage::FINE_TUNING:
-        if (fineTuningIterations >= MAX_FINE_TUNING_ITERATIONS) {
-          Serial.println("[AUTO] Точная настройка: лимит итераций");
-          currentStage = LevelingStage::COMPLETED;
-          break;
-        }
-
-        {
-          float cornerHeights[4];
-          cornerHeights[PAD_FRONT_LEFT] = (-currentY - currentX) * FINE_TUNING_SCALE;
-          cornerHeights[PAD_FRONT_RIGHT] = (-currentY + currentX) * FINE_TUNING_SCALE;
-          cornerHeights[PAD_REAR_LEFT] = (+currentY - currentX) * FINE_TUNING_SCALE;
-          cornerHeights[PAD_REAR_RIGHT] = (+currentY + currentX) * FINE_TUNING_SCALE;
-
-          uint8_t highCorner = 0;
-          uint8_t lowCorner = 0;
-          float maxHeight = cornerHeights[0];
-          float minHeight = cornerHeights[0];
-
-          for (int i = 1; i < 4; i++) {
-            if (cornerHeights[i] > maxHeight) {
-              maxHeight = cornerHeights[i];
-              highCorner = i;
-            }
-            if (cornerHeights[i] < minHeight) {
-              minHeight = cornerHeights[i];
-              lowCorner = i;
-            }
-          }
-
-          float heightDifference = maxHeight - minHeight;
-          float fineThreshold = max(thX, thY) * ConfigManager::getFineZoneRatio();
-
-          if (heightDifference >= fineThreshold) {
-            Serial.printf("[AUTO] Точная: стравливание угла %d (высота %.2f), разница %.2f\n",
-                          highCorner, maxHeight, heightDifference);
-
-            if (executeValveCommand(Pad(highCorner), false,
-                                    ConfigManager::getReleaseDelay() * 500, 300)) {
-              vTaskDelay(pdMS_TO_TICKS(500));
-
-              {
-                MutexGuard guard(xStateMutex);
-                if (guard) {
-                  currentX = angleX;
-                  currentY = angleY;
-                }
-              }
-
-              cornerHeights[PAD_FRONT_LEFT] = (-currentY - currentX) * FINE_TUNING_SCALE;
-              cornerHeights[PAD_FRONT_RIGHT] = (-currentY + currentX) * FINE_TUNING_SCALE;
-              cornerHeights[PAD_REAR_LEFT] = (+currentY - currentX) * FINE_TUNING_SCALE;
-              cornerHeights[PAD_REAR_RIGHT] = (+currentY + currentX) * FINE_TUNING_SCALE;
-
-              float newMinHeight = cornerHeights[0];
-              uint8_t newLowCorner = 0;
-              for (int i = 1; i < 4; i++) {
-                if (cornerHeights[i] < newMinHeight) {
-                  newMinHeight = cornerHeights[i];
-                  newLowCorner = i;
-                }
-              }
-
-              Serial.printf("[AUTO] Точная: накачка угла %d\n", newLowCorner);
-              executeValveCommand(Pad(newLowCorner), true,
-                                  ConfigManager::getInflateDelay() * 500, 300);
-            }
-            fineTuningIterations++;
-            currentStage = LevelingStage::WAITING_STABLE;
-            stageStartTime = now;
-          } else {
-            Serial.printf("[AUTO] Точная настройка завершена (разница %.2f < %.2f)\n",
-                          heightDifference, fineThreshold);
-            currentStage = LevelingStage::COMPLETED;
-          }
-        }
-        break;
-
-      case LevelingStage::WAITING_STABLE:
-        if (now - stageStartTime >= 1500) {
-          {
-            MutexGuard guard(xStateMutex);
-            if (guard) {
-              currentX = angleX;
-              currentY = angleY;
-            }
-          }
-
-          if (abs(currentX) <= thX && abs(currentY) <= thY) {
-            Serial.printf("[AUTO] Стабилизация: X=%.2f°, Y=%.2f° - ОТЛИЧНО!\n", currentX, currentY);
-            currentStage = LevelingStage::COMPLETED;
-
-          } else if (abs(currentX) <= thX * ConfigManager::getWorseningRatio() && abs(currentY) <= thY * ConfigManager::getWorseningRatio()) {
-            Serial.printf("[AUTO] Стабилизация: X=%.2f°, Y=%.2f° - близко к цели\n", currentX, currentY);
-
-            if (abs(currentX) > thX * ConfigManager::getCoarseZoneRatio() || abs(currentY) > thY * ConfigManager::getCoarseZoneRatio()) {
-              currentStage = LevelingStage::COARSE_ROLL;
-              coarseStep = 0;
-              Serial.println("[AUTO] Возврат к грубой настройке крена");
-            } else {
-              currentStage = LevelingStage::FINE_TUNING;
-              fineTuningIterations = 0;
-              Serial.println("[AUTO] Возврат к точной настройке");
-            }
-
-          } else {
-            Serial.printf("[AUTO] Стабилизация: X=%.2f°, Y=%.2f° - требуется продолжение\n", currentX, currentY);
-
-            if (abs(currentX) > thX || abs(currentY) > thY) {
-              currentStage = LevelingStage::COARSE_ROLL;
-              coarseStep = 0;
-              Serial.println("[AUTO] Возврат к грубой настройке крена");
-            }
-          }
-          stageStartTime = now;
-        }
-        break;
-
-      case LevelingStage::COMPLETED:
-        {
-          MutexGuard guard(xStateMutex);
-          if (guard) {
-            float finalX = angleX;
-            float finalY = angleY;
-            if (abs(finalX) > thX || abs(finalY) > thY) {
-              Serial.printf("[AUTO] ?? Выравнивание не завершено! X=%.2f, Y=%.2f (пороги: %.1f, %.1f)\n",
-                            finalX, finalY, thX, thY);
-              currentStage = LevelingStage::COARSE_ROLL;
-              coarseStep = 0;
-              fineTuningIterations = 0;
-              stageStartTime = now;
-              break;
-            }
-          }
-        }
-
-        currentStage = LevelingStage::IDLE;
-        coarseStep = 0;
-        fineTuningIterations = 0;
-        lastLevelingCheckTime = now;
-        Serial.println("[AUTO] ? Выравнивание успешно завершено!");
-        break;
-    }
-  }
-
-public:
-  bool isBusy() const { return currentStage != LevelingStage::IDLE; }
-  uint8_t fineIterations() const { return fineTuningIterations; }
-  const char *stageName() const {
-    switch (currentStage) {
-      case LevelingStage::COARSE_ROLL: return "КРЕН";
-      case LevelingStage::COARSE_PITCH: return "ТАНГ";
-      case LevelingStage::FINE_TUNING: return "ТОЧНО";
-      case LevelingStage::WAITING_STABLE: return "СТАБ";
-      case LevelingStage::COMPLETED: return "ГОТОВО";
-      default: return "ОЖИД";
-    }
-  }
-};
-
-AutoLevelingController autoLevelingController;
-
-bool sendValveCommandSync(Pad pad, bool inflate, uint32_t durationMs, uint32_t waitAfterMs) {
-  if (pad >= PAD_COUNT) {
-    Serial.printf("[SYNC] Invalid pad: %d\n", pad);
-    return false;
-  }
-
-  uint32_t safeDuration = (durationMs > 30000) ? 30000 : durationMs;
-
-  QueueHandle_t ackQueue = xQueueCreate(1, sizeof(bool));
-  if (ackQueue == nullptr) {
-    Serial.println("[SYNC] Failed to create ack queue!");
-    return false;
-  }
-
-  ValveCommandMsg cmd;
-  memset(&cmd, 0, sizeof(cmd));
-  cmd.sync.pad = pad;
-  cmd.sync.inflate = inflate;
-  cmd.sync.durationMs = safeDuration;
-  cmd.sync.ackQueue = ackQueue;
-
-  if (xQueueSend(xValveQueue, &cmd, pdMS_TO_TICKS(100)) != pdTRUE) {
-    Serial.println("[SYNC] Failed to send to valve queue!");
-    vQueueDelete(ackQueue);
-    return false;
-  }
-
-  bool success = false;
-  uint32_t timeoutMs = safeDuration + waitAfterMs + 2000;
-  // Ждём ACK кусками — иначе Control молчит > TASK_WDT (импульсы клапанов до 10 с).
-  uint32_t waited = 0;
-  BaseType_t result = pdFALSE;
-  while (waited < timeoutMs) {
-    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_CONTROL);
-    uint32_t chunk = timeoutMs - waited;
-    if (chunk > 500) chunk = 500;
-    result = xQueueReceive(ackQueue, &success, pdMS_TO_TICKS(chunk));
-    if (result == pdTRUE) break;
-    waited += chunk;
-  }
-
-  vQueueDelete(ackQueue);
-
-  if (result != pdTRUE) {
-    Serial.println("[SYNC] Command timeout!");
-    return false;
-  }
-
-  if (!success) {
-    Serial.println("[SYNC] Command failed!");
-    return false;
-  }
-
-  if (waitAfterMs > 0) {
-    vTaskDelay(pdMS_TO_TICKS(waitAfterMs));
-  }
-
-  return true;
-}
+// sendValveCommandSync — see valve_ctrl.cpp
 
 
 
@@ -4848,18 +3559,7 @@ bool saveConfig() {
   return ConfigManager::save();
 }
 
-bool initializeJhm1200() {
-  MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(500));
-  if (!i2c && xI2CMutex != nullptr) return false;
-
-  if (!Jhm1200::begin(Wire)) {
-    jhmReady = false;
-    Serial.println("[JHM1200] Не найден на адресе 0x78");
-    return false;
-  }
-  jhmReady = true;
-  return true;
-}
+// initializeJhm1200 — see pressure_read.cpp
 
 bool loadWiFiConfig() {
   Logger::log(Logger::INFO, "WiFi", "Загрузка");
@@ -5315,94 +4015,7 @@ void printTestResults() {
   Serial.println("============================================================\n");
 }
 
-/* ====================  Чтение давления через JHM1200 ==================== */
-float readPressure() {
-#if ENABLE_SIMULATION
-  static float simPressure = 4.5f;
-  simPressure += ((float)random(-10, 10) / 100.0f);
-  simPressure = constrain(simPressure, 3.0f, 6.0f);
-
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-    ErrorHandler::markErrorCleared(ErrorHandler::Error::SENSOR);
-  }
-  return simPressure;
-#endif
-
-  if (!jhmReady || !Jhm1200::isReady()) {
-    return 0.0f;
-  }
-
-  static uint32_t lastReadTime = 0;
-  static float lastGoodBar = 0.0f;
-  static bool haveLast = false;
-  const uint32_t now = millis();
-  // Минимальный интервал ? settle датчика; при частых вызовах отдаём кэш.
-  if (now - lastReadTime < 12) {
-    return haveLast ? lastGoodBar : -1.0f;
-  }
-  lastReadTime = now;
-
-  float bar = 0.0f;
-  bool ok = false;
-  {
-    MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(150));
-    if (!i2c) return haveLast ? lastGoodBar : -1.0f;
-    ok = Jhm1200::readBar(bar);
-  }
-
-  static uint8_t consecutiveFails = 0;
-  if (!ok) {
-    consecutiveFails++;
-    // Несколько фейлов подряд (I2C/MPU) — ещё не SENSOR; порог выше ложных срабатываний.
-    if (consecutiveFails < 8) {
-      return haveLast ? lastGoodBar : -1.0f;
-    }
-    consecutiveFails = 0;
-    static uint32_t lastErrorTime = 0;
-    if (millis() - lastErrorTime > 5000) {
-      lastErrorTime = millis();
-      Serial.println("[WARN] JHM1200: ошибка чтения!");
-    }
-    if (!ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-      ErrorHandler::handleError(ErrorHandler::Error::SENSOR, "JHM1200 - ошибка чтения");
-    } else {
-      ErrorHandler::updateErrorTime(ErrorHandler::Error::SENSOR);
-    }
-    return 0.0f;
-  }
-  consecutiveFails = 0;
-
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR) && calibrationCompleted) {
-    ErrorHandler::markErrorCleared(ErrorHandler::Error::SENSOR);
-  }
-
-  float localZeroBar = 0.0f;
-  {
-    MutexGuard guard(xCalibMutex);
-    if (guard) {
-      localZeroBar = g_pressureZeroBar;
-    }
-  }
-  bar -= localZeroBar;
-  if (bar < 0.02f) bar = 0.0f;
-  if (bar > 10.0f) bar = 10.0f;
-
-  // При работе клапанов — почти сырое значение; в простое — лёгкое EMA.
-  const bool fastPath = manualControlActive || autoLevelingController.isBusy();
-  if (!haveLast) {
-    lastGoodBar = bar;
-    haveLast = true;
-  } else if (fastPath) {
-    lastGoodBar = 0.35f * lastGoodBar + 0.65f * bar;
-  } else {
-    const float delta = bar - lastGoodBar;
-    if (fabsf(delta) > 0.8f) {
-      bar = lastGoodBar + (delta > 0 ? 0.8f : -0.8f);
-    }
-    lastGoodBar = 0.55f * lastGoodBar + 0.45f * bar;
-  }
-  return lastGoodBar;
-}
+// readPressure — see pressure_read.cpp
 
 /* ====================  UI-ХЕЛПЕРЫ  ==================== */
 
@@ -5834,56 +4447,7 @@ void drawIconB(int16_t x, int16_t y, const unsigned char *icon, uint16_t color) 
   tft.drawBitmap(x, y, icon, 45, 45, color);
 }
 
-/** Монитор утечек: при простое сравнивает падение давления за 10–15 мин. */
-static void updateLeakMonitor() {
-  static float baseline[PAD_COUNT];
-  static uint32_t baselineMs = 0;
-  static bool haveBaseline = false;
-
-  if (manualControlActive || autoLevelingController.isBusy() ||
-      currentSystemMode == SystemMode::MOVEMENT || otaInProgress ||
-      ErrorHandler::hasCriticalPneumaticErrors()) {
-    haveBaseline = false;
-    return;
-  }
-
-  const uint32_t now = millis();
-  for (uint8_t i = 0; i < PAD_COUNT; i++) {
-    if (!pressureValid[i] || (now - pressureStampMs[i]) > 60000UL) {
-      haveBaseline = false;
-      return;
-    }
-  }
-
-  if (!haveBaseline) {
-    memcpy(baseline, pressure, sizeof(baseline));
-    baselineMs = now;
-    haveBaseline = true;
-    return;
-  }
-
-  if (now - baselineMs < 600000UL) return;  // 10 мин
-
-  float worstDrop = 0.0f;
-  int worstPad = -1;
-  for (uint8_t i = 0; i < PAD_COUNT; i++) {
-    const float drop = baseline[i] - pressure[i];
-    if (drop > worstDrop) {
-      worstDrop = drop;
-      worstPad = (int)i;
-    }
-  }
-  if (worstPad >= 0 && worstDrop >= 0.35f) {
-    leakSuspect = true;
-    strlcpy(leakSuspectPad, padNames[worstPad], sizeof(leakSuspectPad));
-    Serial.printf("[LEAK] Подозрение: %s падение %.2f бар за %lu с\n", leakSuspectPad, worstDrop,
-                  (unsigned long)((now - baselineMs) / 1000));
-  } else {
-    leakSuspect = false;
-    leakSuspectPad[0] = '\0';
-  }
-  haveBaseline = false;  // новый цикл наблюдения
-}
+// updateLeakMonitor — see pressure_read.cpp
 
 /** СТАТ + иконка «авто стоит» (iconAutoStopL). Мигает, пока isMoving,
  *  но режим ещё не MOVEMENT (набор длительности до входа в ДВИЖЕНИЕ). */
@@ -6582,178 +5146,9 @@ void resetSystemErrors() {
     Serial.println("[SYSTEM] Сброс ошибок инициирован");
 }
 
-bool checkPressureLimits() {
-#if ENABLE_SIMULATION
-  return false;
-#endif
+// checkPressureLimits — see pressure_read.cpp
 
-  if (!calibrationCompleted) {
-    return false;
-  }
-
-  if (!firstPressureMeasurementDone) {
-    static uint32_t lastLog = 0;
-    if (millis() - lastLog > 30000) {
-      lastLog = millis();
-      Serial.println("[CHECK] Ожидание первого замера давления...");
-    }
-    return false;
-  }
-
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-    return false;
-  }
-
-  float localMaster;
-  {
-    MutexGuard guard(xStateMutex);
-    if (!guard) return false;
-    localMaster = masterPressure;
-  }
-
-  // LOW_PRESSURE: МП ниже «Низк.МП»; порог 0.00 = проверка выключена
-  float masterLow = ConfigManager::getMasterLowBar();
-  if (masterLow <= 0.0f) {
-    if (ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
-      ErrorHandler::removeError(ErrorHandler::Error::LOW_PRESSURE);
-      Serial.println("[CHECK] LOW_PRESSURE снята сразу (Низк.МП=0, проверка выкл.)");
-    }
-    return false;
-  }
-
-  if (localMaster < masterLow) {
-    if (ErrorHandler::isPendingClear(ErrorHandler::Error::LOW_PRESSURE)) {
-      ErrorHandler::cancelClear(ErrorHandler::Error::LOW_PRESSURE);
-      Serial.println("[CHECK] Отменено удаление LOW_PRESSURE (давление снова упало)");
-    }
-
-    if (!ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
-      ErrorHandler::handleError(ErrorHandler::Error::LOW_PRESSURE,
-                                "Низкое давление в магистрали");
-      Serial.printf("[CHECK] LOW_PRESSURE создана! МП: %.2f бар (порог: %.2f)\n",
-                    localMaster, masterLow);
-    } else {
-      ErrorHandler::updateErrorTime(ErrorHandler::Error::LOW_PRESSURE);
-    }
-    return true;
-  }
-
-  // ? ДАВЛЕНИЕ В НОРМЕ - УДАЛЯЕМ ОШИБКУ
-  if (ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
-    // ? ПРОВЕРЯЕМ, НЕ НАХОДИТСЯ ЛИ УЖЕ ОШИБКА В pendingClear
-    if (!ErrorHandler::isPendingClear(ErrorHandler::Error::LOW_PRESSURE)) {
-      ErrorHandler::markErrorCleared(ErrorHandler::Error::LOW_PRESSURE);
-      Serial.printf("[CHECK] LOW_PRESSURE будет удалена через 3 сек. Давление: %.2f бар\n",
-                    localMaster);
-    } else {
-      // ? ОШИБКА УЖЕ В ОЧЕРЕДИ НА УДАЛЕНИЕ - НЕ ТРОГАЕМ ТАЙМЕР
-      static uint32_t lastPendingLog = 0;
-      if (millis() - lastPendingLog > 5000) {
-        lastPendingLog = millis();
-        Serial.printf("[CHECK] LOW_PRESSURE уже в очереди на удаление. Давление: %.2f бар\n",
-                      localMaster);
-      }
-    }
-  }
-
-  return false;
-}
-
-void startManualOperation(Pad padIdx, bool inflate) {
-  if (padIdx >= PAD_COUNT) return;
-  if (manualControlActive) return;
-  if (currentSystemMode == SystemMode::MOVEMENT) return;
-
-  // ? Проверка давления в магистрали
-  float currentMaster;
-  {
-    MutexGuard guard(xStateMutex);
-    if (!guard) return;
-    currentMaster = masterPressure;
-  }
-
-
-  float minPressure = ConfigManager::getPressureMin();
-  // Сброс разрешён при низком МП; накачка — нет.
-  if (inflate && currentMaster < minPressure) {
-    Serial.printf("[MANUAL] Низкое давление в магистрали (%.1f < %.1f), накачка запрещена\n",
-                  currentMaster, minPressure);
-    return;
-  }
-
-  float currentPressure;
-  float maxPressure = ConfigManager::getPressureMax();
-
-  {
-    MutexGuard guard(xStateMutex);
-    if (!guard) return;
-    currentPressure = pressure[padIdx];
-  }
-
-  if (inflate && currentPressure >= maxPressure - ConfigManager::getPressureDeadband()) {
-    Serial.printf("[MANUAL] %s уже на максимуме (%.1f бар)\n", padNames[padIdx], currentPressure);
-    return;
-  }
-  if (!inflate && currentPressure <= minPressure + ConfigManager::getPressureDeadband()) {
-    Serial.printf("[MANUAL] %s уже на минимуме (%.1f бар)\n", padNames[padIdx], currentPressure);
-    return;
-  }
-
-  {
-    MutexGuard guard(xStateMutex);
-    if (guard) {
-      manualTargetPressure[padIdx] = currentPressure;
-      manualTargetSet[padIdx] = true;
-    }
-  }
-
-  manualControlActive = true;
-  manualPadIndex = padIdx;
-  manualInflate = inflate;
-  manualStartTime = millis();
-
-  sendValveCommand(padIdx, inflate, UINT32_MAX);
-
-  Logger::logf(Logger::INFO, "MANUAL", "%s %s (давление %.1f)",
-               inflate ? "НАКАЧКА" : "СТРАВЛИВАНИЕ",
-               padNames[padIdx], currentPressure);
-
-  //manualTargetSet[padIdx] = false;
-
-  Event event;
-  event.type = EventType::MANUAL_OPERATION_START;
-  event.timestamp = millis();
-  event.data.manualOp.pad = static_cast<uint8_t>(padIdx);
-  event.data.manualOp.inflate = inflate;
-  EventBus::publish(event);
-
-  setDisplayDirty();
-}
-
-void stopManualOperation() {
-  if (!manualControlActive) return;
-
-  {
-    MutexGuard guard(xStateMutex);
-    if (guard) {
-      manualTargetPressure[manualPadIndex] = pressure[manualPadIndex];
-      manualTargetSet[manualPadIndex] = true;
-    }
-  }
-
-  sendValveCommand(manualPadIndex, manualInflate, 0);
-  manualControlActive = false;
-
-  Event event;
-  event.type = EventType::MANUAL_OPERATION_END;
-  event.timestamp = millis();
-  event.data.manualOp.pad = static_cast<uint8_t>(manualPadIndex);
-  event.data.manualOp.inflate = manualInflate;
-  EventBus::publish(event);
-
-  Logger::log(Logger::INFO, "MANUAL", "Операция завершена");
-  setDisplayDirty();
-}
+// startManualOperation / stopManualOperation — see valve_ctrl.cpp
 
 void eventHandlerTask(void *pvParameters) {
 
@@ -6789,440 +5184,9 @@ void eventHandlerTask(void *pvParameters) {
   }
 }
 
-void valveTask(void *pvParameters) {
+// valveTask — see task_valve.cpp
 
-  UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);
-  if (stackHighWater < 300) {
-    Serial.printf("[%s] ?? CRITICAL: Stack low! %d bytes free\n",
-                  pcTaskGetName(NULL), stackHighWater);
-  } else if (stackHighWater < 500) {
-    Serial.printf("[%s] ?? Stack low: %d bytes free\n",
-                  pcTaskGetName(NULL), stackHighWater);
-  }
-
-  Serial.println("[DEBUG] Valve Task started");
-
-  extern uint8_t taskIndex_Valve;
-
-  ValveCommandMsg cmd;
-  ValveCommandMsg activeCmd;
-  memset(&cmd, 0, sizeof(cmd));
-  memset(&activeCmd, 0, sizeof(activeCmd));
-  bool cmdActive = false;
-  TickType_t cmdStartTime = 0;
-
-  for (;;) {
-    TaskPool::markRun(taskIndex_Valve);
-    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_VALVE);
-
-    if (valveStopRequested) {
-      if (cmdActive) {
-        if (takeMutexWithRetry(xValveMutex, pdMS_TO_TICKS(100), 3, "valve/stop")) {
-          closeAllValves();
-          xSemaphoreGive(xValveMutex);
-        } else {
-          closeAllValves();  // fail-safe
-        }
-        if (activeCmd.sync.ackQueue != nullptr) {
-          bool success = false;
-          xQueueSend(activeCmd.sync.ackQueue, &success, 0);
-        }
-        cmdActive = false;
-        memset(&activeCmd, 0, sizeof(activeCmd));
-      }
-      while (xQueueReceive(xValveQueue, &cmd, 0) == pdTRUE) {
-        if (cmd.sync.ackQueue != nullptr) {
-          bool success = false;
-          xQueueSend(cmd.sync.ackQueue, &success, 0);
-        }
-      }
-      closeAllValves();
-      valveStopRequested = false;
-    }
-
-    if (otaValveLock) {
-      if (cmdActive) {
-        if (takeMutexWithRetry(xValveMutex, pdMS_TO_TICKS(100), 3, "valve/ota-lock")) {
-          closeAllValves();
-          xSemaphoreGive(xValveMutex);
-        } else {
-          closeAllValves();
-        }
-        cmdActive = false;
-        lastCmd.commandActive = false;
-        lastCmd.waitingForCompletion = false;
-        memset(&activeCmd, 0, sizeof(activeCmd));
-      }
-      while (xQueueReceive(xValveQueue, &cmd, 0) == pdTRUE) {
-        if (cmd.sync.ackQueue != nullptr) {
-          bool success = false;
-          xQueueSend(cmd.sync.ackQueue, &success, 0);
-        }
-      }
-      vTaskDelay(pdMS_TO_TICKS(10));
-      continue;
-    }
-
-    if (cmdActive) {
-      TickType_t now = xTaskGetTickCount();
-      TickType_t elapsed = now - cmdStartTime;
-
-      if (elapsed >= activeCmd.async.duration ||
-          elapsed >= pdMS_TO_TICKS(VALVE_OPERATION_TIMEOUT_MS) ||
-          activeCmd.async.duration == 0) {
-        MutexGuard guard(xValveMutex);
-        if (guard) {
-          setValve(activeCmd.async.pad, LOW);
-          digitalWrite(PIN_INFL, LOW);
-          digitalWrite(PIN_DEFL, LOW);
-        }
-
-
-
-        if (activeCmd.sync.ackQueue != nullptr) {
-          bool success = true;
-          xQueueSend(activeCmd.sync.ackQueue, &success, 0);
-        }
-
-        cmdActive = false;
-        lastCmd.commandActive = false;
-        memset(&activeCmd, 0, sizeof(activeCmd));
-      }
-    }
-
-    if (!cmdActive) {
-      if (xQueueReceive(xValveQueue, &cmd, pdMS_TO_TICKS(10)) == pdTRUE) {
-
-        if (cmd.async.duration == 0) {
-          MutexGuard guard(xValveMutex);
-          if (guard) {
-            setValve(cmd.async.pad, LOW);
-            if (cmd.async.inflate) {
-              digitalWrite(PIN_INFL, LOW);
-            } else {
-              digitalWrite(PIN_DEFL, LOW);
-            }
-          }
-
-          if (cmd.sync.ackQueue != nullptr && uxQueueSpacesAvailable(cmd.sync.ackQueue) > 0) {
-            bool success = true;
-            xQueueSend(cmd.sync.ackQueue, &success, 0);
-          }
-
-          if (lastCmd.commandActive) {
-            lastCmd.commandActive = false;
-            lastCmd.waitingForCompletion = false;
-          }
-
-          continue;
-        }
-
-        if (cmd.async.pad >= PAD_COUNT) {
-          Serial.printf("[VALVE] Invalid pad: %d\n", (int)cmd.async.pad);
-          if (cmd.sync.ackQueue != nullptr) {
-            bool success = false;
-            xQueueSend(cmd.sync.ackQueue, &success, 0);
-          }
-          continue;
-        }
-
-        memcpy(&activeCmd, &cmd, sizeof(ValveCommandMsg));
-
-        MutexGuard guard(xValveMutex);
-        if (guard) {
-          setValve(activeCmd.async.pad, HIGH);
-          digitalWrite(activeCmd.async.inflate ? PIN_DEFL : PIN_INFL, LOW);
-          digitalWrite(activeCmd.async.inflate ? PIN_INFL : PIN_DEFL, HIGH);
-
-          cmdActive = true;
-          cmdStartTime = xTaskGetTickCount();
-          if (activeCmd.async.pad < PAD_COUNT) {
-            valveCycleCount[activeCmd.async.pad]++;
-          }
-
-          Serial.printf("[VALVE] Started: pad=%d, inflate=%d, duration=%d ticks\n",
-                        (int)activeCmd.async.pad,
-                        activeCmd.async.inflate,
-                        (int)activeCmd.async.duration);
-        } else {
-          Serial.println("[VALVE] Failed to get mutex!");
-          if (activeCmd.sync.ackQueue != nullptr) {
-            bool success = false;
-            xQueueSend(activeCmd.sync.ackQueue, &success, 0);
-          }
-        }
-      }
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(10));
-  }
-}
-
-void controlTask(void *pvParameters) {
-
-  UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);
-  if (stackHighWater < 300) {
-    Serial.printf("[%s] ?? CRITICAL: Stack low! %d bytes free\n",
-                  pcTaskGetName(NULL), stackHighWater);
-  } else if (stackHighWater < 500) {
-    Serial.printf("[%s] ?? Stack low: %d bytes free\n",
-                  pcTaskGetName(NULL), stackHighWater);
-  }
-
-  extern uint8_t taskIndex_Control;
-  TickType_t last = xTaskGetTickCount();
-  const TickType_t period = pdMS_TO_TICKS(500);
-  IMUData imu = { 0 };
-  PressureData press = { 0 };
-
-  // ========== Переменные health-check JHM1200 ==========
-  static uint32_t lastAdsCheck = 0;  // период health JHM1200
-  static bool adsErrorReported = false;
-
-  for (;;) {
-    TaskPool::markRun(taskIndex_Control);
-    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_CONTROL);
-    if (otaInProgress) {
-      vTaskDelay(pdMS_TO_TICKS(500));
-      continue;
-    }
-
-    uint32_t currentTime = millis();
-
-    // ========== ? ДОБАВЛЕНО: СБРОС lastCmd ПРИ ОШИБКЕ SENSOR ==========
-    if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-      if (lastCmd.waitingForCompletion || lastCmd.commandActive) {
-        lastCmd.waitingForCompletion = false;
-        lastCmd.commandActive = false;
-        Serial.println("[CONTROL] lastCmd сброшен из-за ошибки SENSOR");
-      }
-    }
-
-
-// ========== ПРОВЕРКА JHM1200 КАЖДЫЕ ~100 С ==========
-#if !ENABLE_SIMULATION
-
-    // В controlTask(), в цикле:
-    static uint32_t lastHourReset = 0;
-    uint32_t now = millis();
-
-    // Сброс счетчика каждый час
-    if (now - lastHourReset >= 3600000) {
-      levelingAttemptsThisHour = 0;
-      lastHourReset = now;
-      Serial.println("[AUTO] Сброс счетчика попыток (прошел час)");
-    }
-
-    if (currentTime - lastAdsCheck > 100000) {
-      lastAdsCheck = currentTime;
-
-      float testBar = 0.0f;
-      bool ok = false;
-      {
-        MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(120));
-        if (i2c) ok = Jhm1200::readBar(testBar);
-      }
-
-      static uint8_t healthFails = 0;
-      if (!ok) {
-        if (healthFails < 255) healthFails++;
-        // Одна неудача health-check (~раз в 100 с) не должна поднимать SENSOR.
-        if (healthFails >= 3 && !ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR) &&
-            !adsErrorReported) {
-          adsErrorReported = true;
-          ErrorHandler::handleError(ErrorHandler::Error::SENSOR, "JHM1200 не отвечает");
-          Serial.println("[JHM1200] Ошибка чтения! Проверьте подключение.");
-        }
-      } else {
-        healthFails = 0;
-        if (adsErrorReported) {
-          adsErrorReported = false;
-          if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-            ErrorHandler::markErrorCleared(ErrorHandler::Error::SENSOR);
-            Serial.printf("[JHM1200] Датчик восстановлен (%.2f бар)\n", testBar);
-          }
-        }
-      }
-    }
-
-#endif
-    if (currentTestState != TestState::IDLE && currentTestState != TestState::COMPLETED) {
-      if (xQueueReceive(xIMUQueue, &imu, pdMS_TO_TICKS(10)) == pdTRUE) {
-        MutexGuard guard(xStateMutex);
-        if (guard) {
-          // Нуль уже вычтен в imuTask
-          angleX = imu.angleX;
-          angleY = imu.angleY;
-          temperature = imu.temperature;
-        }
-      }
-      if (xQueueReceive(xPressureQueue, &press, pdMS_TO_TICKS(10)) == pdTRUE) {
-        MutexGuard guard(xStateMutex);
-        if (guard) {
-          memcpy(pressure, press.pressure, sizeof(pressure));
-          masterPressure = press.masterPressure;
-        }
-      }
-      runValveTestLogic();
-      vTaskDelayUntil(&last, pdMS_TO_TICKS(100));
-      continue;
-    }
-
-    if (xQueueReceive(xIMUQueue, &imu, pdMS_TO_TICKS(10)) == pdTRUE) {
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        // Нуль уже вычтен в imuTask
-        angleX = imu.angleX;
-        angleY = imu.angleY;
-        temperature = imu.temperature;
-      }
-    }
-    if (xQueueReceive(xPressureQueue, &press, pdMS_TO_TICKS(10)) == pdTRUE) {
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        memcpy(pressure, press.pressure, sizeof(pressure));
-        masterPressure = press.masterPressure;
-      }
-    }
-
-
-
-#if !ENABLE_SIMULATION
-    if (currentSystemMode == SystemMode::MOVEMENT) {
-      if (!mpuOk) {
-        if (movementModeActive) {
-          movementModeActive = false;
-          currentSystemMode = previousMode;
-          Serial.println("[CONTROL] MOVEMENT mode disabled (MPU not working)");
-        }
-      } else if (!ErrorHandler::hasCriticalPneumaticErrors()) {
-        static uint32_t lastMovementCheck = 0;
-        if (currentTime - lastMovementCheck >= (uint32_t)ConfigManager::getMovementCheckSec() * 1000UL) {
-          maintainMovementPressure();
-          lastMovementCheck = currentTime;
-        }
-      }
-    } else if (currentSystemMode == SystemMode::AUTO && currentState == SystemState::RUNNING) {
-      // ? Проверка ошибок перед выравниванием
-      if (!ErrorHandler::hasActiveErrors() && mpuOk) {
-        autoLevelingController.process();
-      } else {
-        static uint32_t lastAutoErrorLog = 0;
-        if (millis() - lastAutoErrorLog > 10000) {
-          lastAutoErrorLog = millis();
-          if (ErrorHandler::hasActiveErrors()) {
-            Serial.println("[AUTO] Выравнивание приостановлено из-за ошибок");
-          }
-          if (!mpuOk) {
-            Serial.println("[AUTO] Выравнивание приостановлено: MPU не исправен");
-          }
-        }
-      }
-      checkAndAdjustMasterPressure();
-    } else if (currentSystemMode == SystemMode::MANUAL && currentState == SystemState::RUNNING) {
-      checkAndAdjustMasterPressure();
-      static uint32_t lastManualMaintainTime = 0;
-      if (currentTime - lastManualMaintainTime >= MANUAL_PRESSURE_CHECK_INTERVAL_MS) {
-        maintainManualPressure();
-        lastManualMaintainTime = currentTime;
-      }
-    }
-#endif
-    if (manualControlActive && (millis() - manualStartTime > (uint32_t)ConfigManager::getManualMaxTimeSec() * 1000UL)) {
-      stopManualOperation();
-    }
-
-    static uint32_t lastLeakCheck = 0;
-    if (currentTime - lastLeakCheck >= 30000UL) {
-      updateLeakMonitor();
-      lastLeakCheck = currentTime;
-    }
-
-    bool sensorActive = ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR);
-    bool mpuActive = ErrorHandler::isErrorActive(ErrorHandler::Error::MPU);
-
-
-    if (!sensorActive) {
-      // ДАТЧИК РАБОТАЕТ - проверяем давление
-      checkPressureLimits();
-    } else {
-      // ДАТЧИК НЕИСПРАВЕН - LOW_PRESSURE НЕ ИМЕЕТ СМЫСЛА
-      if (ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
-        // ? Ждем 3 секунды перед удалением
-        ErrorHandler::markErrorCleared(ErrorHandler::Error::LOW_PRESSURE);
-        static uint32_t lastLogTime = 0;
-        if (millis() - lastLogTime > 10000) {
-          lastLogTime = millis();
-          Serial.println("[CONTROL] LOW_PRESSURE будет удалена через 3 сек (датчик неисправен)");
-        }
-      }
-    }
-    static uint32_t stabilizeStart = 0;
-
-    if (lastCmd.waitingForCompletion && !lastCmd.commandActive && !ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-
-      if (stabilizeStart == 0) {
-        stabilizeStart = millis();
-      }
-
-      if (stabilizeStart != 0 && (millis() - stabilizeStart) >= 500) {
-        bool pressureChanged = false;
-
-        MutexGuard guard(xStateMutex);
-        if (guard) {
-          float currentPressure = pressure[lastCmd.pad];
-          float pressureDelta = abs(currentPressure - lastCmd.pressureBefore);
-
-          if (pressureDelta > 0.3f) {
-            pressureChanged = true;
-          }
-        }
-
-        if (!pressureChanged) {
-          valveErrorCounter.consecutiveFailures++;
-          valveErrorCounter.lastFailureTime = millis();
-
-          Serial.printf("[VALVE] Сбой #%d/%d при команде %s %s\n",
-                        valveErrorCounter.consecutiveFailures,
-                        valveErrorCounter.requiredFailures,
-                        padNames[lastCmd.pad],
-                        lastCmd.inflate ? "НАКАЧКА" : "СТРАВЛИВАНИЕ");
-
-          if (valveErrorCounter.consecutiveFailures >= valveErrorCounter.requiredFailures && !valveErrorCounter.valveErrorActive) {
-
-            valveErrorCounter.valveErrorActive = true;
-            if (!ErrorHandler::isErrorActive(ErrorHandler::Error::VALVE)) {
-              ErrorHandler::handleError(ErrorHandler::Error::VALVE,
-                                        "Клапанный блок не реагирует на команды");
-            } else {
-              ErrorHandler::updateErrorTime(ErrorHandler::Error::VALVE);  // ?
-            }
-          }
-        } else {
-          if (valveErrorCounter.consecutiveFailures > 0) {
-            Serial.printf("[VALVE] Команда успешна, сброс счётчика (было %d сбоев)\n",
-                          valveErrorCounter.consecutiveFailures);
-            valveErrorCounter.consecutiveFailures = 0;
-          }
-
-          if (valveErrorCounter.valveErrorActive) {
-            valveErrorCounter.valveErrorActive = false;
-            if (ErrorHandler::isErrorActive(ErrorHandler::Error::VALVE)) {
-              ErrorHandler::removeError(ErrorHandler::Error::VALVE);
-            }
-            Serial.println("[VALVE] Ошибка VALVE удалена (система восстановилась)");
-          }
-        }
-
-        lastCmd.waitingForCompletion = false;
-        stabilizeStart = 0;
-      }
-    } else {
-      stabilizeStart = 0;
-    }
-    vTaskDelayUntil(&last, pdMS_TO_TICKS(100));
-  }
-}
+// controlTask — see task_control.cpp
 
 /** Открыть меню. Вызывать из DisplayTask (под xDisplayMutex) или только флаги. */
 void openMenu() {
@@ -8388,417 +6352,9 @@ void _removed_imuTask(void *pvParameters) {
 }
 #endif // === END REMOVED imuTask ===
 
-void pressureTask(void *pvParameters) {
-  UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);
-  if (stackHighWater < 300) {
-    Serial.printf("[%s] ?? CRITICAL: Stack low! %d bytes free\n",
-                  pcTaskGetName(NULL), stackHighWater);
-  } else if (stackHighWater < 500) {
-    Serial.printf("[%s] ?? Stack low: %d bytes free\n",
-                  pcTaskGetName(NULL), stackHighWater);
-  }
+// pressureTask — see task_pressure.cpp
 
-  extern uint8_t taskIndex_Pressure;
-  PressureData pd = { 0 };
-  uint8_t curPad = 0;
-  Event event;
-
-  // ? ФЛАГ ПЕРВОГО ЗАМЕРА
-  static bool firstMeasurementDone = false;
-  // После полного круга (4 подушки + МП) — ждать Пауза опроса,мин
-  static bool needIdlePause = false;
-
-  for (;;) {
-    TaskPool::markRun(taskIndex_Pressure);
-    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_PRESSURE);
-    if (otaInProgress) {
-      vTaskDelay(pdMS_TO_TICKS(500));
-      continue;
-    }
-
-    // Выравн.МП,мс — пауза перед чтением датчика; Пауза опроса,мин — между полными кругами.
-    const uint32_t stabilizeMs =
-        (uint32_t)constrain(ConfigManager::getPressureStabilizeMs(), 100, 2000);
-    const uint32_t idleMs =
-        (uint32_t)constrain(ConfigManager::getPressureIdleMin(), 2, 30) * 60000UL;
-
-    // ============================================================
-    // ОПРЕДЕЛЕНИЕ ТАЙМАУТА ОЖИДАНИЯ
-    // ============================================================
-    const bool valveWork =
-        manualControlActive || autoLevelingController.isBusy();
-    uint32_t timeout;
-    if (valveWork) {
-      // Во время клапанов — чаще будим цикл.
-      timeout = 200;
-    } else if (needIdlePause) {
-      // Простой: пауза 2…30 мин до следующего полного опроса (прерывается wakeup).
-      // Soft-WATCHDOG не должен подменять это на 60 с — иначе опрос «залипает».
-      timeout = idleMs;
-    } else {
-      // Середина круга подушек — сразу следующий замер.
-      timeout = 0;
-    }
-
-    // ============================================================
-    // ОЖИДАНИЕ ПРОБУЖДЕНИЯ (кусочками ?1 с — heartbeat soft-WDT)
-    // ============================================================
-    uint32_t dummy;
-    bool woken = false;
-    constexpr uint32_t kWdtSliceMs = 1000;
-    if (timeout == 0) {
-      if (xQueueReceive(xPressureWakeupQueue, &dummy, 0) == pdTRUE) {
-        woken = true;
-      }
-    } else {
-      uint32_t waited = 0;
-      while (waited < timeout) {
-        TaskMonitor::updateTaskStatus(TaskMonitor::TASK_PRESSURE);
-        uint32_t chunk = timeout - waited;
-        if (chunk > kWdtSliceMs) chunk = kWdtSliceMs;
-        if (xQueueReceive(xPressureWakeupQueue, &dummy, pdMS_TO_TICKS(chunk)) == pdTRUE) {
-          woken = true;
-          break;
-        }
-        waited += chunk;
-      }
-    }
-    if (woken) {
-      Serial.println("[PRESS] Wakeup by request");
-      needIdlePause = false;
-    } else if (needIdlePause && timeout == idleMs) {
-      needIdlePause = false;
-      Serial.printf("[PRESS] Пауза %d мин истекла — новый опрос подушек\n",
-                    ConfigManager::getPressureIdleMin());
-    }
-
-    // Во время калибровки нуля не трогаем клапаны — иначе искажается zero
-    {
-      SystemState st = getSystemState();
-      if (st == SystemState::BOOT || st == SystemState::CALIBRATING || !calibrationCompleted) {
-        vTaskDelay(pdMS_TO_TICKS(100));
-        continue;
-      }
-    }
-
-#if ENABLE_SIMULATION
-    // ============================================================
-    // РЕЖИМ СИМУЛЯЦИИ
-    // ============================================================
-    updateSimulationData();
-
-    for (int i = 0; i < PAD_COUNT; i++) {
-      pd.pressure[i] = simPressures[i];
-    }
-    pd.masterPressure = simMasterPressure;
-
-    if (xQueueSend(xPressureQueue, &pd, pdMS_TO_TICKS(100)) != pdTRUE) pressureQueueDropCount++;
-
-    {
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        memcpy(pressure, simPressures, sizeof(pressure));
-        masterPressure = simMasterPressure;
-      }
-    }
-
-    event.type = EventType::PRESSURE_UPDATE;
-    event.timestamp = millis();
-    memcpy(event.data.pressure.pressure, simPressures, sizeof(simPressures));
-    event.data.pressure.masterPressure = simMasterPressure;
-    EventBus::publish(event, 0);
-
-    if (currentState != SystemState::CALIBRATING) {
-      setDisplayDirty();
-    }
-
-    needIdlePause = true;
-
-#else
-    // ============================================================
-    // РЕАЛЬНЫЙ РЕЖИМ
-    // ============================================================
-
-    if (ErrorHandler::isErrorActive(ErrorHandler::Error::VALVE) || otaValveLock) {
-      // Soft-WATCHDOG не блокирует опрос: иначе давление залипает на 0 и ошибка не сходит.
-      vTaskDelay(pdMS_TO_TICKS(100));
-    } else if (valveWork) {
-      // Клапаны уже коммутируют контур; stabilizeMs — выравнивание давления в магистрали.
-      vTaskDelay(pdMS_TO_TICKS(stabilizeMs));
-      float p = readPressure();
-      if (p >= 0.0f) {
-        if (manualControlActive) {
-          const uint8_t idx = static_cast<uint8_t>(manualPadIndex);
-          if (idx < PAD_COUNT) {
-            pd.pressure[idx] = p;
-            pressureStampMs[idx] = millis();
-            pressureValid[idx] = true;
-          }
-        } else {
-          pd.pressure[curPad] = p;
-          pressureStampMs[curPad] = millis();
-          pressureValid[curPad] = true;
-        }
-      }
-    } else if (xSemaphoreTake(xValveMutex, pdMS_TO_TICKS(1000)) == pdTRUE) {
-      setValve(Pad(curPad), HIGH);
-      vTaskDelay(pdMS_TO_TICKS(stabilizeMs));
-      float p = readPressure();
-      setValve(Pad(curPad), LOW);
-
-      if (p >= 0.0f) {
-        pd.pressure[curPad] = p;
-        pressureStampMs[curPad] = millis();
-        pressureValid[curPad] = true;
-      }
-
-      curPad = (curPad + 1) % PAD_COUNT;
-      if (curPad == 0) {
-        digitalWrite(PIN_INFL, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(stabilizeMs));
-        float master = readPressure();
-        digitalWrite(PIN_INFL, LOW);
-        if (master >= 0.0f) {
-          pd.masterPressure = master;
-          masterStampMs = millis();
-          masterValid = true;
-        }
-
-        if (!firstMeasurementDone && pd.masterPressure >= 0.0f) {
-          firstMeasurementDone = true;
-          firstPressureMeasurementDone = true;
-          Serial.printf("[PRESS] Первый замер выполнен! Давление: %.2f бар\n", pd.masterPressure);
-          checkPressureLimits();
-        }
-        // Полный круг закончен — дальше пауза 2…30 мин (если не клапаны).
-        needIdlePause = true;
-      }
-      xSemaphoreGive(xValveMutex);
-    }
-#endif
-
-    // ============================================================
-    // ОТПРАВКА ДАННЫХ В ОЧЕРЕДЬ
-    // ============================================================
-    if (xQueueSend(xPressureQueue, &pd, pdMS_TO_TICKS(100)) != pdTRUE) {
-      Serial.println("[ERROR] Failed to send to pressure queue");
-    }
-
-    // ============================================================
-    // ОБНОВЛЕНИЕ ГЛОБАЛЬНЫХ ПЕРЕМЕННЫХ
-    // ============================================================
-    bool pressureChanged = false;
-    {
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        for (int i = 0; i < PAD_COUNT; i++) {
-          if (abs(pressure[i] - pd.pressure[i]) > ConfigManager::getRedrawPressureThr()) {
-            pressureChanged = true;
-            break;
-          }
-        }
-        if (abs(masterPressure - pd.masterPressure) > ConfigManager::getRedrawPressureThr()) {
-          pressureChanged = true;
-        }
-        memcpy(pressure, pd.pressure, sizeof(pressure));
-        masterPressure = pd.masterPressure;
-      }
-    }
-
-    // ============================================================
-    // ПУБЛИКАЦИЯ СОБЫТИЯ
-    // ============================================================
-    event.type = EventType::PRESSURE_UPDATE;
-    event.timestamp = millis();
-    memcpy(event.data.pressure.pressure, pd.pressure, sizeof(pd.pressure));
-    event.data.pressure.masterPressure = pd.masterPressure;
-    EventBus::publish(event, 0);
-
-    // ============================================================
-    // ОБНОВЛЕНИЕ ЭКРАНА
-    // ============================================================
-    if (pressureChanged) {
-      if (currentState != SystemState::CALIBRATING) {
-        setDisplayDirty();
-      }
-    }
-  }
-}
-
-void calibrationTask(void *pvParameters) {
-    extern uint8_t taskIndex_Calib;
-
-    for (;;) {
-        TaskPool::markRun(taskIndex_Calib);
-        TaskMonitor::updateTaskStatus(TaskMonitor::TASK_CALIB);
-
-        if (getSystemState() == SystemState::BOOT) {
-
-#if ENABLE_SIMULATION
-            Serial.println("[CALIB] SIM: Пропускаем калибровку (режим симуляции)");
-            setSystemState(SystemState::RUNNING);
-            calibrationCompleted = true;
-            displayDirty = true;
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            continue;
-#else
-
-            // ============================================================
-            // ШАГ 1: ИНИЦИАЛИЗАЦИЯ JHM1200
-            // ============================================================
-            Serial.println("[CALIB] ШАГ 1/3: Инициализация JHM1200...");
-
-            bool jhmOk = initializeJhm1200();
-            if (!jhmOk) {
-                Serial.println("[CALIB] JHM1200 НЕ НАЙДЕН! Повтор через 2 с…");
-                ErrorHandler::handleError(ErrorHandler::Error::SENSOR, "JHM1200 не найден");
-                setSystemState(SystemState::RUNNING);
-                calibrationCompleted = false;
-                displayDirty = true;
-                forceDisplayReset(true);
-                vTaskDelay(pdMS_TO_TICKS(2000));
-                setSystemState(SystemState::BOOT);
-                continue;
-            }
-
-            Serial.println("[CALIB] JHM1200 инициализирован (0x78)");
-
-            // ============================================================
-            // ШАГ 2: ПРОВЕРКА ДАТЧИКА ДАВЛЕНИЯ
-            // ============================================================
-            Serial.println("[CALIB] ШАГ 2/3: Проверка датчика давления...");
-
-            float probeBar = 0.0f;
-            bool probeOk = false;
-            for (int attempt = 0; attempt < 8 && !probeOk; attempt++) {
-              if (attempt > 0) vTaskDelay(pdMS_TO_TICKS(30));
-              MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(200));
-              if (i2c) probeOk = Jhm1200::readBar(probeBar);
-            }
-
-            if (!probeOk) {
-                Serial.println("[CALIB] ОШИБКА ЧТЕНИЯ JHM1200! Повтор через 2 с…");
-                ErrorHandler::handleError(ErrorHandler::Error::SENSOR, "JHM1200 - ошибка чтения");
-                setSystemState(SystemState::RUNNING);
-                calibrationCompleted = false;
-                displayDirty = true;
-                forceDisplayReset(true);
-                vTaskDelay(pdMS_TO_TICKS(2000));
-                setSystemState(SystemState::BOOT);  // повтор полного цикла
-                continue;
-            }
-
-            Serial.printf("[CALIB] Датчик давления исправен (%.3f бар, status=0x%02X)\n",
-                          probeBar, Jhm1200::lastStatus());
-
-            // Если датчик исправен – убираем ошибку SENSOR (если была)
-            if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-                ErrorHandler::markErrorCleared(ErrorHandler::Error::SENSOR);
-                Serial.println("[CALIB] Ошибка SENSOR помечена для удаления");
-            }
-
-            // ============================================================
-            // ШАГ 3: ПРОВЕРКА MPU (если включен)
-            // ============================================================
-#if ENABLE_MPU6050
-            Serial.println("[CALIB] ШАГ 3/4: Проверка MPU6050...");
-            if (!mpuOk) {
-              initializeDMP();
-            }
-            if (!mpuOk) {
-                Serial.println("[CALIB] ? MPU6050 НЕ ОТВЕЧАЕТ!");
-            } else {
-                Serial.println("[CALIB] ? MPU6050 инициализирован успешно");
-            }
-#else
-            Serial.println("[CALIB] ШАГ 3/4: MPU6050 отключен (тестовый режим)");
-            mpuOk = false;
-#endif
-
-            // ============================================================
-            // ШАГ 4: КАЛИБРОВКА НУЛЯ ДАТЧИКА ДАВЛЕНИЯ
-            // ============================================================
-            Serial.println("[CALIB] ШАГ 4/4: Калибровка нуля давления...");
-
-            setSystemState(SystemState::CALIBRATING);
-            Serial.println("[CALIB] Entering CALIBRATING state");
-
-            displayDirty = true;
-
-            // ? СОЗДАЁМ ЛОКАЛЬНЫЙ ОБЪЕКТ КАЛИБРАТОРА
-            ZeroCalibrator localCalibrator;
-            bool calibratorStarted = false;
-            bool sensorErrorDuringCalib = false;
-
-            uint32_t start = millis();
-
-            while (millis() - start < CALIB_TIME_MS) {
-                TaskMonitor::updateTaskStatus(TaskMonitor::TASK_CALIB);
-
-                // Проверяем, не появилась ли ошибка SENSOR во время калибровки
-                if (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR)) {
-                    sensorErrorDuringCalib = true;
-                    Serial.println("[CALIB] ? Ошибка SENSOR во время калибровки!");
-                    break;
-                }
-
-                if (!calibratorStarted && (millis() - start >= 2000)) {
-                    localCalibrator.start();  // < ИСПОЛЬЗУЕМ ЛОКАЛЬНЫЙ
-                    calibratorStarted = true;
-                }
-
-                if (calibratorStarted && !localCalibrator.isDone()) {
-                    localCalibrator.process();  // < ИСПОЛЬЗУЕМ ЛОКАЛЬНЫЙ
-                }
-
-                static uint32_t lastDirtySet = 0;
-                if (millis() - lastDirtySet > 100) {
-                    displayDirty = true;
-                    lastDirtySet = millis();
-                }
-
-                vTaskDelay(pdMS_TO_TICKS(50));
-            }
-
-            // ? ПОСЛЕ КАЛИБРОВКИ - СОХРАНЯЕМ РЕЗУЛЬТАТ
-            if (sensorErrorDuringCalib) {
-                Serial.println("[CALIB] ? Калибровка прервана из-за ошибки SENSOR!");
-                setSystemState(SystemState::RUNNING);
-                calibrationCompleted = false;
-                displayDirty = true;
-                forceDisplayReset(true);
-                vTaskDelay(pdMS_TO_TICKS(2000));
-                setSystemState(SystemState::BOOT);
-                continue;
-            }
-
-            if (calibratorStarted && !localCalibrator.isDone()) {
-                Serial.println("[CALIB] Таймаут калибровки, использую последнее значение");
-                g_pressureZeroBar = localCalibrator.getZeroValue();
-            } else if (localCalibrator.isDone()) {
-                g_pressureZeroBar = localCalibrator.getZeroValue();
-            }
-
-            Serial.printf("[CALIB] Калибровка завершена: zero=%.3f бар\n", g_pressureZeroBar);
-            Logger::log(Logger::INFO, "CALIB", "Прогрев и калибровка завершены");
-
-            // ============================================================
-            // ПЕРЕХОД В РЕЖИМ RUNNING
-            // ============================================================
-            setSystemState(SystemState::RUNNING);
-            calibrationCompleted = true;
-            calibrationValid = true;
-            displayDirty = true;
-            forceDisplayReset(true);
-
-            Serial.println("[CALIB] ? Система готова к работе!");
-            Serial.println("[CALIB] Ожидание первого замера давления...");
-#endif
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
+// calibrationTask — see task_calib.cpp
 
 void displayTask(void *pvParameters) {
   UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);
@@ -9425,29 +6981,7 @@ void handleOTA() {
   if (otaMode) ArduinoOTA.handle();
 }
 
-void requestPressureMeasurement() {
-  if (xPressureWakeupQueue == nullptr) {
-    Serial.println("[PRESS] Wakeup queue is null!");
-    return;
-  }
-
-  static uint32_t lastRequestTime = 0;
-  uint32_t now = millis();
-
-  if (now - lastRequestTime < 80) {
-    return;
-  }
-
-  uint32_t dummy = 1;
-  BaseType_t result = xQueueSend(xPressureWakeupQueue, &dummy, pdMS_TO_TICKS(10));
-
-  if (result == pdTRUE) {
-    lastRequestTime = now;
-    Serial.println("[PRESS] Measurement requested");
-  } else {
-    Serial.println("[PRESS] Failed to request measurement - queue full");
-  }
-}
+// requestPressureMeasurement — see pressure_read.cpp
 
 
 static void refreshInfoPage();   // определена ниже
