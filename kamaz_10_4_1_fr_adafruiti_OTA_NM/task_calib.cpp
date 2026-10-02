@@ -27,8 +27,6 @@ static constexpr uint8_t TASK_CALIB_IDX = 6; // TaskMonitor::TASK_CALIB
 /* ── .ino helpers ── */
 void setDisplayDirty();
 extern void forceDisplayReset(bool force);
-extern SystemState getSystemState();
-extern void setSystemState(SystemState st);
 extern void initializeDMP();
 constexpr uint32_t CALIB_TIME_MS = 15000;
 

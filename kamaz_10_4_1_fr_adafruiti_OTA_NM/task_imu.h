@@ -3,7 +3,7 @@
  *  task_imu.h — FreeRTOS imuTask and its shared stream/stats state.
  *
  *  g_imu* variables are written by imuTask, read/set by the serial
- *  test handler in the .ino (TEST IMU STREAM/STATS).
+ *  test handler in test_harness.cpp (TEST IMU STREAM/STATS).
  */
 
 #include <Arduino.h>

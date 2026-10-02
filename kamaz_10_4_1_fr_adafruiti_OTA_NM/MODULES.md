@@ -9,9 +9,10 @@
 | MPU / углы / MOVEMENT / EMA | imu_dmp, imu_motion, task_imu |
 | давление / JHM / калибровка | jhm1200, pressure_read, task_calib |
 | клапаны / ручной / авто | valve_ctrl, auto_level, task_valve |
-| ошибка / recovery / WDT | error_handler, task_recovery, task_watchdog |
+| ошибка / recovery / WDT | error_handler, task_recovery, task_watchdog, task_monitor |
 | Wi-Fi скан / STA | wifi_setup |
 | NVS / пороги / спиннеры | config_manager, ui_menu_build |
+| serial TEST | test_harness |
 
 ## Извлечённые модули (Phase 0)
 
@@ -53,7 +54,24 @@
 | task_control | task_control.h, task_control.cpp | ✅ extracted |
 | task_calib | task_calib.h, task_calib.cpp | ✅ extracted |
 
-## Планируемые модули (Phase 4+)
+## Извлечённые модули (Phase 4 — UI)
 
-- error_handler, task_recovery, task_watchdog
-- config_manager, ui_menu_build
+| Модуль | Файлы | Статус |
+|---|---|---|
+| ui_screens | ui_screens.h, ui_screens.cpp | ✅ extracted |
+| ui_menu_build | ui_menu_build.h, ui_menu_build.cpp | ✅ extracted |
+| task_button | task_button.h, task_button.cpp | ✅ extracted |
+| task_display | task_display.h, task_display.cpp | ✅ extracted |
+
+## Извлечённые модули (Phase 5 — инфраструктура)
+
+| Модуль | Файлы | Статус |
+|---|---|---|
+| config_manager | config_manager.h, config_manager.cpp | ✅ extracted |
+| error_handler | error_handler.h, error_handler.cpp | ✅ extracted |
+| task_monitor | task_monitor.h, task_monitor.cpp | ✅ extracted |
+| memory_monitor | memory_monitor.h, memory_monitor.cpp | ✅ extracted |
+| task_watchdog | task_watchdog.h, task_watchdog.cpp | ✅ extracted |
+| task_recovery | task_recovery.h, task_recovery.cpp | ✅ extracted |
+| task_event | task_event.h, task_event.cpp | ✅ extracted |
+| test_harness | test_harness.h, test_harness.cpp | ✅ extracted |

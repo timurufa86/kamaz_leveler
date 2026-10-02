@@ -43,6 +43,9 @@ extern SystemMode   currentSystemMode;
 extern SystemMode   previousMode;
 extern TestState    currentTestState;
 
+bool setSystemState(SystemState newState);
+SystemState getSystemState();
+
 /* ───── Volatile flags ───── */
 extern volatile bool displayDirty;
 extern volatile bool menuVisible;
