@@ -6,7 +6,7 @@ REM  Uses the project-local arduino-cli.yaml, which points the sketchbook at
 REM  C:\my so that libraries are resolved from C:\my\libraries.
 REM
 REM  Usage:
-REM    build.cmd         ^<-- compile the current 10.1.22 sketch
+REM    build.cmd         ^<-- compile the current 10.4.1 sketch
 REM    build.cmd COM5    ^<-- compile + upload to a board
 REM
 REM  The board uses a CUSTOM 4MB partition table (see
@@ -16,7 +16,8 @@ REM ============================================================================
 
 setlocal
 
-set SKETCH=kamaz_10_1_22_fr_adafruiti_OTA_NM
+set SKETCH=kamaz_10_4_1_fr_adafruiti_OTA_NM
+REM Sketch folder still 10_4_1; VERSION string = 10.4.7 (OTA status UI)
 set FQBN=esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
 set CONFIG=arduino-cli.yaml
 set LINKFLAGS=-Wl,--allow-multiple-definition
