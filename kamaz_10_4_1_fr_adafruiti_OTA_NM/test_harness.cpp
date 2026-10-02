@@ -26,11 +26,6 @@ extern char sta_ssid[33];
 extern int otaProgress;
 extern bool errorScreenBlocking;
 
-void setDisplayDirty();
-void forceDisplayReset(bool force = false);
-void requestMenuOpen(const char *via);
-void requestMenuClose(const char *via);
-
 static volatile bool g_testHeartbeat = false;
 static volatile bool g_testDebugDump = false;
 
@@ -898,4 +893,202 @@ void testHarnessPoll() {
       testPrintImu();
     }
   }
+}
+
+#define SIMULATE_AUTO_MODE 0
+#define SIMULATE_ERRORS 0
+#define SIMULATE_MENU_AUTO_ENTER 0
+
+/* ====================  ПЕРЕМЕННЫЕ ДЛЯ СИМУЛЯЦИИ ==================== */
+// Эти переменные используются даже когда симуляция выключена
+float simAngleX = 0;
+float simAngleY = 0;
+float simPressures[PAD_COUNT] = { 2.0f, 2.5f, 3.0f, 3.5f };
+float simMasterPressure = 4.0f;
+int simDirectionX = 1;
+int simDirectionY = 1;
+uint32_t lastSimUpdate = 0;
+
+// ? ДОБАВЛЕНО: Эти переменные теперь всегда объявлены
+// чтобы их можно было использовать в forceDisplayReset()
+static uint32_t menuAutoEnterTime = 0;
+static bool menuAutoEnterDone = false;
+static bool errorSimulated = false;
+static ErrorHandler::Error simulatedError = ErrorHandler::Error::NONE;
+
+#if ENABLE_SIMULATION
+// Эти переменные нужны только когда симуляция включена
+static uint32_t lastAutoSimTime = 0;
+static uint32_t autoSimPhase = 0;
+static uint32_t lastErrorSimTime = 0;
+#endif
+
+#if ENABLE_SIMULATION
+void updateSimulationData() {
+  uint32_t now = millis();
+
+  static ErrorHandler::Error lastError = ErrorHandler::Error::NONE;
+  ErrorHandler::Error currentErr = ErrorHandler::getCurrentActiveError();
+  if (currentErr != lastError) {
+    Serial.printf("[SIM] ERROR CHANGED! Old=%d, New=%d\n", (int)lastError, (int)currentErr);
+    lastError = currentErr;
+  }
+
+  static uint32_t lastCall = 0;
+  if (now - lastCall > 100) {
+    lastCall = now;
+    Serial.printf("[SIM] >>> updateSimulationData called, mode=%d, state=%d, autoMode=%d\n",
+                  (int)currentSystemMode, (int)currentState, SIMULATE_AUTO_MODE);
+  }
+
+#if SIMULATE_AUTO_MODE
+  if (currentState == SystemState::RUNNING) {
+    currentSystemMode = SystemMode::AUTO;
+    currentMode = Mode::AUTO;
+  }
+
+  uint32_t phaseDuration = 10000;
+  uint32_t currentPhase = (now / phaseDuration) % 4;
+
+  static uint32_t autoSimPhase = 0;
+  static float simAngleXTarget = 0;
+  static float simAngleYTarget = 0;
+
+  if (currentPhase != autoSimPhase) {
+    autoSimPhase = currentPhase;
+    switch (autoSimPhase) {
+      case 0:
+        simAngleXTarget = 0;
+        simAngleYTarget = 4.5f;
+        break;
+      case 1:
+        simAngleXTarget = 0;
+        simAngleYTarget = -4.5f;
+        break;
+      case 2:
+        simAngleXTarget = 4.5f;
+        simAngleYTarget = 0;
+        break;
+      case 3:
+        simAngleXTarget = -4.5f;
+        simAngleYTarget = 0;
+        break;
+    }
+  }
+
+  simAngleX += (simAngleXTarget - simAngleX) * 0.1f;
+  simAngleY += (simAngleYTarget - simAngleY) * 0.1f;
+
+#else
+  simAngleX += simDirectionX * 0.08f;
+  if (simAngleX > 3.0f) {
+    simAngleX = 3.0f;
+    simDirectionX = -1;
+  } else if (simAngleX < -3.0f) {
+    simAngleX = -3.0f;
+    simDirectionX = 1;
+  }
+
+  simAngleY += simDirectionY * 0.08f;
+  if (simAngleY > 3.5f) {
+    simAngleY = 3.5f;
+    simDirectionY = -1;
+  } else if (simAngleY < -3.5f) {
+    simAngleY = -3.5f;
+    simDirectionY = 1;
+  }
+#endif
+
+  simPressures[PAD_FRONT_LEFT] = 2.5f + (simAngleX < 0 ? -simAngleX * 0.5f : 0) + (simAngleY < 0 ? -simAngleY * 0.3f : 0);
+  simPressures[PAD_FRONT_RIGHT] = 2.5f + (simAngleX > 0 ? simAngleX * 0.5f : 0) + (simAngleY < 0 ? -simAngleY * 0.3f : 0);
+  simPressures[PAD_REAR_LEFT] = 3.0f + (simAngleX < 0 ? -simAngleX * 0.5f : 0) + (simAngleY > 0 ? simAngleY * 0.3f : 0);
+  simPressures[PAD_REAR_RIGHT] = 3.0f + (simAngleX > 0 ? simAngleX * 0.5f : 0) + (simAngleY > 0 ? simAngleY * 0.3f : 0);
+
+  for (int i = 0; i < PAD_COUNT; i++) {
+    simPressures[i] = constrain(simPressures[i], 0.5f, 7.0f);
+  }
+
+  simMasterPressure = 4.5f + sin(now * 0.001f) * 0.3f;
+
+#if SIMULATE_MENU_AUTO_ENTER
+  // Используем переменные только если они объявлены
+  if (ErrorHandler::isErrorActive(ErrorHandler::Error::LOW_PRESSURE)) {
+    ErrorHandler::removeError(ErrorHandler::Error::LOW_PRESSURE);
+    Serial.println("[SIM] Forced reset of LOW_PRESSURE error");
+  }
+#endif
+
+#if SIMULATE_ERRORS
+  static uint32_t lastErrorDebug = 0;
+  static uint32_t lastErrorGenTime = 0;
+  static uint32_t errorActiveTime = 0;
+  static bool firstErrorScheduled = false;
+
+  if (now - lastErrorDebug > 5000) {
+    lastErrorDebug = now;
+    Serial.printf("[SIM_ERROR] errorSimulated=%d, lastErrorGenTime=%d, currentState=%d, hasError=%d\n",
+                  errorSimulated, lastErrorGenTime, (int)currentState,
+                  ErrorHandler::hasActiveErrors());
+  }
+
+  if (currentState == SystemState::RUNNING && !firstErrorScheduled) {
+    lastErrorGenTime = now;
+    firstErrorScheduled = true;
+    Serial.println("[SIM_ERROR] Ошибки начнутся через 20 секунд");
+  }
+
+  if (currentState == SystemState::RUNNING && !errorSimulated && firstErrorScheduled) {
+    if (now - lastErrorGenTime > 20000) {
+      lastErrorGenTime = now;
+      errorSimulated = true;
+      errorActiveTime = now;
+
+      int errType = random(0, 3);
+      switch (errType) {
+        case 0:
+          Serial.println("[SIM_ERROR] Симуляция: НИЗКОЕ ДАВЛЕНИЕ!");
+          ErrorHandler::handleError(ErrorHandler::Error::LOW_PRESSURE,
+                                    "Симуляция низкого давления");
+          break;
+        case 1:
+          Serial.println("[SIM_ERROR] Симуляция: ОШИБКА MPU6050!");
+          ErrorHandler::handleError(ErrorHandler::Error::MPU,
+                                    "Симуляция ошибки MPU");
+          break;
+        case 2:
+          Serial.println("[SIM_ERROR] Симуляция: WATCHDOG!");
+          ErrorHandler::handleError(ErrorHandler::Error::WATCHDOG,
+                                    "Симуляция Watchdog");
+          break;
+      }
+    }
+  }
+
+  if (errorSimulated && (now - errorActiveTime > 10000)) {
+    errorSimulated = false;
+    ErrorHandler::forceClearAllErrors();
+    displayDirty = true;
+    forceDisplayReset(true);
+    Serial.println("[SIM_ERROR] Ошибка сброшена, возврат к главному экрану");
+    lastErrorGenTime = now;
+  }
+#endif
+
+  static uint32_t lastDebug = 0;
+  if (now - lastDebug > 5000) {
+    lastDebug = now;
+    Serial.printf("[SIM] X=%.2f, Y=%.2f, Режим=%d, Ошибка=%d\n",
+                  simAngleX, simAngleY, (int)currentSystemMode,
+                  (int)ErrorHandler::getCurrentActiveError());
+  }
+}
+#endif
+
+void simulationOnDisplayReset() {
+#if ENABLE_SIMULATION
+  menuAutoEnterTime = 0;
+  menuAutoEnterDone = false;
+  errorSimulated = false;
+  simulatedError = ErrorHandler::Error::NONE;
+#endif
 }

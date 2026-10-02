@@ -6,3 +6,4 @@
 
 void processTestCommandLine(char *line);
 void testHarnessPoll();
+void simulationOnDisplayReset();

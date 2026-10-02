@@ -8,6 +8,11 @@
 #include "app_version.h"
 #include "mutex_guard.h"
 #include "wifi_setup.h"
+#include "service_ui.h"
+#include "valve_ctrl.h"
+#include "task_display.h"
+#include "app_pins.h"
+#include "error_handler.h"
 #include "logger.h"
 #include "FontsRus/CourierCyr7.h"
 #include "FontsRus/CourierCyr9.h"
@@ -17,16 +22,10 @@
 extern uint32_t uptimeHours;
 extern char wifi_ssid[32];
 extern char sta_ssid[33];
-extern uint32_t lastUserActivityMs;
-extern bool backlightDimmed;
+uint32_t lastUserActivityMs = 0;
+bool backlightDimmed = false;
 
-void openValveTestScreen();
-void openImuZeroConfirm();
-void openImuCalibScreen();
-void openMpuDiagScreen();
 void resetSystemErrors();
-void startValveTest();
-void requestMenuClose(const char *via);
 void requestWiFiSetup();
 void saveMenuSettings();
 extern void cfg_setMasterLowBar(float v);
@@ -756,4 +755,39 @@ void initGEM() {
     itemImuSlew.setPrecision(1);
 
     gem.setMenuPageCurrent(mainPage);
+}
+
+static int contrastToPwm(int level) {
+  return map(constrain(level, 1, CONTRAST_MAX), 1, CONTRAST_MAX, 0, 255);
+}
+
+void applyBacklightPwm(int level) {
+  analogWrite(PIN_TFT_BL, contrastToPwm(level));
+}
+
+/** Открыть меню. Вызывать из DisplayTask (под xDisplayMutex) или только флаги. */
+void openMenu() {
+  if (menuVisible) return;
+  if (manualControlActive) {
+    stopManualOperation();
+  }
+  // С экрана ошибки тоже можно войти в меню: снимаем блокировку отрисовки.
+  errorScreenBlocking = false;
+  gem.setMenuPageCurrent(mainPage);
+  menuVisible = true;
+  displayDirty = true;
+  Serial.println("[MENU] OPEN ok");
+}
+
+/** Запрос открытия меню — безопасен из ButtonTask / Serial. */
+void requestMenuOpen(const char *via) {
+  g_menuReq = MenuReq::Open;
+  Serial.printf("[MENU] OPEN req via %s\n", via ? via : "?");
+}
+
+/** Запрос закрытия с сохранением — безопасен из ButtonTask / Serial / GEM.
+ *  Реальная работа (cancel edit, save, fillScreen) в DisplayTask. */
+void requestMenuClose(const char *via) {
+  g_menuReq = MenuReq::Close;
+  Serial.printf("[MENU] CLOSE req via %s\n", via ? via : "?");
 }

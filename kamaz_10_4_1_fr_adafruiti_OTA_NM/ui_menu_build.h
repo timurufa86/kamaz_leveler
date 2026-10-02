@@ -15,6 +15,12 @@ void initGEM();
 void refreshDynamicMenu();
 void menuExitAction();
 void applyBacklightPwm(int level);
+void openMenu();
+void requestMenuOpen(const char *via);
+void requestMenuClose(const char *via);
+
+extern bool backlightDimmed;
+extern uint32_t lastUserActivityMs;
 
 extern bool settingsChanged;
 

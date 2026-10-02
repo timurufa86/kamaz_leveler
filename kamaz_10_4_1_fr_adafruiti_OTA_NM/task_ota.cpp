@@ -13,17 +13,15 @@
 #include "mutex_guard.h"
 #include "semver_utils.h"
 #include "github_ota_request.h"
+#include "arduino_ota.h"
+#include "ui_menu_build.h"
+#include "test_harness.h"
 
 #include <GEM_adafruit_gfx.h>
 
 extern GEM_adafruit_gfx gem;
 extern SemaphoreHandle_t xDisplayMutex;
 
-SystemState getSystemState();       // .ino
-void handleOTA();                   // .ino
-void requestMenuOpen(const char *); // .ino
-void requestMenuClose(const char *);// .ino
-void processTestCommandLine(char *);// .ino
 
 void otaTask(void *pvParameters) {
   UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);

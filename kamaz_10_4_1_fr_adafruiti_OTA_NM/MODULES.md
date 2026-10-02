@@ -12,7 +12,9 @@
 | ошибка / recovery / WDT | error_handler, task_recovery, task_watchdog, task_monitor |
 | Wi-Fi скан / STA | wifi_setup |
 | NVS / пороги / спиннеры | config_manager, ui_menu_build |
-| serial TEST | test_harness |
+| serial TEST / симуляция | test_harness |
+| тест клапанов / служебные экраны | service_ui, ui_screens |
+| ArduinoOTA (AP) | arduino_ota |
 
 ## Извлечённые модули (Phase 0)
 
@@ -33,6 +35,18 @@
 | app_pins | app_pins.h | ✅ extracted |
 | app_types | app_types.h | ✅ extracted |
 | app_globals | app_globals.h, app_globals.cpp | ✅ extracted |
+
+## Извлечённые модули (Phase 1 — сеть и OTA)
+
+| Модуль | Файлы | Статус |
+|---|---|---|
+| ota_net | ota_net.h, ota_net.cpp | ✅ extracted |
+| ota_list | ota_list.h, ota_list.cpp | ✅ extracted |
+| ota_install | ota_install.h, ota_install.cpp | ✅ extracted |
+| ui_ota_menu | ui_ota_menu.h, ui_ota_menu.cpp | ✅ extracted |
+| ui_marquee | ui_marquee.h, ui_marquee.cpp | ✅ extracted |
+| wifi_setup | wifi_setup.h, wifi_setup.cpp | ✅ extracted |
+| task_ota | task_ota.h, task_ota.cpp | ✅ extracted |
 
 ## Извлечённые модули (Phase 2 — IMU)
 
@@ -75,3 +89,9 @@
 | task_recovery | task_recovery.h, task_recovery.cpp | ✅ extracted |
 | task_event | task_event.h, task_event.cpp | ✅ extracted |
 | test_harness | test_harness.h, test_harness.cpp | ✅ extracted |
+| service_ui | service_ui.h, service_ui.cpp | ✅ extracted |
+| arduino_ota | arduino_ota.h, arduino_ota.cpp | ✅ extracted |
+
+## Роль .ino
+
+`kamaz_10_4_1_fr_adafruiti_OTA_NM.ino` — только проводка: includes, объекты GEM/TFT/SPI/кнопок, зеркала пунктов меню, `setup()` / `loop()`. Бизнес-логика в модулях выше.

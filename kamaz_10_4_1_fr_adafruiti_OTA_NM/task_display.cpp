@@ -1,4 +1,6 @@
 #include "task_display.h"
+#include "service_ui.h"
+#include "arduino_ota.h"
 #include "ui_screens.h"
 #include "ui_menu_build.h"
 #include "ui_ota_menu.h"
@@ -18,11 +20,9 @@ extern uint32_t lastUserActivityMs;
 extern bool errorScreenBlocking;
 extern bool mvScreenWasActive;
 
-void openMenu();
-void forceDisplayReset(bool force = false);
 void saveMenuSettings();
-void displayOTAScreen();
-void updateTestDisplay();
+
+volatile MenuReq g_menuReq = MenuReq::None;
 
 enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
 

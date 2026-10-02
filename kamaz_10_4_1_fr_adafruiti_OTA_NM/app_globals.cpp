@@ -1,4 +1,5 @@
 #include "app_globals.h"
+#include "mutex_guard.h"
 #include "app_pins.h"
 
 /* ───── Mutexes ───── */
@@ -125,3 +126,31 @@ uint8_t taskIndex_Watchdog = 0xFF;
 uint8_t taskIndex_OTA      = 0xFF;
 uint8_t taskIndex_ErrRec   = 0xFF;
 uint8_t taskIndex_Valve    = 0xFF;
+
+/* ========== БЕЗОПАСНЫЕ ФУНКЦИИ ДЛЯ РАБОТЫ С СОСТОЯНИЕМ ========== */
+bool setSystemState(SystemState newState) {
+  if (xStateMutex == nullptr) return false;
+
+  if (!takeMutexWithRetry(xStateMutex, pdMS_TO_TICKS(100), 3, "setSystemState")) {
+    Serial.println("[STATE] Failed to take state mutex");
+    return false;
+  }
+
+  SystemState oldState = currentState;
+  currentState = newState;
+  xSemaphoreGive(xStateMutex);
+
+  Serial.printf("[STATE] Changed from %d to %d\n", (int)oldState, (int)newState);
+  displayDirty = true;
+  return true;
+}
+
+SystemState getSystemState() {
+  if (xStateMutex == nullptr) return SystemState::ERROR;
+
+  MutexGuard guard(xStateMutex);
+  if (!guard) return SystemState::ERROR;
+
+  return currentState;
+}
+

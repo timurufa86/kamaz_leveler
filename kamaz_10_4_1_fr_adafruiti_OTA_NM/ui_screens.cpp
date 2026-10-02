@@ -11,19 +11,21 @@
 #include "imu_motion.h"
 #include "logger.h"
 #include "auto_level.h"
+#include "event_bus.h"
+#include "test_harness.h"
 #include <Adafruit_ST7789.h>
 #include <WiFi.h>
 #include <cstring>
 
 extern Adafruit_ST7789 tft;
-extern bool errorScreenBlocking;
-extern bool forceErrorScreenRedraw;
-extern volatile uint16_t g_displayEpoch;
-extern bool mvScreenWasActive;
-extern IMUData lastDisplayedIMU;
-extern PressureData lastDisplayedPressure;
-extern SystemMode lastDisplayedMode;
-extern bool lastDisplayedMoving;
+bool errorScreenBlocking = false;
+bool forceErrorScreenRedraw = false;
+volatile uint16_t g_displayEpoch = 0;
+bool mvScreenWasActive = false;
+IMUData lastDisplayedIMU = { 0 };
+PressureData lastDisplayedPressure = { 0 };
+SystemMode lastDisplayedMode = SystemMode::MANUAL;
+bool lastDisplayedMoving = false;
 extern uint8_t manualValveIndex;
 extern uint8_t manualValveOpenIndex;
 extern uint32_t manualValveOpenSince;
@@ -35,11 +37,6 @@ extern char wifi_ssid[32];
 extern char sta_ssid[33];
 extern int otaProgress;
 extern char otaStatus[32];
-
-void drawIcon(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
-void drawIconL(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
-void drawIconB(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
-void drawProgressBar(int16_t x, int16_t y, int16_t width, int16_t height, uint8_t percent, uint16_t color);
 
 enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
 
@@ -1624,3 +1621,95 @@ void displayMainScreen() {
     hintDrawn = true;
   }
 }
+
+void setDisplayDirty() {
+  // Меню и экран Wi-Fi сами решают, что перерисовывать — фоновый IMU/давление
+  // не должны выставлять dirty (иначе Wi-Fi снова делает fillScreen).
+  if (menuVisible || wifiSetupActive || wifiScanInProgress) return;
+  displayDirty = true;
+  Event event;
+  event.type = EventType::DISPLAY_UPDATE;
+  event.timestamp = millis();
+  EventBus::publish(event, 0);
+}
+
+void forceDisplayReset(bool force) {
+  // Пока открыто меню или экран Wi-Fi — не трогаем дисплей.
+  if (menuVisible || wifiSetupActive || wifiScanInProgress) {
+    return;
+  }
+
+  static uint32_t lastReset = 0;
+  if (millis() - lastReset < 500 && !force) {
+    return;
+  }
+  // Даже с force не чаще 300 мс — защита от спама emergency.release / prune
+  if (millis() - lastReset < 300) {
+    displayDirty = true;
+    return;
+  }
+  lastReset = millis();
+
+  displayDirty = true;
+  g_displayEpoch++;  // инвалидация кэшей displayMainScreen / авиагоризонта
+  tft.fillScreen(theme::BG);
+
+  lastDisplayedIMU.angleX = 999;
+  lastDisplayedIMU.angleY = 999;
+  lastDisplayedIMU.temperature = 999;
+  lastDisplayedPressure.masterPressure = 999;
+  for (int i = 0; i < PAD_COUNT; i++) {
+    lastDisplayedPressure.pressure[i] = 999;
+  }
+  lastDisplayedMode = SystemMode::MOVEMENT;
+  lastDisplayedMoving = !lastDisplayedMoving;
+
+  simulationOnDisplayReset();
+
+  forceErrorScreenRedraw = true;
+
+  Serial.println("[DISPLAY] Force reset completed");
+}
+
+void drawProgressBar(int16_t x, int16_t y, int16_t width, int16_t height, uint8_t percent, uint16_t color) {
+  if (percent > 100) percent = 100;
+  tft.fillRoundRect(x, y, width, height, 4, theme::TRACK);
+  int16_t fillWidth = static_cast<int16_t>((width - 4) * percent / 100);
+  if (fillWidth > 0) {
+    tft.fillRoundRect(x + 2, y + 2, fillWidth, height - 4, 2, color);
+  }
+  tft.drawRoundRect(x, y, width, height, 4, theme::BORDER);
+}
+
+void drawIcon(int16_t x, int16_t y, const unsigned char *icon, uint16_t color) {
+  tft.drawBitmap(x, y, icon, 32, 32, color);
+}
+
+void drawIconL(int16_t x, int16_t y, const unsigned char *icon, uint16_t color) {
+  tft.drawBitmap(x, y, icon, 20, 20, color);
+}
+
+void drawIconB(int16_t x, int16_t y, const unsigned char *icon, uint16_t color) {
+  tft.drawBitmap(x, y, icon, 45, 45, color);
+}
+
+void blinkErrorIcon() {
+  // Совпадает с displayErrorScreen (iconY +20px); вызывается редко — основной blink там.
+  static uint32_t lastBlinkTime = 0;
+  static bool blinkState = true;
+  const int16_t iconX = (SCREEN_WIDTH - 45) / 2;
+  const int16_t iconY = 38;
+  uint32_t now = millis();
+
+  if (now - lastBlinkTime >= 500) {
+    lastBlinkTime = now;
+    blinkState = !blinkState;
+
+    if (blinkState) {
+      drawIconB(iconX, iconY, err_Big, theme::TEXT);
+    } else {
+      tft.fillRect(iconX, iconY, 45, 45, COLOR_ERROR);
+    }
+  }
+}
+

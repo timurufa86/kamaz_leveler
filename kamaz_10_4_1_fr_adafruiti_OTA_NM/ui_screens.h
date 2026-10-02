@@ -44,6 +44,14 @@ void uiInfoRow(int16_t y, const char *label, const char *value);
 void uiHeader(const char *title, uint16_t titleColor);
 void uiHintBar(const char *text, uint16_t color);
 
+void setDisplayDirty();
+void forceDisplayReset(bool force = false);
+void drawProgressBar(int16_t x, int16_t y, int16_t width, int16_t height, uint8_t percent, uint16_t color);
+void drawIcon(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
+void drawIconL(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
+void drawIconB(int16_t x, int16_t y, const unsigned char *icon, uint16_t color);
+void blinkErrorIcon();
+
 void drawServiceScreen();
 void displayMovementScreen();
 void displayErrorScreen();

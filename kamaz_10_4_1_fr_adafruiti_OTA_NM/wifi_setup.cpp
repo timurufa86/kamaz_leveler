@@ -10,20 +10,20 @@
 #include <Adafruit_ST7789.h>
 
 extern Adafruit_ST7789 tft;
-extern char wifi_ssid[];
-extern char wifi_password[64];
-extern char sta_ssid[];
+char wifi_ssid[32] = "Kamaz-OTA-AP";
+char wifi_password[64] = "";
+char sta_ssid[33] = "";
 static constexpr char WIFI_STA_PASSWORD[] = "asd12345";
 static constexpr uint8_t WIFI_SCAN_MAX_NETWORKS = 8;
-extern char wifi_scan_ssids[][33];
-extern int8_t wifi_scan_rssi[];
-extern uint8_t wifi_scan_count;
-extern uint8_t wifi_scan_selected;
-extern volatile bool wifiUiFullRedraw;
-extern IPAddress local_ip;
-extern IPAddress gateway;
-extern IPAddress subnet;
-extern char ota_password[64];
+char wifi_scan_ssids[WIFI_SCAN_MAX_NETWORKS][33] = {};
+int8_t wifi_scan_rssi[WIFI_SCAN_MAX_NETWORKS] = {};
+uint8_t wifi_scan_count = 0;
+uint8_t wifi_scan_selected = 0;
+volatile bool wifiUiFullRedraw = false;
+IPAddress local_ip(192, 168, 4, 1);
+IPAddress gateway(192, 168, 4, 1);
+IPAddress subnet(255, 255, 255, 0);
+char ota_password[64] = "";
 
 void requestWiFiSetup() {
   if (wifiScanInProgress || wifiSetupRequested) return;

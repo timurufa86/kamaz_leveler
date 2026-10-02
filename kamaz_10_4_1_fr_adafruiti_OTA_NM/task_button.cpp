@@ -1,4 +1,6 @@
 #include "task_button.h"
+#include "service_ui.h"
+#include "arduino_ota.h"
 #include "ui_screens.h"
 #include "ui_menu_build.h"
 #include "app_globals.h"
@@ -25,22 +27,15 @@ extern Button button4;
 extern VirtButton emergencyButton;
 extern bool backlightDimmed;
 extern uint32_t lastUserActivityMs;
-extern uint32_t lastMenuInteraction;
+uint32_t lastMenuInteraction = 0;
 extern bool errorScreenBlocking;
 extern char wifi_scan_ssids[][33];
 extern uint8_t wifi_scan_count;
 extern uint8_t wifi_scan_selected;
 extern char sta_ssid[33];
 
-void forceDisplayReset(bool force = false);
-void setDisplayDirty();
-void requestMenuOpen(const char *via);
-void requestMenuClose(const char *via);
 void resetSystemErrors();
 void saveWiFiConfig();
-void startOTAMode();
-void stopOTAMode();
-bool setSystemState(SystemState newState);
 
 enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
 

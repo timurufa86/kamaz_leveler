@@ -4,7 +4,7 @@
 #include "memory_monitor.h"
 #include <esp_task_wdt.h>
 
-extern uint32_t uptimeHours;
+uint32_t uptimeHours = 0;
 
 void watchdogTask(void *pvParameters) {
   UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);

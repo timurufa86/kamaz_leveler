@@ -9,6 +9,7 @@
 #include "pressure_read.h"
 #include "valve_ctrl.h"
 #include "auto_level.h"
+#include "service_ui.h"
 
 /* ── ConfigManager bridge functions (defined in .ino) ── */
 extern int   cfg_getMovementCheckSec();
@@ -30,9 +31,6 @@ static constexpr uint8_t ERR_VALVE        = 6;
 /* ── TaskMonitor bridge ── */
 extern void cfg_taskMonitorUpdate(uint8_t idx);
 static constexpr uint8_t TASK_CONTROL_IDX = 5; // TaskMonitor::TASK_CONTROL
-
-/* ── .ino helpers ── */
-extern void runValveTestLogic();
 
 void controlTask(void *pvParameters) {
 

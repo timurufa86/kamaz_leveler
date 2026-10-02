@@ -8,13 +8,12 @@
 #include "app_types.h"
 #include "semver_utils.h"
 #include "github_ota_request.h"
+#include "arduino_ota.h"
+#include "ui_screens.h"
 
 extern GEM_adafruit_gfx gem;
 extern GEMPage mainPage;
 
-void startOTAMode();             // .ino
-void stopOTAMode();              // .ino
-void forceDisplayReset(bool);    // .ino
 
 GEMPage otaPage("Обновления", mainPage);
 GEMPage otaListPage("Прошивки (GitHub)", otaPage);
