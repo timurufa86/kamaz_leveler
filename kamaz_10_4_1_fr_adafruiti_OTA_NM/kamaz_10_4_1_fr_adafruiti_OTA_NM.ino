@@ -24,6 +24,9 @@
 #include "ui_ota_menu.h"
 #include "wifi_setup.h"
 #include "task_ota.h"
+#include "imu_dmp.h"
+#include "imu_motion.h"
+#include "task_imu.h"
 #include "icon.h"
 #include "ui_theme.h"    // палитра и сетка UI
 #include "ui_fonts.h"    // шрифтовая сетка U8g2
@@ -71,8 +74,7 @@
 class ErrorHandler;
 
 /* ====================  РЕЖИМЫ СИМУЛЯЦИИ ==================== */
-#define ENABLE_MPU6050 1
-#define ENABLE_SIMULATION 0
+// ENABLE_MPU6050, ENABLE_SIMULATION — see app_globals.h
 #define SIMULATE_AUTO_MODE 0
 #define SIMULATE_ERRORS 0
 #define SIMULATE_MENU_AUTO_ENTER 0
@@ -88,8 +90,7 @@ class ErrorHandler;
 #define EB_HOLD_TIME 500
 #define EB_STEP_TIME 120
 
-//const uint8_t PAD_COUNT = 4;
-#define PAD_COUNT 4
+// PAD_COUNT — see app_types.h
 
 /** Состояние инкрементальной шкалы угла (до авто-прототипов Arduino). */
 struct AngleBarState {
@@ -486,10 +487,7 @@ static GEMItem itemInfoSystem("Аптайм: …");
 static GEMItem itemInfoErrors("Ошибки: …");
 
 
-MPU6050 mpu;
-// Калман для углов DMP (°): mea^ / qv > плавнее (вибрация кабины).
-GKalman filterX(7.0f, 4.5f, 0.005f);
-GKalman filterY(7.0f, 4.5f, 0.005f);
+// mpu, filterX, filterY — see imu_dmp.cpp
 
 Button button0(PIN_BUT1, INPUT_PULLUP, LOW);
 Button button1(PIN_BUT2, INPUT_PULLUP, LOW);
@@ -518,16 +516,7 @@ struct ValveCommandMsg {
   };
 };
 
-struct IMUData {
-  float angleX;
-  float angleY;
-  float temperature;
-};
-
-struct PressureData {
-  float pressure[PAD_COUNT];
-  float masterPressure;
-};
+// IMUData, PressureData — see app_types.h
 
 // angleX, angleY, temperature — see app_globals.cpp
 float pressure[PAD_COUNT] = { 0 };
@@ -556,59 +545,11 @@ static volatile MenuReq g_menuReq = MenuReq::None;
 static volatile bool g_testHeartbeat = false;
 static volatile bool g_testDebugDump = false;
 
-// ===== 9.2.0: поток / статистика IMU для тюнинга фильтров =====
-static volatile bool g_imuFilterResetReq = false;
-static volatile uint32_t g_imuStreamUntilMs = 0;   // STREAM до этого millis
-static volatile uint32_t g_imuStatsUntilMs = 0;    // STATS до этого millis
-static volatile bool g_imuStatsActive = false;
-static float g_imuRawX = 0.0f, g_imuRawY = 0.0f;  // до фильтров (после FIFO avg)
-static float g_imuAbsX = 0.0f, g_imuAbsY = 0.0f;  // после фильтров, ДО вычитания нуля
-static float g_imuOutX = 0.0f, g_imuOutY = 0.0f;  // после фильтров + нуль
+// g_imu* stream/stats — see task_imu.h / task_imu.cpp
+// g_mot* motion state  — see imu_motion.h / imu_motion.cpp
+// g_imuStat* STATS     — see task_imu.h / task_imu.cpp
 
-// ===== 10.2.0: отладка детектора движения (MOT + gyro + linAcc RMS) =====
-static volatile uint32_t g_motStreamUntilMs = 0;
-static volatile uint32_t g_motStreamPeriodMs = 100;  // период строк [MOT], мс
-static float g_motLastGyroRms = -1.0f;
-static float g_motLastGyroDelta = -1.0f;  // |gyro − EMA| для порога
-static float g_motLastGyroThr = 0.0f;
-static float g_motLastGyroBump = -1.0f;   // max(|gx|,|gy|) — кивок/крен на кочках
-static float g_motLastGyroBumpDelta = -1.0f;  // |bump − EMA|
-static float g_motLastGyroBumpThr = 0.0f;
-static float g_motLastLinAccRms = -1.0f;   // |lin - EMA| (дельта для порога)
-static float g_motLastLinAccRaw = -1.0f;   // сырой |aaReal| RMS (на столе ~bias)
-static float g_motLastLinAccThr = 0.0f;
-static uint8_t g_motLastIntStatus = 0;
-static uint8_t g_motLastMotStatus = 0;  // MOT_DETECT_STATUS (оси)
-static uint8_t g_motDurMs = 40;         // MOT_DUR, мс (1 LSB = 1 ms)
-static bool g_motLastMotPulse = false;
-static bool g_motLastGyroBusy = false;
-static bool g_motLastGyroBumpBusy = false;
-static bool g_motLastLinAccBusy = false;
-static bool g_motLastHold = false;
-static uint32_t g_motLastActivityMs = 0;
-static uint32_t g_motSampleCount = 0;
-static uint32_t g_motMotPulseCount = 0;
-static uint32_t g_motGyroBusyCount = 0;
-static uint32_t g_motGyroBumpBusyCount = 0;
-static uint32_t g_motLinAccBusyCount = 0;
-static uint32_t g_motHoldEdgeCount = 0;  // 0→1 переходы hold
-static uint32_t g_motModeEnterCount = 0; // входы в SystemMode::MOVEMENT
-static uint32_t g_motStatsSinceMs = 0;
-// аккумулятор STATS (пишется в imuTask, читается при завершении)
-static uint32_t g_imuStatN = 0;
-static uint32_t g_imuStatSpikes = 0;
-static float g_imuStatSumX = 0, g_imuStatSumY = 0;
-static float g_imuStatSumXX = 0, g_imuStatSumYY = 0;
-static float g_imuStatMinX = 0, g_imuStatMaxX = 0;
-static float g_imuStatMinY = 0, g_imuStatMaxY = 0;
-static float g_imuStatMaxStep = 0;
-static float g_imuStatPrevX = 0, g_imuStatPrevY = 0;
-static uint32_t g_imuStatT0 = 0;
-
-bool isMoving = false;
-bool prolongedMovementDetected = false;
-//uint32_t lastMovementTime = 0;
-uint32_t movementStartTime = 0;
+// isMoving, prolongedMovementDetected, movementStartTime — see app_globals.cpp
 
 bool manualControlActive = false;
 Pad manualPadIndex = PAD_FRONT_LEFT;
@@ -636,16 +577,10 @@ float manualTargetPressure[PAD_COUNT] = { 3.0f, 3.0f, 3.0f, 3.0f };
 bool manualTargetSet[PAD_COUNT] = { true, true, true, true };
 bool pressureLimitReached = false;
 
-uint32_t movementEndTime = 0;
-bool movementModeActive = false;
-uint32_t movementPressureLastCheck = 0;
+// movementEndTime, movementModeActive, movementPressureLastCheck — see app_globals.cpp
 
 /* ===== 8.9.0: данные для «живого» экрана ДВИЖЕНИЯ ===== */
-uint32_t movementLastAdjustFront = 0;     // время последней корректировки передних подушек
-uint32_t movementLastAdjustRear = 0;      // время последней корректировки задних подушек
-int8_t movementLastAdjustFrontDir = 0;    // +1 — накачка, -1 — стравливание
-int8_t movementLastAdjustRearDir = 0;
-uint32_t movementStartMs = 0;             // начало обнаруженного движения (для «в движении N с»)
+// movementLastAdjust*, movementStartMs — see app_globals.cpp
 bool mvScreenWasActive = false;           // активен ли сейчас экран ДВИЖЕНИЯ
 
 // calibrationValid — see app_globals.cpp
@@ -678,7 +613,7 @@ static LastCommand lastCmd;
 static ValveErrorCounter valveErrorCounter;
 static volatile uint32_t valveQueueDropCount = 0;
 static volatile uint32_t eventQueueDropCount = 0;
-static volatile uint32_t imuQueueDropCount = 0;
+// imuQueueDropCount — see app_globals.cpp
 static volatile uint32_t pressureQueueDropCount = 0;
 static volatile uint32_t valveEmergencyStopCount = 0;
 static volatile uint32_t maxValveQueueDepth = 0;
@@ -739,7 +674,7 @@ bool saveWiFiConfig();
 // startWiFiSetup -> wifi_setup.h
 // connectConfiguredWiFi -> wifi_setup.h
 // startFallbackAccessPoint -> wifi_setup.h
-void initializeDMP();
+// initializeDMP — see imu_dmp.h
 bool initializeJhm1200();
 void resetSystemErrors();
 bool checkPressureLimits();
@@ -751,8 +686,7 @@ static void processSerialTestCommands();
 void processTestCommandLine(char *line);
 bool sendValveCommandSync(Pad pad, bool inflate, uint32_t durationMs, uint32_t waitAfterMs);
 void maintainMovementPressure();
-bool detectMotionFromIMU(uint8_t intStatus, uint8_t motStatus, uint32_t nowMs, float gyroRms,
-                         float linAccRms, float gyroBump);
+// detectMotionFromIMU — see imu_motion.h
 void checkAndAdjustMasterPressure();
 void maintainManualPressure();
 void setManualTargetPressure(Pad pad);
@@ -769,7 +703,7 @@ void forceDisplayReset(bool force = false);
 
 void buttonTask(void *pvParameters);
 void displayTask(void *pvParameters);
-void imuTask(void *pvParameters);
+// imuTask — see task_imu.h
 void pressureTask(void *pvParameters);
 void controlTask(void *pvParameters);
 void calibrationTask(void *pvParameters);
@@ -1394,7 +1328,33 @@ public:
 
 ConfigManager::Config ConfigManager::currentConfig;
 
-
+/* ── Bridge functions for modules that can't see ConfigManager inline defs ── */
+int   cfg_getImuGyroOffX()          { return ConfigManager::getImuGyroOffX(); }
+int   cfg_getImuGyroOffY()          { return ConfigManager::getImuGyroOffY(); }
+int   cfg_getImuGyroOffZ()          { return ConfigManager::getImuGyroOffZ(); }
+int   cfg_getImuAccelOffX()         { return ConfigManager::getImuAccelOffX(); }
+int   cfg_getImuAccelOffY()         { return ConfigManager::getImuAccelOffY(); }
+int   cfg_getImuAccelOffZ()         { return ConfigManager::getImuAccelOffZ(); }
+int   cfg_getImuMotionDet()         { return ConfigManager::getImuMotionDet(); }
+int   cfg_getGyroThreshold()        { return ConfigManager::getGyroThreshold(); }
+int   cfg_getGyroBumpThreshold()    { return ConfigManager::getGyroBumpThreshold(); }
+int   cfg_getAccelThreshold()       { return ConfigManager::getAccelThreshold(); }
+int   cfg_getMovementSettleSec()    { return ConfigManager::getMovementSettleSec(); }
+int   cfg_getMovementDurationSec()  { return ConfigManager::getMovementDurationSec(); }
+int   cfg_getImuPollMs()            { return ConfigManager::getImuPollMs(); }
+int   cfg_getImuFifoAvg()           { return ConfigManager::getImuFifoAvg(); }
+float cfg_getImuKalmanMea()         { return ConfigManager::getImuKalmanMea(); }
+float cfg_getImuKalmanEst()         { return ConfigManager::getImuKalmanEst(); }
+float cfg_getImuKalmanQ()           { return ConfigManager::getImuKalmanQ(); }
+float cfg_getImuEmaAlpha()          { return ConfigManager::getImuEmaAlpha(); }
+float cfg_getImuEmaSpikeAlpha()     { return ConfigManager::getImuEmaSpikeAlpha(); }
+float cfg_getImuEmaSpikeThr()       { return ConfigManager::getImuEmaSpikeThr(); }
+float cfg_getImuSlewDps()           { return ConfigManager::getImuSlewDps(); }
+float cfg_getZeroAngleX()           { return ConfigManager::getZeroAngleX(); }
+float cfg_getZeroAngleY()           { return ConfigManager::getZeroAngleY(); }
+float cfg_getMovementPressureFront(){ return ConfigManager::getMovementPressureFront(); }
+float cfg_getMovementPressureRear() { return ConfigManager::getMovementPressureRear(); }
+float cfg_getMovementTolerance()    { return ConfigManager::getMovementTolerance(); }
 
 /* ====================  ErrorHandler ==================== */
 class ErrorHandler {
@@ -1811,7 +1771,11 @@ uint8_t ErrorHandler::currentDisplayIndex = 0;
 uint32_t ErrorHandler::lastDisplaySwitch = 0;
 bool ErrorHandler::hasError = false;
 
-
+/* ── Bridge functions for ErrorHandler / TaskMonitor (modules) ── */
+bool cfg_errorIsActive(uint8_t err) { return ErrorHandler::isErrorActive(static_cast<ErrorHandler::Error>(err)); }
+void cfg_errorMarkCleared(uint8_t err) { ErrorHandler::markErrorCleared(static_cast<ErrorHandler::Error>(err)); }
+void cfg_errorRemove(uint8_t err) { ErrorHandler::removeError(static_cast<ErrorHandler::Error>(err)); }
+// cfg_taskMonitorUpdate — placed after TaskMonitor class definition below
 
 class ZeroCalibrator {
 private:
@@ -2099,6 +2063,8 @@ public:
 };
 
 TaskMonitor::TaskInfo TaskMonitor::tasks[TASK_COUNT];
+
+void cfg_taskMonitorUpdate(uint8_t idx) { TaskMonitor::updateTaskStatus(static_cast<TaskMonitor::TaskIndex>(idx)); }
 
 /* ====================  MemoryMonitor ==================== */
 class MemoryMonitor {
@@ -3779,162 +3745,12 @@ void checkAndAdjustMasterPressure() {
   }
 }
 
-/**
- * Детектор движения для wasMoving (MotionApps 6.12):
- *  - аппаратный MOT: INT 0x40 и/или MOT_DETECT_STATUS оси (не ZRMOT);
- *  - |gyroRMS − EMA| — изменение общей вибрации (холостой ход → baseline);
- *  - |gyroBump − EMA| — изменение кивка/крена (без yaw);
- *  - |linAccRMS − EMA| — изменение линейного ускорения.
- * Езда = сумма времени busy-импульсов ≥ durationSec; settleSec — только хвост
- * hold (не считать afterglow в duration, иначе стол → ложный MOVEMENT).
- */
-bool detectMotionFromIMU(uint8_t intStatus, uint8_t motStatus, uint32_t nowMs, float gyroRms,
-                         float linAccRms, float gyroBump) {
-#if ENABLE_MPU6050
-  static uint32_t lastActivityMs = 0;
-  static float linEma = 0.0f;
-  static bool linEmaInit = false;
-  static float gyroEma = 0.0f;
-  static bool gyroEmaInit = false;
-  static float bumpEma = 0.0f;
-  static bool bumpEmaInit = false;
-  constexpr float kMotEmaAlpha = 0.05f;
+// detectMotionFromIMU — moved to imu_motion.cpp
+// i2cBusRecover, i2cScanLog — moved to imu_dmp.cpp
 
-  // 0xFC = X±/Y±/Z± в MOT_DETECT_STATUS; бит 0 = ZRMOT — не считаем «движением».
-  const bool motPulse = ((intStatus & 0x40) != 0) || ((motStatus & 0xFC) != 0);
-  const float gyroThr = (float)ConfigManager::getGyroThreshold() * 8.0f;
-  const float bumpThr = (float)ConfigManager::getGyroBumpThreshold() * 8.0f;
-  const float linAccThr = (float)ConfigManager::getAccelThreshold();
-  const bool gyroValid = (gyroRms >= 0.0f) && (gyroRms <= 2000.0f);
-  const bool bumpValid = (gyroBump >= 0.0f) && (gyroBump <= 2000.0f);
-
-  float gyroDelta = -1.0f;
-  bool gyroBusy = false;
-  if (gyroValid) {
-    if (!gyroEmaInit) {
-      gyroEma = gyroRms;
-      gyroEmaInit = true;
-      gyroDelta = 0.0f;
-    } else {
-      gyroDelta = fabsf(gyroRms - gyroEma);
-      gyroEma += kMotEmaAlpha * (gyroRms - gyroEma);
-    }
-    gyroBusy = gyroDelta >= gyroThr;
-  }
-
-  float bumpDelta = -1.0f;
-  bool bumpBusy = false;
-  if (bumpValid) {
-    if (!bumpEmaInit) {
-      bumpEma = gyroBump;
-      bumpEmaInit = true;
-      bumpDelta = 0.0f;
-    } else {
-      bumpDelta = fabsf(gyroBump - bumpEma);
-      bumpEma += kMotEmaAlpha * (gyroBump - bumpEma);
-    }
-    bumpBusy = bumpDelta >= bumpThr;
-  }
-
-  float linDelta = -1.0f;
-  bool linAccBusy = false;
-  if (linAccRms >= 0.0f) {
-    if (!linEmaInit) {
-      linEma = linAccRms;
-      linEmaInit = true;
-      linDelta = 0.0f;
-    } else {
-      linDelta = fabsf(linAccRms - linEma);
-      linEma += kMotEmaAlpha * (linAccRms - linEma);
-    }
-    linAccBusy = linDelta >= linAccThr;
-  }
-
-  const bool pulse = motPulse || gyroBusy || bumpBusy || linAccBusy;
-  if (pulse) {
-    lastActivityMs = nowMs;
-  }
-
-  g_motLastIntStatus = intStatus;
-  g_motLastMotStatus = motStatus;
-  g_motLastMotPulse = motPulse;
-  g_motLastGyroRms = gyroRms;
-  g_motLastGyroDelta = gyroDelta;
-  g_motLastGyroThr = gyroThr;
-  g_motLastGyroBump = gyroBump;
-  g_motLastGyroBumpDelta = bumpDelta;
-  g_motLastGyroBumpThr = bumpThr;
-  g_motLastLinAccRaw = linAccRms;
-  g_motLastLinAccRms = linDelta;
-  g_motLastLinAccThr = linAccThr;
-  g_motLastGyroBusy = gyroBusy;
-  g_motLastGyroBumpBusy = bumpBusy;
-  g_motLastLinAccBusy = linAccBusy;
-  g_motLastActivityMs = lastActivityMs;
-  g_motSampleCount++;
-  if (motPulse) g_motMotPulseCount++;
-  if (gyroBusy) g_motGyroBusyCount++;
-  if (bumpBusy) g_motGyroBumpBusyCount++;
-  if (linAccBusy) g_motLinAccBusyCount++;
-
-  if (lastActivityMs == 0) {
-    g_motLastHold = false;
-    return false;
-  }
-  const uint32_t settleMs = (uint32_t)ConfigManager::getMovementSettleSec() * 1000UL;
-  const bool hold = (nowMs - lastActivityMs) < settleMs;
-  if (hold && !g_motLastHold) g_motHoldEdgeCount++;
-  g_motLastHold = hold;
-  return hold;
-#else
-  (void)intStatus;
-  (void)motStatus;
-  (void)nowMs;
-  (void)gyroRms;
-  (void)linAccRms;
-  (void)gyroBump;
-  return false;
-#endif
-}
-
-/** Восстановление I2C, если ведомый держит SDA (типичный зависон MPU). */
-static void i2cBusRecover() {
-  Wire.end();
-  pinMode(PIN_OLED_SDA, INPUT_PULLUP);
-  pinMode(PIN_OLED_SCL, OUTPUT);
-  for (int i = 0; i < 9; i++) {
-    digitalWrite(PIN_OLED_SCL, HIGH);
-    delayMicroseconds(5);
-    digitalWrite(PIN_OLED_SCL, LOW);
-    delayMicroseconds(5);
-  }
-  pinMode(PIN_OLED_SDA, OUTPUT);
-  digitalWrite(PIN_OLED_SDA, LOW);
-  delayMicroseconds(5);
-  digitalWrite(PIN_OLED_SCL, HIGH);
-  delayMicroseconds(5);
-  digitalWrite(PIN_OLED_SDA, HIGH);
-  delayMicroseconds(5);
-  Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
-  Wire.setClock(100000L);
-  Wire.setTimeOut(50);
-}
-
-static void i2cScanLog(const char* tag) {
-  uint8_t found = 0;
-  Serial.printf("[I2C] scan (%s):", tag);
-  for (uint8_t addr = 0x08; addr < 0x78; addr++) {
-    Wire.beginTransmission(addr);
-    if (Wire.endTransmission() == 0) {
-      Serial.printf(" 0x%02X", addr);
-      found++;
-    }
-  }
-  if (!found) Serial.print(" (пусто)");
-  Serial.println();
-}
-
-void initializeDMP() {
+// initializeDMP — moved to imu_dmp.cpp
+#if 0  // === REMOVED ===
+void _removed_initializeDMP() {
 #if ENABLE_MPU6050
   MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(1500));
   if (!i2c && xI2CMutex != nullptr) {
@@ -4045,6 +3861,7 @@ void initializeDMP() {
   temperature = 25.0;
 #endif
 }
+#endif // === END REMOVED initializeDMP ===
 
 /** Шкалы наклона ±10°: крен (лево/право) и тангаж (зад/перед). */
 static constexpr float ATT_GAUGE_MAX_DEG = 10.0f;
@@ -7949,9 +7766,11 @@ void buttonTask(void *pvParameters) {
   }
 }
 
-static uint8_t reinitAttempts = 0;
+// reinitAttempts, imuTask — moved to task_imu.cpp
+#if 0  // === REMOVED ===
+static uint8_t _removed_reinitAttempts = 0;
 
-void imuTask(void *pvParameters) {
+void _removed_imuTask(void *pvParameters) {
 
   UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);
   if (stackHighWater < 300) {
@@ -8567,6 +8386,7 @@ void imuTask(void *pvParameters) {
     vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
+#endif // === END REMOVED imuTask ===
 
 void pressureTask(void *pvParameters) {
   UBaseType_t stackHighWater = uxTaskGetStackHighWaterMark(NULL);

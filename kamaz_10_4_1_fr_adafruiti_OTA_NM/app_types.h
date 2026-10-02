@@ -2,6 +2,22 @@
 
 #include <Arduino.h>
 
+/* ───── PAD_COUNT ───── */
+#define PAD_COUNT 4
+
+/* ───── IMU / Pressure queue payloads ───── */
+
+struct IMUData {
+  float angleX;
+  float angleY;
+  float temperature;
+};
+
+struct PressureData {
+  float pressure[PAD_COUNT];
+  float masterPressure;
+};
+
 /* ───── Event types / Event struct ───── */
 
 enum class EventType : uint8_t {

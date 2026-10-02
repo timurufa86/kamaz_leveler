@@ -50,6 +50,22 @@ volatile bool wifiScanInProgress   = false;
 volatile bool wifiSetupRequested   = false;
 volatile bool wifiConnected        = false;
 
+/* ───── Movement state ───── */
+bool isMoving = false;
+bool prolongedMovementDetected = false;
+uint32_t movementStartTime = 0;
+bool movementModeActive = false;
+uint32_t movementEndTime = 0;
+uint32_t movementPressureLastCheck = 0;
+uint32_t movementStartMs = 0;
+uint32_t movementLastAdjustFront = 0;
+uint32_t movementLastAdjustRear = 0;
+int8_t  movementLastAdjustFrontDir = 0;
+int8_t  movementLastAdjustRearDir = 0;
+
+/* ───── Queue drop counter (IMU) ───── */
+volatile uint32_t imuQueueDropCount = 0;
+
 /* ───── TaskPool indices ───── */
 uint8_t taskIndex_Event    = 0xFF;
 uint8_t taskIndex_Button   = 0xFF;

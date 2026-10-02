@@ -7,6 +7,14 @@
  *  the mutexes/queues and assigns them to these externs.
  */
 
+/* ───── Compile-time feature flags ───── */
+#ifndef ENABLE_MPU6050
+#define ENABLE_MPU6050 1
+#endif
+#ifndef ENABLE_SIMULATION
+#define ENABLE_SIMULATION 0
+#endif
+
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -62,6 +70,22 @@ extern volatile bool wifiSetupActive;
 extern volatile bool wifiScanInProgress;
 extern volatile bool wifiSetupRequested;
 extern volatile bool wifiConnected;
+
+/* ───── Movement state ───── */
+extern bool isMoving;
+extern bool prolongedMovementDetected;
+extern uint32_t movementStartTime;
+extern bool movementModeActive;
+extern uint32_t movementEndTime;
+extern uint32_t movementPressureLastCheck;
+extern uint32_t movementStartMs;
+extern uint32_t movementLastAdjustFront;
+extern uint32_t movementLastAdjustRear;
+extern int8_t  movementLastAdjustFrontDir;
+extern int8_t  movementLastAdjustRearDir;
+
+/* ───── Queue drop counter (IMU) ───── */
+extern volatile uint32_t imuQueueDropCount;
 
 /* ───── TaskPool indices (0xFF = not registered) ───── */
 extern uint8_t taskIndex_Event;
