@@ -436,11 +436,25 @@ void initGEM() {
     gem.setSpriteSize(2);  // галочка/стрелки 2× (14×16 вместо 7×8) — видно на ST7789
     gem.setDrawMenuCallback(menuButtonsHint);   // подсказка по кнопкам в шапке меню
 
-    // --- Страница "Система" (OTA/обновления вынесены в раздел «Обновления») ---
+    // --- Страница "Система" ---
     static GEMItem itemReset("Сброс ошибок", []() { resetSystemErrors(); });
     static GEMItem itemWiFi("Настроить WiFi", []() { requestWiFiSetup(); });
+    static GEMItem linkOta("Обновления", &otaPage);
+    static GEMItem linkDisplay("Дисплей", &displayPage);
+    static GEMItem linkInfo("Информация", &infoPage);
     systemPage.addMenuItem(itemReset);
     systemPage.addMenuItem(itemWiFi);
+    systemPage.addMenuItem(linkOta);
+    systemPage.addMenuItem(linkDisplay);
+    systemPage.addMenuItem(linkInfo);
+
+    // --- Страница «Клапанный блок» ---
+    static GEMItem linkPressure("Давление", &pressurePage);
+    static GEMItem linkValve("Клапаны", &valvePage);
+    static GEMItem linkTest("Тестирование", &testPage);
+    valveBlockPage.addMenuItem(linkPressure);
+    valveBlockPage.addMenuItem(linkValve);
+    valveBlockPage.addMenuItem(linkTest);
 
     // --- Страница "Обновления" ---
     otaPage.addMenuItem(itemOtaCurrent);
@@ -726,36 +740,20 @@ void initGEM() {
     settingsViewPage.addMenuItem(itemSet6);
     settingsViewPage.addMenuItem(itemSet7);
 
-    // --- Главное меню ---
+    // --- Главное меню (сохранение при выходе: menuExitAction → saveMenuSettings) ---
     static GEMItem linkSystem("Система", &systemPage);
-    static GEMItem linkOta("Обновления", &otaPage);
-    static GEMItem linkTest("Тестирование", &testPage);
-    static GEMItem linkPressure("Давление", &pressurePage);
-    static GEMItem linkValve("Клапаны", &valvePage);
+    static GEMItem linkValveBlock("Клапанный блок", &valveBlockPage);
     static GEMItem linkAuto("Авторежим", &autoPage);
     static GEMItem linkMovement("Движение", &movementPage);
-    static GEMItem linkDisplay("Дисплей", &displayPage);
     static GEMItem linkImu("MPU", &imuPage);
     static GEMItem linkSettings("Просмотр", &settingsViewPage);
-    static GEMItem linkInfo("Информация", &infoPage);
 
     mainPage.addMenuItem(linkSystem);
-    mainPage.addMenuItem(linkOta);
-    mainPage.addMenuItem(linkTest);
-    mainPage.addMenuItem(linkPressure);
-    mainPage.addMenuItem(linkValve);
+    mainPage.addMenuItem(linkValveBlock);
     mainPage.addMenuItem(linkAuto);
     mainPage.addMenuItem(linkMovement);
-    mainPage.addMenuItem(linkDisplay);
     mainPage.addMenuItem(linkImu);
     mainPage.addMenuItem(linkSettings);
-    mainPage.addMenuItem(linkInfo);
-
-    // --- Кнопка сохранения ---
-    static GEMItem itemSave("СОХРАНИТЬ", []() {
-        requestMenuClose("SAVE");
-    });
-    mainPage.addMenuItem(itemSave);
 
     // Float: всегда два знака после запятой (x.xx)
     itemDeadband.setPrecision(2);

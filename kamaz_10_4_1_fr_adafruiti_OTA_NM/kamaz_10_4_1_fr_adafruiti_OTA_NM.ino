@@ -170,13 +170,14 @@ GEM_adafruit_gfx gem(tft);
 
 GEMPage mainPage("Главное меню", menuExitAction);
 GEMPage systemPage("Система", mainPage);
-GEMPage testPage("Тестирование", mainPage);
-GEMPage valvePage("Клапаны", mainPage);
-GEMPage pressurePage("Давление", mainPage);
+GEMPage valveBlockPage("Клапанный блок", mainPage);
+GEMPage testPage("Тестирование", valveBlockPage);
+GEMPage valvePage("Клапаны", valveBlockPage);
+GEMPage pressurePage("Давление", valveBlockPage);
 GEMPage autoPage("Авторежим", mainPage);
-GEMPage displayPage("Дисплей", mainPage);
+GEMPage displayPage("Дисплей", systemPage);
 GEMPage movementPage("Движение", mainPage);
-GEMPage infoPage("Информация", mainPage);
+GEMPage infoPage("Информация", systemPage);
 GEMPage imuPage("MPU / фильтры", mainPage);
 GEMPage settingsViewPage("Просмотр", mainPage);
 

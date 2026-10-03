@@ -13,9 +13,9 @@
 
 extern GEM_adafruit_gfx gem;
 extern GEMPage mainPage;
+extern GEMPage systemPage;
 
-
-GEMPage otaPage("Обновления", mainPage);
+GEMPage otaPage("Обновления", systemPage);
 GEMPage otaListPage("Прошивки (GitHub)", otaPage);
 GEMPage otaCardPage("Релиз", otaListPage);
 

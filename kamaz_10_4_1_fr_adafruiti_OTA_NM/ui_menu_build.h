@@ -77,6 +77,7 @@ extern int   editImuPreset;
 extern GEM_adafruit_gfx gem;
 extern GEMPage mainPage;
 extern GEMPage systemPage;
+extern GEMPage valveBlockPage;
 extern GEMPage testPage;
 extern GEMPage valvePage;
 extern GEMPage pressurePage;
