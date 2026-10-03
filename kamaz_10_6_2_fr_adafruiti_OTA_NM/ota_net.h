@@ -19,6 +19,11 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
                               const char *acceptHdr = "application/json",
                               const char *rangeHdr = nullptr);
 
+/** Resolve API asset URL 302 Location → CDN URL (objects.githubusercontent.com).
+ *  Writes final URL into out (may copy url unchanged). Returns true if out is usable. */
+bool githubResolveDownloadUrl(const char *url, char *out, size_t outLen,
+                              const char *acceptHdr = "application/octet-stream");
+
 #include <esp_ota_ops.h>
 esp_ota_handle_t       getGhOtaHandle();
 bool                   getGhOtaActive();

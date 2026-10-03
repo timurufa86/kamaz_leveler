@@ -17,7 +17,7 @@ REM ============================================================================
 setlocal
 
 set SKETCH=kamaz_10_6_2_fr_adafruiti_OTA_NM
-REM Sketch folder 10_6_2; VERSION string = 10.6.5
+REM Sketch folder 10_6_2; VERSION string = 10.6.6
 set FQBN=esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
 set CONFIG=arduino-cli.yaml
 set LINKFLAGS=-Wl,--allow-multiple-definition

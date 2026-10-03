@@ -183,7 +183,7 @@ bool fetchGitHubReleaseList() {
   if (menuVisible) displayDirty = true;
   // Releases API (не tags): даёт asset.url на api.github.com + digest sha256
   constexpr char kReleasesUrl[] =
-      "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=3";
+      "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=8";
   constexpr char kPath[] = "/gh_rels.json";
   Serial.printf("[GH-OTA] Список releases, heap %u\n", static_cast<unsigned>(ESP.getFreeHeap()));
   const int code = githubHttpsDownloadToFile(kReleasesUrl, kPath, 25000, "application/json");

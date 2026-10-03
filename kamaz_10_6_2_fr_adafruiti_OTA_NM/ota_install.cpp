@@ -115,6 +115,19 @@ bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
   Serial.printf("[GH-OTA] expected sha256: %.16s… tag=%s\n", expected, releaseTag ? releaseTag : "?");
   githubOtaPrintHeap("after-sha");
 
+  // API asset URL → CDN (objects.githubusercontent.com). Streaming HTTP/1.0 often
+  // fails to follow 302; resolve Location once, then stream from CDN.
+  static char resolvedBinUrl[320];
+  if (!githubResolveDownloadUrl(firmwareUrl, resolvedBinUrl, sizeof(resolvedBinUrl),
+                                "application/octet-stream")) {
+    Serial.printf("[GH-OTA] resolve download URL fail: %s\n", firmwareUrl);
+    strlcpy(otaListStatus, "нет CDN URL", sizeof(otaListStatus));
+    githubOtaEndInstallSession("dl-exit");
+    return false;
+  }
+  firmwareUrl = resolvedBinUrl;
+  Serial.printf("[GH-OTA] bin URL ready (len=%u)\n", static_cast<unsigned>(strlen(firmwareUrl)));
+
   strlcpy(otaStatus, "OTA begin…", sizeof(otaStatus));
   displayDirty = true;
   WiFi.setSleep(false);
@@ -280,8 +293,9 @@ bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
       http.useHTTP10(true);
       http.setReuse(false);
       http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-      http.addHeader("User-Agent", "kamaz-leveler/9.4.0");
-      http.addHeader("Accept", githubDownloadAccept(firmwareUrl));
+      http.addHeader("User-Agent", "kamaz-leveler/10.6.5");
+      // After resolve, URL is usually objects.githubusercontent.com — */* is fine
+      http.addHeader("Accept", "*/*");
       http.addHeader("Accept-Encoding", "identity");
       http.addHeader("Connection", "close");
       const char *hk[] = {"Content-Range", "Content-Length"};

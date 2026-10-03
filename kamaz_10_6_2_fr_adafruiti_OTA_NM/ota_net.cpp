@@ -149,6 +149,70 @@ void githubOtaEndInstallSession(const char *why) {
   githubOtaPauseWorkers(false);
 }
 
+bool githubResolveDownloadUrl(const char *url, char *out, size_t outLen,
+                              const char *acceptHdr) {
+  if (!url || !out || outLen < 24) return false;
+  strlcpy(out, url, outLen);
+  // Only API asset URLs need a 302 → objects.githubusercontent.com hop.
+  if (!strstr(url, "api.github.com/") || !strstr(url, "/releases/assets/")) {
+    return true;
+  }
+  if (WiFi.status() != WL_CONNECTED) return false;
+
+  WiFi.setSleep(false);
+  githubOtaReleaseTlsHeap("resolve-url");
+  if (!otaInProgress) githubOtaPauseWorkers(true);
+  githubOtaDefragHeap();
+  vTaskDelay(pdMS_TO_TICKS(40));
+
+  bool ok = false;
+  WiFiClientSecure *client = new (std::nothrow) WiFiClientSecure();
+  if (!client) {
+    if (!otaInProgress) githubOtaPauseWorkers(false);
+    return false;
+  }
+  otaConfigureTls(client);
+  client->setHandshakeTimeout(25);
+  client->setTimeout(20000);
+
+  {
+    HTTPClient http;
+    http.setConnectTimeout(15000);
+    http.setTimeout(20000);
+    if (http.begin(*client, url)) {
+      http.useHTTP10(true);
+      http.setReuse(false);
+      http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
+      http.addHeader("User-Agent", "kamaz-leveler/10.6.5");
+      http.addHeader("Accept", acceptHdr ? acceptHdr : "application/octet-stream");
+      http.addHeader("Connection", "close");
+      const int code = http.GET();
+      Serial.printf("[GH-OTA] resolve GET > HTTP %d\n", code);
+      if (code == HTTP_CODE_MOVED_PERMANENTLY || code == HTTP_CODE_FOUND ||
+          code == HTTP_CODE_TEMPORARY_REDIRECT || code == 308) {
+        const String loc = http.getLocation();
+        if (loc.length() >= 12 && loc.length() + 1 < outLen) {
+          strlcpy(out, loc.c_str(), outLen);
+          Serial.printf("[GH-OTA] resolve → %.80s…\n", out);
+          ok = true;
+        }
+      } else if (code == HTTP_CODE_OK || code == HTTP_CODE_PARTIAL_CONTENT) {
+        ok = true;  // no redirect needed
+      } else if (code > 0) {
+        Serial.printf("[GH-OTA] resolve unexpected HTTP %d\n", code);
+      }
+      http.end();
+    }
+  }
+  client->stop();
+  delete client;
+  if (!otaInProgress) {
+    githubOtaReserveTlsHeap("resolve-done");
+    githubOtaPauseWorkers(false);
+  }
+  return ok;
+}
+
 int githubHttpsDownloadToFile(const char *url, const char *outPath,
                               uint32_t timeoutMs,
                               const char *acceptHdr,
