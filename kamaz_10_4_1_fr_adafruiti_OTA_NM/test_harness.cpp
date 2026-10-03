@@ -224,16 +224,25 @@ static void testPrintCalib() {
 static void testScanI2c() {
   Serial.print("[TEST] I2C");
   uint8_t found = 0;
+  MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(500));
+  if (!i2c) {
+    Serial.println(" BUSY n=0");
+    return;
+  }
   for (uint8_t addr = 1; addr < 127; addr++) {
-    MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(30));
-    if (!i2c) continue;
     Wire.beginTransmission(addr);
     if (Wire.endTransmission() == 0) {
       Serial.printf(" 0x%02X", addr);
       found++;
     }
   }
-  Serial.printf(" n=%u\n", (unsigned)found);
+  Serial.printf(" n=%u", (unsigned)found);
+  // Явно подсветим MPU — частый вопрос при отладке.
+  Wire.beginTransmission(0x68);
+  const bool a68 = (Wire.endTransmission() == 0);
+  Wire.beginTransmission(0x69);
+  const bool a69 = (Wire.endTransmission() == 0);
+  Serial.printf(" mpu68=%d mpu69=%d\n", a68 ? 1 : 0, a69 ? 1 : 0);
 }
 
 static void testPrintStatus() {

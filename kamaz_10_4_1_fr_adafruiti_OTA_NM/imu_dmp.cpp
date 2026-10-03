@@ -54,7 +54,8 @@ static void i2cBusRecover() {
 static void i2cScanLog(const char* tag) {
   uint8_t found = 0;
   Serial.printf("[I2C] scan (%s):", tag);
-  for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+  // Включая 0x78 (JHM) — иначе при «пустом» логе кажется, что шина мертва.
+  for (uint8_t addr = 0x08; addr <= 0x78; addr++) {
     Wire.beginTransmission(addr);
     if (Wire.endTransmission() == 0) {
       Serial.printf(" 0x%02X", addr);
@@ -82,12 +83,24 @@ void initializeDMP() {
     return Wire.endTransmission() == 0;
   };
 
+  // Мягкий старт: не рвём шину Wire.end(), пока JHM/MPU отвечают.
+  // Recover — только если 0x68/0x69 молчат (типичный зависон SDA у MPU).
+  Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
+  Wire.setClock(100000L);
+  Wire.setTimeOut(50);
+
   for (uint8_t attempt = 1; attempt <= 5; attempt++) {
-    i2cBusRecover();
-    delay(40 * attempt);
+    if (attempt > 1) {
+      i2cBusRecover();
+      delay(50 * attempt);
+    } else {
+      delay(20);
+    }
 
     if (attempt == 1 || attempt == 5) {
       i2cScanLog(attempt == 1 ? "до MPU" : "после fail");
+      Serial.printf("[MPU] idle SDA=%d SCL=%d\n",
+                    digitalRead(PIN_OLED_SDA), digitalRead(PIN_OLED_SCL));
     }
 
     const bool a68 = probe(0x68);
@@ -165,9 +178,10 @@ void initializeDMP() {
 
   Logger::log(Logger::ERROR, "MPU", "Ошибка подключения!");
   mpuOk = false;
-  Wire.setClock(100000L);  // оставляем 100 кГц — надёжнее для ADS, пока MPU мёртв
+  Wire.setClock(100000L);  // оставляем 100 кГц — надёжнее для JHM, пока MPU мёртв
   cfg_errorRemove(EH_MPU);
   displayDirty = true;
+  Serial.println("[MPU] нет ACK 0x68/0x69 — проверьте 3.3V/GND/SDA21/SCL22/AD0");
   Serial.println("[MPU] IMU отсутствует — углы/движение отключены, давление работает");
 #endif
 }
