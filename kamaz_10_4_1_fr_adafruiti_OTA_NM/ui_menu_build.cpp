@@ -136,6 +136,7 @@ GEMSpinnerBoundariesInt spinnerInt2_30 = { .step = 1, .min = 2, .max = 30 };    
 GEMSpinnerBoundariesInt spinnerInt10_120 = { .step = 5, .min = 10, .max = 120 };      // Длительность/успокоение
 GEMSpinnerBoundariesInt spinnerInt30_300 = { .step = 10, .min = 30, .max = 300 };     // Проверка давления
 GEMSpinnerBoundariesInt spinnerInt0_2 = { .step = 1, .min = 0, .max = 2 };            // Пресет IMU
+GEMSpinnerBoundariesInt spinnerInt0_6 = { .step = 1, .min = 0, .max = 6 };            // DLPF_CFG
 GEMSpinnerBoundariesInt spinnerInt0_30 = { .step = 1, .min = 0, .max = 30 };          // Приглушить подсветку, мин
 GEMSpinnerBoundariesInt spinnerInt20_200 = { .step = 5, .min = 20, .max = 200 };      // Интервал кадра
 GEMSpinnerBoundariesInt spinnerInt20_255 = { .step = 5, .min = 20, .max = 255 };      // Порог MOT
@@ -175,6 +176,7 @@ GEMSpinner spinnerFrameMs(spinnerInt20_200);            // Интервал ка
 GEMSpinner spinnerRedrawAngle(spinnerFloat001_05);      // Порог перерисовки углов
 GEMSpinner spinnerRedrawPressure(spinnerFloat001_05);   // Порог перерисовки давления
 GEMSpinner spinnerImuMotionDet(spinnerInt20_255);       // Порог MOT
+GEMSpinner spinnerImuDlpf(spinnerInt0_6);               // DLPF: 256…5 Hz
 GEMSpinner spinnerGyroThreshold(spinnerInt10_200);      // Порог gyro RMS
 GEMSpinner spinnerGyroBumpThreshold(spinnerInt10_200);  // Порог pitch/roll (неровности)
 GEMSpinner spinnerAccelThreshold(spinnerInt200_3000);   // Порог ΔlinAcc
@@ -356,6 +358,12 @@ static const char *masterLowSpinnerLabel(GEMSpinner * /*spinner*/, int index, GE
 }
 
 /** Подпись спиннера пресета MPU: 0=Плавно, 1=Быстро, 2=Баланс. */
+static const char *imuDlpfSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static const char *labels[] = { "256 Гц", "188 Гц", "98 Гц", "42 Гц", "20 Гц", "10 Гц", "5 Гц" };
+  if (index < 0 || index > 6) return "?";
+  return labels[index];
+}
+
 static const char *imuPresetSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
   static const char *const names[] = {"Плавно", "Быстро", "Баланс"};
   if (index < 0 || index > 2) return "—";
@@ -621,6 +629,7 @@ void initGEM() {
     static GEMItem itemMoveCheck("Проверка давл.,с", editMoveCheck, spinnerMoveCheck, [](GEMCallbackData d) { menuSpinChanged(d, editMoveCheck); });
     static GEMItem itemMoveTolerance("Допуск давл.,бар", editMoveTolerance, spinnerMoveTolerance, [](GEMCallbackData d) { menuSpinChanged(d, editMoveTolerance); });
     static GEMItem itemImuMotionDet("Порог MOT,ед", editImuMotionDet, spinnerImuMotionDet, [](GEMCallbackData d) { menuSpinChanged(d, editImuMotionDet); });
+    static GEMItem itemImuDlpf("DLPF,Гц", editImuDlpfMode, spinnerImuDlpf, [](GEMCallbackData d) { menuSpinChanged(d, editImuDlpfMode); });
     static GEMItem itemGyroThr("Порог Δgyro,ед", editGyroThreshold, spinnerGyroThreshold, [](GEMCallbackData d) { menuSpinChanged(d, editGyroThreshold); });
     static GEMItem itemGyroBump("Порог неровн.,ед", editGyroBumpThreshold, spinnerGyroBumpThreshold, [](GEMCallbackData d) { menuSpinChanged(d, editGyroBumpThreshold); });  // Δ bump = |bump−EMA|
     static GEMItem itemAccelThr("Порог Δlin,ед", editAccelThreshold, spinnerAccelThreshold, [](GEMCallbackData d) { menuSpinChanged(d, editAccelThreshold); });
@@ -632,6 +641,7 @@ void initGEM() {
     movementPage.addMenuItem(itemMoveCheck);
     movementPage.addMenuItem(itemMoveTolerance);
     movementPage.addMenuItem(itemImuMotionDet);
+    movementPage.addMenuItem(itemImuDlpf);
     movementPage.addMenuItem(itemGyroThr);
     movementPage.addMenuItem(itemGyroBump);
     movementPage.addMenuItem(itemAccelThr);
@@ -736,6 +746,7 @@ void initGEM() {
     itemPressureMax.setPrecision(2);
     spinnerMasterLow.setProduceOptionNameByIndexCallback(masterLowSpinnerLabel);
     spinnerImuPreset.setProduceOptionNameByIndexCallback(imuPresetSpinnerLabel);
+    spinnerImuDlpf.setProduceOptionNameByIndexCallback(imuDlpfSpinnerLabel);
     itemCoarseZone.setPrecision(2);
     itemFineZone.setPrecision(2);
     itemWorsening.setPrecision(2);

@@ -135,6 +135,7 @@ int   editFrameMs;            // интервал кадра дисплея, м�
 float editRedrawAngle;        // порог перерисовки по углу, °
 float editRedrawPressure;     // порог перерисовки по давлению, бар
 int   editImuMotionDet;       // аппаратный порог детектора движения MPU (MOT)
+int   editImuDlpfMode;        // DLPF_CFG 0..6 (256/188/98/42/20/10/5 Hz)
 int   editGyroThreshold;      // порог |gyro−EMA| (меню ×8 → порог)
 int   editGyroBumpThreshold;  // порог |bump−EMA| — неровности дороги
 int   editAccelThreshold;     // порог |linAcc − EMA|
@@ -377,6 +378,7 @@ void setup() {
   editRedrawAngle = constrain(ConfigManager::getRedrawAngleThr(), 0.01f, 0.5f);
   editRedrawPressure = constrain(ConfigManager::getRedrawPressureThr(), 0.01f, 0.5f);
   editImuMotionDet = constrain(ConfigManager::getImuMotionDet(), 20, 255);
+  editImuDlpfMode = constrain(ConfigManager::getImuDlpfMode(), 0, 6);
   editGyroThreshold = constrain(ConfigManager::getGyroThreshold(), 10, 200);
   editGyroBumpThreshold = constrain(ConfigManager::getGyroBumpThreshold(), 10, 200);
   editAccelThreshold = constrain(ConfigManager::getAccelThreshold(), 100, 3000);

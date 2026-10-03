@@ -54,6 +54,7 @@ extern int   editFrameMs;
 extern float editRedrawAngle;
 extern float editRedrawPressure;
 extern int   editImuMotionDet;
+extern int   editImuDlpfMode;       // DLPF_CFG 0..6 → 256…5 Hz
 extern int   editGyroThreshold;
 extern int   editGyroBumpThreshold;
 extern int   editAccelThreshold;

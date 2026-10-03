@@ -11,7 +11,7 @@
 #include "event_bus.h"
 #include "ui_menu_build.h"
 
-constexpr uint32_t CONFIG_FORMAT_VERSION = 8;
+constexpr uint32_t CONFIG_FORMAT_VERSION = 9;
 
 class ConfigManager {
 private:
@@ -61,6 +61,9 @@ private:
 
     // ===== 8.8.0: IMU / MPU6050 =====
     int imuMotionDet = 40;           // аппаратный порог MOT (LSB=2mg; меньше = чувствительнее)
+    // DLPF_CFG 0..6: 256/188/98/42/20/10/5 Hz.
+    // Дефолт 6 = MPU6050_DLPF_BW_5 (5 Hz) — сильнее режет вибрацию двигателя/дороги.
+    int imuDlpfMode = 6;
     // Заводские офсеты из примеров i2cdevlib / MotionApps (не нули).
     int imuGyroOffX = 220;
     int imuGyroOffY = 76;
@@ -215,6 +218,7 @@ public:
 
     // ===== 8.8.0: IMU / MPU6050 =====
     currentConfig.imuMotionDet = constrain((int)(doc["imuMotionDet"] | 40), 20, 255);
+    currentConfig.imuDlpfMode = constrain((int)(doc["imuDlpfMode"] | 6), 0, 6);
     currentConfig.imuGyroOffX = constrain((int)(doc["imuGyroOffX"] | 220), -32768, 32767);
     currentConfig.imuGyroOffY = constrain((int)(doc["imuGyroOffY"] | 76), -32768, 32767);
     currentConfig.imuGyroOffZ = constrain((int)(doc["imuGyroOffZ"] | -85), -32768, 32767);
@@ -353,6 +357,7 @@ public:
     doc["redrawAngleThr"] = currentConfig.redrawAngleThr;
     doc["redrawPressureThr"] = currentConfig.redrawPressureThr;
     doc["imuMotionDet"] = currentConfig.imuMotionDet;
+    doc["imuDlpfMode"] = currentConfig.imuDlpfMode;
     doc["imuGyroOffX"] = currentConfig.imuGyroOffX;
     doc["imuGyroOffY"] = currentConfig.imuGyroOffY;
     doc["imuGyroOffZ"] = currentConfig.imuGyroOffZ;
@@ -542,6 +547,7 @@ public:
   CFG_FLOAT_ACCESSOR(RedrawAngleThr, redrawAngleThr)
   CFG_FLOAT_ACCESSOR(RedrawPressureThr, redrawPressureThr)
   CFG_INT_ACCESSOR(ImuMotionDet, imuMotionDet)
+  CFG_INT_ACCESSOR(ImuDlpfMode, imuDlpfMode)
   CFG_INT_ACCESSOR(ImuGyroOffX, imuGyroOffX)
   CFG_INT_ACCESSOR(ImuGyroOffY, imuGyroOffY)
   CFG_INT_ACCESSOR(ImuGyroOffZ, imuGyroOffZ)
@@ -588,9 +594,9 @@ public:
                   currentConfig.masterCheckSec, currentConfig.manualMaxTimeSec, currentConfig.pressureDeadband,
                   currentConfig.pressureStabilizeMs, currentConfig.pressureIdleMin,
                   currentConfig.coarseZoneRatio, currentConfig.fineZoneRatio, currentConfig.worseningRatio);
-    Serial.printf("[CFG] Дисплей: подсветка=%dмин кадр=%dмс углы=%.2f давл=%.2f | IMU: det=%d гиро=%d,%d,%d акс=%d,%d,%d нуль=%.2f,%.2f\n",
+    Serial.printf("[CFG] Дисплей: подсветка=%dмин кадр=%dмс углы=%.2f давл=%.2f | IMU: det=%d dlpf=%d гиро=%d,%d,%d акс=%d,%d,%d нуль=%.2f,%.2f\n",
                   currentConfig.backlightOffMin, currentConfig.frameMs, currentConfig.redrawAngleThr,
-                  currentConfig.redrawPressureThr, currentConfig.imuMotionDet,
+                  currentConfig.redrawPressureThr, currentConfig.imuMotionDet, currentConfig.imuDlpfMode,
                   currentConfig.imuGyroOffX, currentConfig.imuGyroOffY, currentConfig.imuGyroOffZ,
                   currentConfig.imuAccelOffX, currentConfig.imuAccelOffY, currentConfig.imuAccelOffZ,
                   currentConfig.zeroAngleX, currentConfig.zeroAngleY);
@@ -618,6 +624,7 @@ int   cfg_getImuAccelOffX();
 int   cfg_getImuAccelOffY();
 int   cfg_getImuAccelOffZ();
 int   cfg_getImuMotionDet();
+int   cfg_getImuDlpfMode();
 int   cfg_getGyroThreshold();
 int   cfg_getGyroBumpThreshold();
 int   cfg_getAccelThreshold();

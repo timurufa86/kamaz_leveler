@@ -21,6 +21,7 @@ int   cfg_getImuAccelOffX()         { return ConfigManager::getImuAccelOffX(); }
 int   cfg_getImuAccelOffY()         { return ConfigManager::getImuAccelOffY(); }
 int   cfg_getImuAccelOffZ()         { return ConfigManager::getImuAccelOffZ(); }
 int   cfg_getImuMotionDet()         { return ConfigManager::getImuMotionDet(); }
+int   cfg_getImuDlpfMode()          { return ConfigManager::getImuDlpfMode(); }
 int   cfg_getGyroThreshold()        { return ConfigManager::getGyroThreshold(); }
 int   cfg_getGyroBumpThreshold()    { return ConfigManager::getGyroBumpThreshold(); }
 int   cfg_getAccelThreshold()       { return ConfigManager::getAccelThreshold(); }
@@ -84,6 +85,10 @@ void applyRuntimeSettings() {
   if (mpuOk) {
     MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(50));
     if (i2c) {
+      // DLPF режет ВЧ-вибрацию в gyro/accel (пути DMP + software MOT).
+      // Дефолт: MPU6050_DLPF_BW_5 (5 Hz).
+      const uint8_t dlpf = (uint8_t)constrain(ConfigManager::getImuDlpfMode(), 0, 6);
+      mpu.setDLPFMode(dlpf);
       // Аппаратный MOT после DMP: DHPF + THR + DUR + counter decrement + INT.
       mpu.setDHPFMode(MPU6050_DHPF_1P25);
       mpu.setMotionDetectionThreshold((uint8_t)ConfigManager::getImuMotionDet());
@@ -92,7 +97,9 @@ void applyRuntimeSettings() {
       mpu.setMotionDetectionCounterDecrement(1);
       mpu.setIntEnabled(0x52);  // MOT | FIFO_OFLOW | DMP_INT
       (void)mpu.getIntStatus();
-      Serial.printf("[IMU] MOT_THR=%d MOT_DUR=%u INT_EN=0x%02X\n",
+      static const int kDlpfHz[] = { 256, 188, 98, 42, 20, 10, 5 };
+      Serial.printf("[IMU] DLPF=%u (~%dHz) MOT_THR=%d MOT_DUR=%u INT_EN=0x%02X\n",
+                    (unsigned)dlpf, kDlpfHz[dlpf],
                     ConfigManager::getImuMotionDet(), (unsigned)g_motDurMs,
                     (unsigned)mpu.getIntEnabled());
     }
@@ -169,6 +176,7 @@ void saveMenuSettings() {
   ConfigManager::setRedrawAngleThr(editRedrawAngle);
   ConfigManager::setRedrawPressureThr(editRedrawPressure);
   ConfigManager::setImuMotionDet(editImuMotionDet);
+  ConfigManager::setImuDlpfMode(editImuDlpfMode);
   ConfigManager::setZeroAngleX(editZeroAngleX);
   ConfigManager::setZeroAngleY(editZeroAngleY);
   ConfigManager::setImuKalmanMea(editImuKalmanMea);

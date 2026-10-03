@@ -16,6 +16,7 @@ extern int   cfg_getImuAccelOffX();
 extern int   cfg_getImuAccelOffY();
 extern int   cfg_getImuAccelOffZ();
 extern int   cfg_getImuMotionDet();
+extern int   cfg_getImuDlpfMode();
 
 /* ── ErrorHandler bridge function (defined in the .ino) ── */
 extern void cfg_errorRemove(uint8_t err);
@@ -149,6 +150,11 @@ void initializeDMP() {
     mpu.setYAccelOffset(cfg_getImuAccelOffY());
     mpu.setZAccelOffset(cfg_getImuAccelOffZ());
 
+    // DLPF после DMP (dmpInitialize перезаписывает CONFIG): режет ВЧ-вибрацию.
+    // Дефолт конфига = MPU6050_DLPF_BW_5 (0x06, ~5 Hz).
+    const uint8_t dlpf = (uint8_t)constrain(cfg_getImuDlpfMode(), 0, 6);
+    mpu.setDLPFMode(dlpf);
+
     // Аппаратный MOT + FIFO + DMP_INT (0x52). HPF нужен, иначе MOT с DMP почти мёртв.
     // MOT_DUR=40 мс, counter decrement=1 — типичный гайд для стабильных импульсов.
     mpu.setDHPFMode(MPU6050_DHPF_1P25);
@@ -161,8 +167,10 @@ void initializeDMP() {
     mpu.setIntEnabled(0x52);  // MOT | FIFO_OFLOW | DMP_INT
     (void)mpu.getIntStatus();  // очистка latched INT
 
-    Serial.printf("[MPU] DMP OK MotionApps 6.12 packet=%u | MOT_THR=%u MOT_DUR=%u INT_EN=0x%02X gyroOff=(%d,%d,%d)\n",
+    static const int kDlpfHz[] = { 256, 188, 98, 42, 20, 10, 5 };
+    Serial.printf("[MPU] DMP OK MotionApps 6.12 packet=%u | DLPF=%u(~%dHz) MOT_THR=%u MOT_DUR=%u INT_EN=0x%02X gyroOff=(%d,%d,%d)\n",
                   (unsigned)mpu.dmpGetFIFOPacketSize(),
+                  (unsigned)dlpf, kDlpfHz[dlpf],
                   (unsigned)cfg_getImuMotionDet(),
                   (unsigned)g_motDurMs,
                   (unsigned)mpu.getIntEnabled(),

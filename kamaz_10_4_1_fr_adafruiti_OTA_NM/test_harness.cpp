@@ -57,7 +57,7 @@ static void testPrintHelp() {
   Serial.println("  TEST IMU | IMU CFG | IMU STREAM [sec] | IMU STATS [sec]");
   Serial.println("  TEST IMU SET <key> <val> | IMU PRESET BAL|SMOOTH|FAST | IMU SAVE");
   Serial.println("  TEST MOT | MOT CFG | MOT STREAM [sec] | MOT STATS | MOT RESET | MOT SAVE");
-  Serial.println("  TEST MOT SET gyro|bump|lin|det|dur|duration|settle|period <val>");
+  Serial.println("  TEST MOT SET gyro|bump|lin|det|dlpf|dur|duration|settle|period <val>");
   Serial.println("  TEST MODE [MANUAL|AUTO|MOVEMENT]");
   Serial.println("  TEST OTA STATUS | OTA LIST");
   Serial.println("  TEST SELF | FULL   — smoke / multi-mode sequence");
@@ -292,14 +292,16 @@ static void testPrintMot() {
       g_motLastGyroBumpBusy ? 1 : 0, g_motLastLinAccRaw, g_motLastLinAccRms, g_motLastLinAccThr,
       g_motLastLinAccBusy ? 1 : 0, (unsigned)g_motLastIntStatus, ms,
       movementModeActive ? 1 : 0, settleLeft);
+  static const int kDlpfHz[] = { 256, 188, 98, 42, 20, 10, 5 };
+  const int dlpf = constrain(ConfigManager::getImuDlpfMode(), 0, 6);
   Serial.printf(
       "[TEST] MOT_CFG duration=%ds settle=%ds gyroMenu=%d gyroThr=%.0f bumpMenu=%d bumpThr=%.0f "
-      "linThr=%d det=%d motDur=%ums period=%lums\n",
+      "linThr=%d det=%d dlpf=%d(~%dHz) motDur=%ums period=%lums\n",
       ConfigManager::getMovementDurationSec(), ConfigManager::getMovementSettleSec(),
       ConfigManager::getGyroThreshold(), (float)ConfigManager::getGyroThreshold() * 8.0f,
       ConfigManager::getGyroBumpThreshold(), (float)ConfigManager::getGyroBumpThreshold() * 8.0f,
       ConfigManager::getAccelThreshold(),
-      ConfigManager::getImuMotionDet(), (unsigned)g_motDurMs,
+      ConfigManager::getImuMotionDet(), dlpf, kDlpfHz[dlpf], (unsigned)g_motDurMs,
       (unsigned long)g_motStreamPeriodMs);
 }
 
@@ -511,6 +513,15 @@ void processTestCommandLine(char *line) {
                 MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(80));
                 if (i2c) {
                   mpu.setMotionDetectionThreshold((uint8_t)ConfigManager::getImuMotionDet());
+                }
+              }
+            } else if (strcasecmp(key, "dlpf") == 0) {
+              ConfigManager::setImuDlpfMode(constrain(iv, 0, 6));
+              editImuDlpfMode = ConfigManager::getImuDlpfMode();
+              if (mpuOk) {
+                MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(80));
+                if (i2c) {
+                  mpu.setDLPFMode((uint8_t)ConfigManager::getImuDlpfMode());
                 }
               }
             } else if (strcasecmp(key, "dur") == 0) {
