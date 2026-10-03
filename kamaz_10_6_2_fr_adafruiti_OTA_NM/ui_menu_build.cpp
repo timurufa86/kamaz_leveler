@@ -80,7 +80,8 @@ constexpr uint8_t MENU_LEFT_PADDING = 15;  // отступ слева (для в
 constexpr uint8_t ROW_HEIGHT = 22;         // высота строки (важно!)
 constexpr uint8_t CURSOR_WIDTH = 2;
 // Колонка значений в меню GEM (названия слева, значения с этой колонки).
-constexpr uint8_t MENU_VALUES_LEFT_OFFSET = 150;
+// 200: длинные подписи вроде «Гистерезис, бар» / «Цикл опроса, мин» на 320px.
+constexpr uint8_t MENU_VALUES_LEFT_OFFSET = 200;
 constexpr uint16_t MENU_BG_COLOR = ST77XX_BLACK;
 constexpr uint16_t MENU_TEXT_COLOR = ST77XX_WHITE;
 constexpr uint16_t MENU_SEL_COLOR = ST77XX_BLUE;
@@ -130,7 +131,7 @@ GEMSpinner spinnerParkingPressure(spinnerFloat0_6); // Давл.стоянки
 
 /* ===== 8.8.0: спиннеры новых параметров ===== */
 // --- целочисленные ---
-GEMSpinnerBoundariesInt spinnerInt30_600 = { .step = 30, .min = 30, .max = 600 };     // Проверка МП
+GEMSpinnerBoundariesInt spinnerInt1_10_master = { .step = 1, .min = 1, .max = 10 };   // Проверка P Маг., мин
 GEMSpinnerBoundariesInt spinnerInt1_30 = { .step = 1, .min = 1, .max = 30 };          // Макс. время операции
 GEMSpinnerBoundariesInt spinnerInt100_2000 = { .step = 50, .min = 100, .max = 2000 }; // Выравнивание МП, мс
 GEMSpinnerBoundariesInt spinnerInt2_30 = { .step = 1, .min = 2, .max = 30 };          // Пауза опроса, мин
@@ -156,7 +157,7 @@ GEMSpinnerBoundariesFloat spinnerFloat001_05 = { .step = 0.01f, .min = 0.01f, .m
 GEMSpinnerBoundariesFloat spinnerFloatNeg45_45 = { .step = 0.01f, .min = -45.0f, .max = 45.0f };  // Нуль углов (наклон рамы)
 GEMSpinnerBoundariesFloat spinnerFloatSlew = { .step = 5.0f, .min = 5.0f, .max = 120.0f };   // slew °/с
 
-GEMSpinner spinnerMasterCheck(spinnerInt30_600);        // Проверка МП
+GEMSpinner spinnerMasterCheck(spinnerInt1_10_master);   // Проверка P Маг., мин (в конфиге → ×60 с)
 GEMSpinner spinnerManualMaxTime(spinnerInt1_30);        // Макс. время операции
 GEMSpinner spinnerPressStabilize(spinnerInt100_2000);   // Выравнивание МП, мс
 GEMSpinner spinnerPressIdle(spinnerInt2_30);            // Пауза опроса, мин
@@ -236,8 +237,9 @@ static void refreshSettingsView() {
   snprintf(b3, sizeof(b3), "Авто %.2f/%.2f° %.2f/%.2f/%.2f", cfg_getTiltThresholdX(),
            cfg_getTiltThresholdY(), cfg_getCoarseZoneRatio(),
            cfg_getFineZoneRatio(), cfg_getWorseningRatio());
-  snprintf(b4, sizeof(b4), "Авто поп%d инт%dm МП%dс", cfg_getNivCount(),
-           cfg_getTimeInterval(), cfg_getMasterCheckSec());
+  snprintf(b4, sizeof(b4), "Авто поп%d инт%dm Маг%dm", cfg_getNivCount(),
+           cfg_getTimeInterval(),
+           (cfg_getMasterCheckSec() + 30) / 60);
   snprintf(b5, sizeof(b5), "Движ %.1f/%.1f бар", cfg_getMovementPressureFront(),
            cfg_getMovementPressureRear());
   snprintf(b6, sizeof(b6), "Дисп ярк%d %dмин %.2f°/%.2fб", cfg_getContrast(),
@@ -512,7 +514,7 @@ void initGEM() {
     valvePage.addMenuItem(itemManualMaxTime);
 
     // --- Страница "Давление" (лимиты, deadband, опрос МП) ---
-    static GEMItem itemPressureMin("P мин,бар", editPressureMin, spinnerPressureMin, [](GEMCallbackData data) {
+    static GEMItem itemPressureMin("min Р под, бар", editPressureMin, spinnerPressureMin, [](GEMCallbackData data) {
         void* ptr = data.pMenuItem->getLinkedVariablePointer();
         if (ptr) {
             editPressureMin = *(float*)ptr;
@@ -520,7 +522,7 @@ void initGEM() {
             displayDirty = true;
         }
     });
-    static GEMItem itemPressureMax("P макс,бар", editPressureMax, spinnerPressureMax, [](GEMCallbackData data) {
+    static GEMItem itemPressureMax("max Р под., бар", editPressureMax, spinnerPressureMax, [](GEMCallbackData data) {
         void* ptr = data.pMenuItem->getLinkedVariablePointer();
         if (ptr) {
             editPressureMax = *(float*)ptr;
@@ -528,7 +530,7 @@ void initGEM() {
             displayDirty = true;
         }
     });
-    static GEMItem itemMasterLow("Низк.МП,бар", editMasterLowTenths, spinnerMasterLow, [](GEMCallbackData data) {
+    static GEMItem itemMasterLow("min P Маг., бар", editMasterLowTenths, spinnerMasterLow, [](GEMCallbackData data) {
         void* ptr = data.pMenuItem->getLinkedVariablePointer();
         if (!ptr) return;
         editMasterLowTenths = constrain(*(int*)ptr, 0, 40);
@@ -543,10 +545,10 @@ void initGEM() {
           Serial.println("[MENU] LOW_PRESSURE снята (Низк.МП=0.00)");
         }
     });
-    static GEMItem itemDeadband("Зона нечув,бар", editDeadband, spinnerDeadband, [](GEMCallbackData d) { menuSpinChanged(d, editDeadband); });
-    static GEMItem itemMasterCheck("Проверка МП,с", editMasterCheck, spinnerMasterCheck, [](GEMCallbackData d) { menuSpinChanged(d, editMasterCheck); });
+    static GEMItem itemDeadband("Гистерезис, бар", editDeadband, spinnerDeadband, [](GEMCallbackData d) { menuSpinChanged(d, editDeadband); });
+    static GEMItem itemMasterCheck("Проверка P Маг., мин.", editMasterCheck, spinnerMasterCheck, [](GEMCallbackData d) { menuSpinChanged(d, editMasterCheck); });
     static GEMItem itemPressStabilize("Выравн.МП,мс", editPressStabilizeMs, spinnerPressStabilize, [](GEMCallbackData d) { menuSpinChanged(d, editPressStabilizeMs); });
-    static GEMItem itemPressIdle("Пауза опроса,мин", editPressIdleMin, spinnerPressIdle, [](GEMCallbackData d) { menuSpinChanged(d, editPressIdleMin); });
+    static GEMItem itemPressIdle("Цикл опроса, мин", editPressIdleMin, spinnerPressIdle, [](GEMCallbackData d) { menuSpinChanged(d, editPressIdleMin); });
     pressurePage.addMenuItem(itemPressureMin);
     pressurePage.addMenuItem(itemPressureMax);
     pressurePage.addMenuItem(itemMasterLow);

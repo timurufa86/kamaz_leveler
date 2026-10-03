@@ -118,7 +118,7 @@ float editParkingPressure;    // давление стоянки после ДВ
 bool settingsChanged = false;
 
 /* ===== 8.8.0: зеркала новых параметров меню ===== */
-int   editMasterCheck;        // период проверки магистрали, с
+int   editMasterCheck;        // период проверки магистрали, мин (в конфиге masterCheckSec = мин×60)
 int   editManualMaxTime;      // максимальное время ручной операции, с
 int   editPressStabilizeMs;   // выравнивание МП после клапана, мс
 int   editPressIdleMin;       // пауза между полными опросами подушек, мин
@@ -365,7 +365,7 @@ void setup() {
   editParkingPressure = constrain(ConfigManager::getParkingPressureBar(), 0.0f, 6.0f);
 
   // ===== 8.8.0: зеркала новых параметров =====
-  editMasterCheck = constrain(ConfigManager::getMasterCheckSec(), 30, 600);
+  editMasterCheck = constrain((ConfigManager::getMasterCheckSec() + 30) / 60, 1, 10);
   editManualMaxTime = constrain(ConfigManager::getManualMaxTimeSec(), 1, 30);
   editPressStabilizeMs = constrain(ConfigManager::getPressureStabilizeMs(), 100, 2000);
   editPressIdleMin = constrain(ConfigManager::getPressureIdleMin(), 2, 30);

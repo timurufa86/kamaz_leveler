@@ -186,7 +186,7 @@ void saveMenuSettings() {
   ConfigManager::setParkingPressureBar(editParkingPressure);
 
   // ===== 8.8.0: новые параметры =====
-  ConfigManager::setMasterCheckSec(editMasterCheck);
+  ConfigManager::setMasterCheckSec(constrain(editMasterCheck, 1, 10) * 60);
   ConfigManager::setManualMaxTimeSec(editManualMaxTime);
   ConfigManager::setPressureDeadband(editDeadband);
   ConfigManager::setPressureStabilizeMs(editPressStabilizeMs);
