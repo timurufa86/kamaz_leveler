@@ -152,7 +152,7 @@ void refreshOtaListPage() {
   for (uint8_t i = 0; i < OTA_LIST_MAX; i++) {
     if (i < otaReleaseCount) {
       const OtaRelease &r = otaReleases[i];
-      if (r.shaUrl[0] == '\0') {
+      if (r.sha256[0] == '\0' && r.shaUrl[0] == '\0') {
         snprintf(otaItemTitle[i], sizeof(otaItemTitle[i]), "%s !sha", r.tag);
       } else {
         snprintf(otaItemTitle[i], sizeof(otaItemTitle[i]), "%s", r.tag);

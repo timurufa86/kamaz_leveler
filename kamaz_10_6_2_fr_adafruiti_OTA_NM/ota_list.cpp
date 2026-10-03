@@ -20,12 +20,38 @@ char *otaListHdrBuf_ptr() { return otaListHdrBuf_ext; }
 
 extern char otaListHdrBuf[];
 
+/** Extract 64 hex chars from GitHub asset digest ("sha256:aabb...") into out[65]. */
+static bool copyDigestSha256(const char *digest, char *out, size_t outLen) {
+  if (!digest || !out || outLen < 65) return false;
+  out[0] = '\0';
+  const char *p = digest;
+  if (strncmp(p, "sha256:", 7) == 0) p += 7;
+  size_t n = 0;
+  while (p[n] && n < 64) {
+    const char c = p[n];
+    const bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    if (!hex) break;
+    ++n;
+  }
+  if (n < 64) return false;
+  for (size_t i = 0; i < 64; ++i) {
+    char c = p[i];
+    if (c >= 'A' && c <= 'F') c = static_cast<char>(c - 'A' + 'a');
+    out[i] = c;
+  }
+  out[64] = '\0';
+  return true;
+}
+
 static void githubListFilter(JsonDocument &filter) {
   filter[0]["tag_name"] = true;
   filter[0]["published_at"] = true;
   filter[0]["assets"][0]["name"] = true;
   filter[0]["assets"][0]["size"] = true;
+  // API asset URL (api.github.com) — TLS на ESP32 стабильнее, чем github.com/releases/download
+  filter[0]["assets"][0]["url"] = true;
   filter[0]["assets"][0]["browser_download_url"] = true;
+  filter[0]["assets"][0]["digest"] = true;
 }
 
 static bool parseGitHubReleaseListFile(const char *path) {
@@ -76,17 +102,28 @@ static bool parseGitHubReleaseListFile(const char *path) {
 
     for (JsonObject asset : rel["assets"].as<JsonArray>()) {
       const char *name = asset["name"] | "";
-      const char *url = asset["browser_download_url"] | "";
-      if (name[0] == '\0' || url[0] == '\0') continue;
+      if (name[0] == '\0') continue;
+      const char *apiUrl = asset["url"] | "";
+      const char *browserUrl = asset["browser_download_url"] | "";
+      // Prefer API asset URL — same host as LIST (api.github.com), avoids github.com TLS BIGNUM fail
+      const char *dl = (apiUrl[0] != '\0') ? apiUrl : browserUrl;
+      if (dl[0] == '\0') continue;
+
       if (strcmp(name, GITHUB_ASSET_NAME) == 0) {
-        strlcpy(r.binUrl, url, sizeof(r.binUrl));
+        strlcpy(r.binUrl, dl, sizeof(r.binUrl));
         r.size = asset["size"] | 0UL;
+        copyDigestSha256(asset["digest"] | "", r.sha256, sizeof(r.sha256));
       } else if (strcmp(name, GITHUB_SHA256_ASSET_NAME) == 0) {
-        strlcpy(r.shaUrl, url, sizeof(r.shaUrl));
+        strlcpy(r.shaUrl, dl, sizeof(r.shaUrl));
       }
     }
     if (r.binUrl[0] == '\0') {
       Serial.printf("[GH-OTA]  пропуск %s — нет %s\n", r.tag, GITHUB_ASSET_NAME);
+      continue;
+    }
+    // sha: digest preferred; иначе отдельный .sha256 asset
+    if (r.sha256[0] == '\0' && r.shaUrl[0] == '\0') {
+      Serial.printf("[GH-OTA]  пропуск %s — нет digest/sha256\n", r.tag);
       continue;
     }
     collected[collectedN++] = r;
@@ -109,9 +146,10 @@ static bool parseGitHubReleaseListFile(const char *path) {
   uint8_t n = collectedN < OTA_LIST_MAX ? collectedN : OTA_LIST_MAX;
   for (uint8_t i = 0; i < n; i++) {
     otaReleases[i] = collected[i];
-    Serial.printf("[GH-OTA]  #%u %s  %s  %lu Б  sha=%s\n", i, otaReleases[i].tag,
+    Serial.printf("[GH-OTA]  #%u %s  %s  %lu Б  sha=%s digest=%s\n", i, otaReleases[i].tag,
                   otaReleases[i].date, static_cast<unsigned long>(otaReleases[i].size),
-                  otaReleases[i].shaUrl[0] ? "yes" : "NO");
+                  otaReleases[i].shaUrl[0] ? "file" : "-",
+                  otaReleases[i].sha256[0] ? "yes" : "NO");
   }
   otaReleaseCount = n;
   if (n > 0) {
@@ -143,11 +181,12 @@ bool fetchGitHubReleaseList() {
 
   strlcpy(otaListHdrBuf, "связь с GitHub...", 40);
   if (menuVisible) displayDirty = true;
-  constexpr char kTagsUrl[] =
-      "https://api.github.com/repos/timurufa86/kamaz_leveler/tags?per_page=3";
-  constexpr char kPath[] = "/gh_tags.json";
-  Serial.printf("[GH-OTA] Список tags, heap %u\n", static_cast<unsigned>(ESP.getFreeHeap()));
-  const int code = githubHttpsDownloadToFile(kTagsUrl, kPath, 22000, "application/json");
+  // Releases API (не tags): даёт asset.url на api.github.com + digest sha256
+  constexpr char kReleasesUrl[] =
+      "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=3";
+  constexpr char kPath[] = "/gh_rels.json";
+  Serial.printf("[GH-OTA] Список releases, heap %u\n", static_cast<unsigned>(ESP.getFreeHeap()));
+  const int code = githubHttpsDownloadToFile(kReleasesUrl, kPath, 25000, "application/json");
   if (code != HTTP_CODE_OK) {
     if (code <= 0) {
       strlcpy(otaListStatus, "сеть/TLS ошибка", sizeof(otaListStatus));
@@ -161,93 +200,24 @@ bool fetchGitHubReleaseList() {
     return false;
   }
 
-  File f = LittleFS.open(kPath, "r");
-  if (!f || f.size() < 8) {
-    strlcpy(otaListStatus, "пустой ответ", sizeof(otaListStatus));
-    strlcpy(otaListHdrBuf, "пустой ответ", 40);
-    if (f) f.close();
-    LittleFS.remove(kPath);
-    if (menuVisible) displayDirty = true;
-    return false;
-  }
-  Serial.printf("[GH-OTA] tags file %u байт\n", static_cast<unsigned>(f.size()));
   strlcpy(otaListHdrBuf, "разбор списка...", 40);
   if (menuVisible) displayDirty = true;
-
-  JsonDocument filter;
-  filter[0]["name"] = true;
-  JsonDocument doc;
-  DeserializationError err =
-      deserializeJson(doc, f, DeserializationOption::Filter(filter));
-  f.close();
-  LittleFS.remove(kPath);
-  if (err || !doc.is<JsonArray>()) {
-    snprintf(otaListStatus, sizeof(otaListStatus), "JSON %s", err ? err.c_str() : "arr");
-    strlcpy(otaListHdrBuf, "ошибка JSON", 40);
-    Serial.printf("[GH-OTA] tags JSON %s\n", err ? err.c_str() : "not array");
-    if (menuVisible) displayDirty = true;
-    return false;
-  }
-
-  OtaRelease collected[OTA_FETCH_MAX];
-  uint8_t collectedN = 0;
-  for (JsonObject tagObj : doc.as<JsonArray>()) {
-    if (collectedN >= OTA_FETCH_MAX) break;
-    const char *name = tagObj["name"] | "";
-    if (name[0] == '\0') continue;
-    OtaRelease r{};
-    strlcpy(r.tag, name, sizeof(r.tag));
-    snprintf(r.binUrl, sizeof(r.binUrl),
-             "https://github.com/timurufa86/kamaz_leveler/releases/download/%s/%s", r.tag,
-             GITHUB_ASSET_NAME);
-    snprintf(r.shaUrl, sizeof(r.shaUrl),
-             "https://github.com/timurufa86/kamaz_leveler/releases/download/%s/%s", r.tag,
-             GITHUB_SHA256_ASSET_NAME);
-    r.date[0] = '\0';
-    r.size = 0;
-    collected[collectedN++] = r;
-  }
-
-  for (uint8_t i = 0; i + 1 < collectedN; i++) {
-    for (uint8_t j = i + 1; j < collectedN; j++) {
-      SemVer a{}, b{};
-      parseSemVer(collected[i].tag, a);
-      parseSemVer(collected[j].tag, b);
-      if (!a.valid || !b.valid) continue;
-      if (compareSemVer(b, a) > 0) {
-        OtaRelease tmp = collected[i];
-        collected[i] = collected[j];
-        collected[j] = tmp;
-      }
-    }
-  }
-
-  uint8_t n = collectedN < OTA_LIST_MAX ? collectedN : OTA_LIST_MAX;
-  for (uint8_t i = 0; i < n; i++) {
-    otaReleases[i] = collected[i];
-    Serial.printf("[GH-OTA]  #%u %s\n", i, otaReleases[i].tag);
-  }
-  otaReleaseCount = n;
-  if (n > 0) {
-    strlcpy(otaLatestTag, otaReleases[0].tag, sizeof(otaLatestTag));
-    snprintf(otaListStatus, sizeof(otaListStatus), "список: %u (актуал. %s)", n, otaLatestTag);
-    snprintf(otaListHdrBuf, 40, "последние %u", n);
-  } else {
-    strlcpy(otaListStatus, "нет тегов на GitHub", sizeof(otaListStatus));
-    strlcpy(otaListHdrBuf, "нет тегов", 40);
-  }
-  Serial.printf("[GH-OTA] Получено релизов: %u\n", n);
+  const bool ok = parseGitHubReleaseListFile(kPath);
   if (menuVisible) displayDirty = true;
-  return n > 0;
+  return ok;
 }
 
 bool fetchReleaseSha256(uint8_t idx) {
   if (idx >= otaReleaseCount) return false;
   OtaRelease &r = otaReleases[idx];
+  if (r.sha256[0] != '\0') {
+    strlcpy(otaListStatus, "sha256 (digest)", sizeof(otaListStatus));
+    return true;
+  }
   if (r.shaUrl[0] == '\0' || WiFi.status() != WL_CONNECTED) return false;
 
   static constexpr char kShaPath[] = "/gh_sha_chk.txt";
-  const int code = githubHttpsDownloadToFile(r.shaUrl, kShaPath, 45000, "*/*");
+  const int code = githubHttpsDownloadToFile(r.shaUrl, kShaPath, 45000, "application/octet-stream");
   if (code != HTTP_CODE_OK) {
     LittleFS.remove(kShaPath);
     strlcpy(otaListStatus, "sha256 недоступен", sizeof(otaListStatus));

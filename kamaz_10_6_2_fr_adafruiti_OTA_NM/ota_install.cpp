@@ -18,15 +18,25 @@
 
 void emergencyStop();   // defined in .ino
 
+static const char *githubDownloadAccept(const char *url) {
+  // API asset download requires Accept: application/octet-stream
+  if (url && strstr(url, "api.github.com/repos/") && strstr(url, "/releases/assets/")) {
+    return "application/octet-stream";
+  }
+  return "*/*";
+}
+
 bool installGitHubReleaseIndex(int8_t idx) {
   if (idx < 0 || idx >= static_cast<int8_t>(otaReleaseCount)) return false;
   const OtaRelease &r = otaReleases[idx];
-  if (r.binUrl[0] == '\0' || r.shaUrl[0] == '\0') return false;
+  if (r.binUrl[0] == '\0') return false;
+  if (r.sha256[0] == '\0' && r.shaUrl[0] == '\0') return false;
 
   Serial.printf("[GH-OTA] Установка релиза %s\n", r.tag);
   otaValveLock = true;
   emergencyStop();
-  if (!downloadGitHubFirmware(r.binUrl, r.shaUrl, r.tag)) {
+  if (!downloadGitHubFirmware(r.binUrl, r.shaUrl[0] ? r.shaUrl : nullptr, r.tag,
+                              r.sha256[0] ? r.sha256 : nullptr)) {
     otaValveLock = false;
     return false;
   }
@@ -35,7 +45,7 @@ bool installGitHubReleaseIndex(int8_t idx) {
 }
 
 bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
-                            const char *releaseTag) {
+                            const char *releaseTag, const char *preloadedSha256) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[GH-OTA] Нет интернет-соединения");
     strlcpy(otaListStatus, "нет Wi-Fi (STA)", sizeof(otaListStatus));
@@ -61,30 +71,42 @@ bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
     }
   }
 
-  static constexpr char kShaPath[] = "/gh_sha.txt";
-  const int shaCode = githubHttpsDownloadToFile(sha256Url, kShaPath, 45000, "*/*");
-  githubOtaHeartbeat();
   char expected[65] = "";
-  if (shaCode == HTTP_CODE_OK) {
-    File sf = LittleFS.open(kShaPath, "r");
-    if (sf) {
-      size_t n = sf.readBytes(expected, 64);
-      expected[n < 64 ? n : 64] = '\0';
-      sf.close();
+  if (preloadedSha256 && strlen(preloadedSha256) >= 64) {
+    memcpy(expected, preloadedSha256, 64);
+    expected[64] = '\0';
+    for (char *p = expected; *p; ++p) {
+      if (*p >= 'A' && *p <= 'F') *p = static_cast<char>(*p - 'A' + 'a');
     }
-  }
-  LittleFS.remove(kShaPath);
-  for (char *p = expected; *p; ++p) {
-    const char c = *p;
-    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
-      *p = '\0';
-      break;
+    Serial.println("[GH-OTA] sha256 from release digest (skip .sha256 download)");
+  } else if (sha256Url && sha256Url[0]) {
+    static constexpr char kShaPath[] = "/gh_sha.txt";
+    const int shaCode =
+        githubHttpsDownloadToFile(sha256Url, kShaPath, 45000, githubDownloadAccept(sha256Url));
+    githubOtaHeartbeat();
+    if (shaCode == HTTP_CODE_OK) {
+      File sf = LittleFS.open(kShaPath, "r");
+      if (sf) {
+        size_t n = sf.readBytes(expected, 64);
+        expected[n < 64 ? n : 64] = '\0';
+        sf.close();
+      }
     }
-    if (c >= 'A' && c <= 'F') *p = static_cast<char>(c - 'A' + 'a');
+    LittleFS.remove(kShaPath);
+    for (char *p = expected; *p; ++p) {
+      const char c = *p;
+      if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+        *p = '\0';
+        break;
+      }
+      if (c >= 'A' && c <= 'F') *p = static_cast<char>(c - 'A' + 'a');
+    }
+    if (strlen(expected) < 64) {
+      Serial.printf("[GH-OTA] SHA-256 asset отсутствует или некорректен (HTTP %d, url=%s)\n",
+                    shaCode, sha256Url);
+    }
   }
   if (strlen(expected) < 64) {
-    Serial.printf("[GH-OTA] SHA-256 asset отсутствует или некорректен (HTTP %d, url=%s)\n",
-                  shaCode, sha256Url);
     strlcpy(otaListStatus, "нет sha256", sizeof(otaListStatus));
     githubOtaEndInstallSession("dl-exit");
     return false;
@@ -179,7 +201,8 @@ bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
       bool tailOk = false;
       for (int attempt = 1; attempt <= 5; attempt++) {
         const int code =
-            githubHttpsDownloadToFile(firmwareUrl, "/ota_tail.bin", 120000, "*/*", rangeHdr);
+            githubHttpsDownloadToFile(firmwareUrl, "/ota_tail.bin", 120000,
+                                      githubDownloadAccept(firmwareUrl), rangeHdr);
         if (code == HTTP_CODE_OK || code == HTTP_CODE_PARTIAL_CONTENT) {
           File tf = LittleFS.open("/ota_tail.bin", "r");
           if (tf && tf.size() > 0) {
@@ -258,7 +281,7 @@ bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
       http.setReuse(false);
       http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
       http.addHeader("User-Agent", "kamaz-leveler/9.4.0");
-      http.addHeader("Accept", "*/*");
+      http.addHeader("Accept", githubDownloadAccept(firmwareUrl));
       http.addHeader("Accept-Encoding", "identity");
       http.addHeader("Connection", "close");
       const char *hk[] = {"Content-Range", "Content-Length"};
@@ -477,12 +500,15 @@ bool checkGitHubUpdate(bool install) {
     return false;
   }
 
+  const OtaRelease &latest = otaReleases[0];
   static char tagBuf[16];
   static char binBuf[176];
   static char shaBuf[176];
-  strlcpy(tagBuf, otaReleases[0].tag, sizeof(tagBuf));
-  strlcpy(binBuf, otaReleases[0].binUrl, sizeof(binBuf));
-  strlcpy(shaBuf, otaReleases[0].shaUrl, sizeof(shaBuf));
+  static char digBuf[65];
+  strlcpy(tagBuf, latest.tag, sizeof(tagBuf));
+  strlcpy(binBuf, latest.binUrl, sizeof(binBuf));
+  strlcpy(shaBuf, latest.shaUrl, sizeof(shaBuf));
+  strlcpy(digBuf, latest.sha256, sizeof(digBuf));
   strlcpy(otaLatestTag, tagBuf, sizeof(otaLatestTag));
   Serial.printf("[GH-OTA] Последний release: %s (локально %s)\n", tagBuf, VERSION);
 
@@ -505,7 +531,8 @@ bool checkGitHubUpdate(bool install) {
 
   otaValveLock = true;
   emergencyStop();
-  if (!downloadGitHubFirmware(binBuf, shaBuf, tagBuf)) {
+  if (!downloadGitHubFirmware(binBuf, shaBuf[0] ? shaBuf : nullptr, tagBuf,
+                              digBuf[0] ? digBuf : nullptr)) {
     otaValveLock = false;
     return false;
   }
