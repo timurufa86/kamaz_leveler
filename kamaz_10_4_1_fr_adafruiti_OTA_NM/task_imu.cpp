@@ -207,7 +207,7 @@ void imuTask(void *pvParameters) {
         while (nPkt < fifoMax && mpu.dmpGetCurrentFIFOPacket(fifo)) {
           Quaternion q;
           VectorFloat gravity;
-          VectorInt16 aa, aaReal;
+          VectorInt16 aa, aaReal, aaWorld;
           float ypr[3];
           int16_t gRaw[3];
           mpu.dmpGetQuaternion(&q, fifo);
@@ -216,6 +216,8 @@ void imuTask(void *pvParameters) {
           mpu.dmpGetGyro(gRaw, fifo);
           mpu.dmpGetAccel(&aa, fifo);
           mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+          // Мировая СК: линейное ускорение без привязки к наклону датчика (Electronic Cats / MotionApps 6.12).
+          mpu.dmpGetLinearAccelInWorld(&aaWorld, &aaReal, &q);
           const float gRms = sqrtf((float)gRaw[0] * gRaw[0] + (float)gRaw[1] * gRaw[1] +
                                   (float)gRaw[2] * gRaw[2]);
           if (gRms > gyroRmsMax) gyroRmsMax = gRms;
@@ -225,8 +227,8 @@ void imuTask(void *pvParameters) {
           const float gyAbs = fabsf((float)gRaw[1]);
           const float bump = (gxAbs > gyAbs) ? gxAbs : gyAbs;
           if (bump > gyroBumpMax) gyroBumpMax = bump;
-          const float aRms = sqrtf((float)aaReal.x * aaReal.x + (float)aaReal.y * aaReal.y +
-                                  (float)aaReal.z * aaReal.z);
+          const float aRms = sqrtf((float)aaWorld.x * aaWorld.x + (float)aaWorld.y * aaWorld.y +
+                                  (float)aaWorld.z * aaWorld.z);
           if (aRms > linAccRmsMax) linAccRmsMax = aRms;
           const float ax = degrees(ypr[2]);
           const float ay = degrees(ypr[1]);
