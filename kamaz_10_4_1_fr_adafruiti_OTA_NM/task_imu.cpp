@@ -22,6 +22,7 @@ extern float cfg_getImuEmaSpikeThr();
 extern float cfg_getImuSlewDps();
 extern float cfg_getZeroAngleX();
 extern float cfg_getZeroAngleY();
+extern bool  cfg_getMovementEnabled();
 extern int   cfg_getMovementDurationSec();
 extern int   cfg_getMovementSettleSec();
 extern float cfg_getMovementPressureFront();
@@ -339,7 +340,7 @@ void imuTask(void *pvParameters) {
               motionPulseAccumMs += dt;
             }
 
-            if (!movementModeActive &&
+            if (!movementModeActive && cfg_getMovementEnabled() &&
                 (motionPulseAccumMs > (uint32_t)cfg_getMovementDurationSec() * 1000UL)) {
             localProlongedMovement = true;
             previousMode = currentSystemMode;

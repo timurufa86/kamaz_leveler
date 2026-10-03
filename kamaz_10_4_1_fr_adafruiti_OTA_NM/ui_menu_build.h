@@ -45,6 +45,7 @@ extern float editDeadband;
 extern float editCoarseZone;
 extern float editFineZone;
 extern float editWorsening;
+extern bool  editMovementEnabled;
 extern int   editMoveDuration;
 extern int   editMoveSettle;
 extern int   editMoveCheck;

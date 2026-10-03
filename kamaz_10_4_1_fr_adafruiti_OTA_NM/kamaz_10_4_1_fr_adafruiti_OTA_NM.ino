@@ -126,6 +126,7 @@ float editDeadband;           // зона нечувствительности �
 float editCoarseZone;         // грубая зона авторежима (доля порога)
 float editFineZone;           // точная зона авторежима (доля порога)
 float editWorsening;          // порог «стало хуже» (множитель)
+bool  editMovementEnabled;    // разрешить режим MOVEMENT
 int   editMoveDuration;       // длительность ожидания движения, с
 int   editMoveSettle;         // время успокоения после движения, с
 int   editMoveCheck;          // период проверки давления после движения, с
@@ -371,6 +372,7 @@ void setup() {
   editCoarseZone = constrain(ConfigManager::getCoarseZoneRatio(), 0.2f, 0.9f);
   editFineZone = constrain(ConfigManager::getFineZoneRatio(), 0.05f, 0.3f);
   editWorsening = constrain(ConfigManager::getWorseningRatio(), 1.05f, 2.0f);
+  editMovementEnabled = ConfigManager::getMovementEnabled();
   editMoveDuration = constrain(ConfigManager::getMovementDurationSec(), 10, 120);
   editMoveSettle = constrain(ConfigManager::getMovementSettleSec(), 10, 120);
   editMoveCheck = constrain(ConfigManager::getMovementCheckSec(), 30, 300);

@@ -45,6 +45,7 @@ private:
     float worseningRatio = 1.2f;     // порог «стало хуже» (множитель)
 
     // ===== 8.8.0: движение =====
+    bool movementEnabled = true;     // разрешить переход в режим MOVEMENT
     int movementDurationSec = 30;    // длительность ожидания движения, с
     int movementSettleSec = 10;      // успокоение; duration > settle → нужен повторный шум
     int movementCheckSec = 120;      // период проверки давления после движения, с
@@ -201,6 +202,7 @@ public:
     currentConfig.worseningRatio = constrain(val, 1.05f, 2.0f);
 
     // ===== 8.8.0: движение =====
+    currentConfig.movementEnabled = (bool)(doc["movementEnabled"] | true);
     currentConfig.movementDurationSec = constrain((int)(doc["movementDurationSec"] | 30), 10, 120);
     currentConfig.movementSettleSec = constrain((int)(doc["movementSettleSec"] | 10), 10, 120);
     currentConfig.movementCheckSec = constrain((int)(doc["movementCheckSec"] | 120), 30, 300);
@@ -348,6 +350,7 @@ public:
     doc["coarseZoneRatio"] = currentConfig.coarseZoneRatio;
     doc["fineZoneRatio"] = currentConfig.fineZoneRatio;
     doc["worseningRatio"] = currentConfig.worseningRatio;
+    doc["movementEnabled"] = currentConfig.movementEnabled;
     doc["movementDurationSec"] = currentConfig.movementDurationSec;
     doc["movementSettleSec"] = currentConfig.movementSettleSec;
     doc["movementCheckSec"] = currentConfig.movementCheckSec;
@@ -530,6 +533,9 @@ public:
 #define CFG_FLOAT_ACCESSOR(Name, field)                     \
   static float get##Name() { return currentConfig.field; }  \
   static void set##Name(float v) { currentConfig.field = v; }
+#define CFG_BOOL_ACCESSOR(Name, field)                      \
+  static bool get##Name() { return currentConfig.field; }   \
+  static void set##Name(bool v) { currentConfig.field = v; }
 
   CFG_INT_ACCESSOR(MasterCheckSec, masterCheckSec)
   CFG_INT_ACCESSOR(ManualMaxTimeSec, manualMaxTimeSec)
@@ -539,6 +545,7 @@ public:
   CFG_FLOAT_ACCESSOR(CoarseZoneRatio, coarseZoneRatio)
   CFG_FLOAT_ACCESSOR(FineZoneRatio, fineZoneRatio)
   CFG_FLOAT_ACCESSOR(WorseningRatio, worseningRatio)
+  CFG_BOOL_ACCESSOR(MovementEnabled, movementEnabled)
   CFG_INT_ACCESSOR(MovementDurationSec, movementDurationSec)
   CFG_INT_ACCESSOR(MovementSettleSec, movementSettleSec)
   CFG_INT_ACCESSOR(MovementCheckSec, movementCheckSec)
@@ -590,7 +597,8 @@ public:
                   currentConfig.tiltThresholdX, currentConfig.tiltThresholdY, currentConfig.contrast,
                   currentConfig.nivCount, currentConfig.timeInterval,
                   currentConfig.releaseDelay, currentConfig.inflateDelay);
-    Serial.printf("[CFG] Движение: перед=%.2f зад=%.2f стоянка=%.2f длит=%dс усп=%dс пров=%dс доп=%.2f гиро=%d акс=%d\n",
+    Serial.printf("[CFG] Движение: en=%d перед=%.2f зад=%.2f стоянка=%.2f длит=%dс усп=%dс пров=%dс доп=%.2f гиро=%d акс=%d\n",
+                  currentConfig.movementEnabled ? 1 : 0,
                   currentConfig.movementPressureFront, currentConfig.movementPressureRear,
                   currentConfig.parkingPressureBar,
                   currentConfig.movementDurationSec, currentConfig.movementSettleSec, currentConfig.movementCheckSec,
@@ -635,6 +643,7 @@ int   cfg_getImuAccelFs();
 int   cfg_getGyroThreshold();
 int   cfg_getGyroBumpThreshold();
 int   cfg_getAccelThreshold();
+bool  cfg_getMovementEnabled();
 int   cfg_getMovementSettleSec();
 int   cfg_getMovementDurationSec();
 int   cfg_getImuPollMs();

@@ -4,6 +4,8 @@
 #include "imu_dmp.h"
 #include "imu_motion.h"
 #include "task_imu.h"
+#include "pressure_read.h"
+#include "app_types.h"
 
 extern char wifi_ssid[32];
 extern char wifi_password[64];
@@ -26,6 +28,7 @@ int   cfg_getImuAccelFs()           { return ConfigManager::getImuAccelFs(); }
 int   cfg_getGyroThreshold()        { return ConfigManager::getGyroThreshold(); }
 int   cfg_getGyroBumpThreshold()    { return ConfigManager::getGyroBumpThreshold(); }
 int   cfg_getAccelThreshold()       { return ConfigManager::getAccelThreshold(); }
+bool  cfg_getMovementEnabled()      { return ConfigManager::getMovementEnabled(); }
 int   cfg_getMovementSettleSec()    { return ConfigManager::getMovementSettleSec(); }
 int   cfg_getMovementDurationSec()  { return ConfigManager::getMovementDurationSec(); }
 int   cfg_getImuPollMs()            { return ConfigManager::getImuPollMs(); }
@@ -122,9 +125,31 @@ void applyRuntimeSettings() {
                 ConfigManager::getImuEmaSpikeAlpha(), ConfigManager::getImuEmaSpikeThr(),
                 ConfigManager::getImuSlewDps());
 
-  Serial.printf("[MENU] Применено: кадр=%d мс, приглуш.=%d мин, зона=%.2f бар, допуск=%.2f бар\n",
+  Serial.printf("[MENU] Применено: кадр=%d мс, приглуш.=%d мин, зона=%.2f бар, допуск=%.2f бар moveEn=%d\n",
                 ConfigManager::getFrameMs(), ConfigManager::getBacklightOffMin(),
-                ConfigManager::getPressureDeadband(), ConfigManager::getMovementTolerance());
+                ConfigManager::getPressureDeadband(), ConfigManager::getMovementTolerance(),
+                ConfigManager::getMovementEnabled() ? 1 : 0);
+
+  // Тумблер «Режим Движение»=Выкл: сразу выйти из MOVEMENT.
+  if (!ConfigManager::getMovementEnabled() &&
+      (movementModeActive || currentSystemMode == SystemMode::MOVEMENT)) {
+    movementModeActive = false;
+    movementEndTime = 0;
+    {
+      MutexGuard guard(xStateMutex, pdMS_TO_TICKS(50));
+      if (guard) {
+        currentSystemMode = previousMode;
+      }
+    }
+    if (previousMode == SystemMode::AUTO) {
+      currentMode = Mode::AUTO;
+    } else {
+      currentMode = Mode::MANUAL;
+      setManualTargetsFromParkingPolicy();
+    }
+    Serial.println("[MOVEMENT] Режим выключен в меню — выход из MOVEMENT");
+  }
+
   // Не вызываем forceDisplayReset здесь: fillScreen без xDisplayMutex с ButtonTask
   // (и вложенно из close) давал подвисание SPI. Сброс экрана — у вызывающего
   // под мьютексом дисплея или через requestMenuClose().
@@ -169,6 +194,7 @@ void saveMenuSettings() {
   ConfigManager::setCoarseZoneRatio(editCoarseZone);
   ConfigManager::setFineZoneRatio(editFineZone);
   ConfigManager::setWorseningRatio(editWorsening);
+  ConfigManager::setMovementEnabled(editMovementEnabled);
   ConfigManager::setMovementDurationSec(editMoveDuration);
   ConfigManager::setMovementSettleSec(editMoveSettle);
   ConfigManager::setMovementCheckSec(editMoveCheck);

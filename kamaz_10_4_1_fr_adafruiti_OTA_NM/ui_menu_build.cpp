@@ -620,7 +620,15 @@ void initGEM() {
     displayPage.addMenuItem(itemRedrawAngle);
     displayPage.addMenuItem(itemRedrawPressure);
 
-    // --- Страница «Движение» (только давления/таймеры режима MOVEMENT) ---
+    // --- Страница «Движение» (тумблер режима + давления/таймеры) ---
+    static GEMItem itemMovementEnabled("Режим Движение", editMovementEnabled, [](GEMCallbackData data) {
+        void *ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editMovementEnabled = *(bool *)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
     static GEMItem itemMovementFront("Давл.перед,бар", editMovementPressureFront, spinnerMovementFront, [](GEMCallbackData data) {
         void* ptr = data.pMenuItem->getLinkedVariablePointer();
         if (ptr) {
@@ -649,6 +657,7 @@ void initGEM() {
     static GEMItem itemMoveSettle("Успокоение,с", editMoveSettle, spinnerMoveSettle, [](GEMCallbackData d) { menuSpinChanged(d, editMoveSettle); });
     static GEMItem itemMoveCheck("Проверка давл.,с", editMoveCheck, spinnerMoveCheck, [](GEMCallbackData d) { menuSpinChanged(d, editMoveCheck); });
     static GEMItem itemMoveTolerance("Допуск давл.,бар", editMoveTolerance, spinnerMoveTolerance, [](GEMCallbackData d) { menuSpinChanged(d, editMoveTolerance); });
+    movementPage.addMenuItem(itemMovementEnabled);
     movementPage.addMenuItem(itemMovementFront);
     movementPage.addMenuItem(itemMovementRear);
     movementPage.addMenuItem(itemParkingPressure);
