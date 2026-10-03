@@ -433,6 +433,7 @@ void initGEM() {
     gem.setForegroundColor(MENU_TEXT_COLOR);
     gem.setFontBig(&CourierCyr9pt8b);
     gem.setFontSmall(&CourierCyr7pt8b);
+    gem.setSpriteSize(2);  // галочка/стрелки 2× (14×16 вместо 7×8) — видно на ST7789
     gem.setDrawMenuCallback(menuButtonsHint);   // подсказка по кнопкам в шапке меню
 
     // --- Страница "Система" (OTA/обновления вынесены в раздел «Обновления») ---
