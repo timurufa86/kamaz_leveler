@@ -8,7 +8,7 @@
 
 /* ── TaskMonitor bridge ── */
 extern void cfg_taskMonitorUpdate(uint8_t idx);
-static constexpr uint8_t TASK_VALVE_IDX = 10; // TaskMonitor::TASK_VALVE
+static constexpr uint8_t TASK_VALVE_IDX = 9; // TaskMonitor::TASK_VALVE
 
 void valveTask(void *pvParameters) {
 

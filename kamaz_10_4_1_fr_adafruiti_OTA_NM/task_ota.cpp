@@ -9,6 +9,7 @@
 #include "app_version.h"
 #include "app_types.h"
 #include "task_pool.h"
+#include "task_monitor.h"
 #include "logger.h"
 #include "mutex_guard.h"
 #include "semver_utils.h"
@@ -42,6 +43,7 @@ void otaTask(void *pvParameters) {
 
   for (;;) {
     TaskPool::markRun(taskIndex_OTA);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_OTA);
 
     /* --- handleOtaSerialCommands inlined --- */
     while (Serial.available() > 0) {

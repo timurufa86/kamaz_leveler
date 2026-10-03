@@ -447,7 +447,7 @@ void setup() {
     { "PressTask", pressureTask, 4608, 3, 1, 2000, nullptr },
     { "ControlTask", controlTask, 5120, 3, 0, 500, nullptr },
     { "CalibTask", calibrationTask, 4096, 2, 1, 1000, nullptr },
-    { "WatchdogTask", watchdogTask, 2048, 6, 1, 1000, nullptr },
+    { "WatchdogTask", watchdogTask, 4096, 6, 1, 1000, nullptr },
     // TLS в куче; стек нужен под JsonDocument + esp_ota + serial harness
     { "OTATask", otaTask, 16384, 2, 1, 100, nullptr },
     { "ErrRecTask", errorRecoveryTask, 4096, 2, 1, 500, nullptr },

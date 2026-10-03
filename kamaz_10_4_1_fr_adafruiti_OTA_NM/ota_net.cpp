@@ -1,6 +1,7 @@
 #include "ota_net.h"
 #include "app_globals.h"
 #include "task_pool.h"
+#include "task_monitor.h"
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -112,7 +113,7 @@ void githubOtaPrintHeap(const char *tag) {
 void githubOtaHeartbeat() {
   extern uint8_t taskIndex_OTA;
   TaskPool::markRun(taskIndex_OTA);
-  /* TaskMonitor::updateTaskStatus is in .ino; heartbeat from module just marks run. */
+  TaskMonitor::updateTaskStatus(TaskMonitor::TASK_OTA);
 }
 
 static esp_ota_handle_t s_ghOtaHandle = 0;
