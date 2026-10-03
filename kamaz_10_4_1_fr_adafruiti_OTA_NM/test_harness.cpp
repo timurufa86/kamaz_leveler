@@ -498,14 +498,35 @@ void processTestCommandLine(char *line) {
             const int iv = atoi(val);
             bool ok = true;
             if (strcasecmp(key, "gyro") == 0) {
-              ConfigManager::setGyroThreshold(constrain(iv, 10, 200));
+              ConfigManager::setGyroThreshold(constrain(iv, 1, 25));
               editGyroThreshold = ConfigManager::getGyroThreshold();
             } else if (strcasecmp(key, "bump") == 0 || strcasecmp(key, "pitch") == 0) {
-              ConfigManager::setGyroBumpThreshold(constrain(iv, 10, 200));
+              ConfigManager::setGyroBumpThreshold(constrain(iv, 1, 25));
               editGyroBumpThreshold = ConfigManager::getGyroBumpThreshold();
             } else if (strcasecmp(key, "lin") == 0 || strcasecmp(key, "accel") == 0) {
               ConfigManager::setAccelThreshold(constrain(iv, 100, 3000));
               editAccelThreshold = ConfigManager::getAccelThreshold();
+              {
+                static const int kLinThr[] = { 200, 500, 1000, 1500, 2000 };
+                int best = 1;
+                int bestDiff = abs(editAccelThreshold - kLinThr[0]);
+                for (int i = 0; i < 5; i++) {
+                  const int d = abs(editAccelThreshold - kLinThr[i]);
+                  if (d < bestDiff) { bestDiff = d; best = i; }
+                }
+                editAccelThrStep = best;
+              }
+            } else if (strcasecmp(key, "fs") == 0 || strcasecmp(key, "accelFs") == 0) {
+              ConfigManager::setImuAccelFs(constrain(iv, 0, 3));
+              editImuAccelFs = ConfigManager::getImuAccelFs();
+              if (mpuOk) {
+                static const uint8_t kAccelFs[] = {
+                    MPU6050_ACCEL_FS_2, MPU6050_ACCEL_FS_4, MPU6050_ACCEL_FS_8, MPU6050_ACCEL_FS_16};
+                MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(80));
+                if (i2c) {
+                  mpu.setFullScaleAccelRange(kAccelFs[editImuAccelFs]);
+                }
+              }
             } else if (strcasecmp(key, "det") == 0) {
               ConfigManager::setImuMotionDet(constrain(iv, 20, 255));
               editImuMotionDet = ConfigManager::getImuMotionDet();

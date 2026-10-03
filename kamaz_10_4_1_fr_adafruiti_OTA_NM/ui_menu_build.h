@@ -55,9 +55,11 @@ extern float editRedrawAngle;
 extern float editRedrawPressure;
 extern int   editImuMotionDet;
 extern int   editImuDlpfMode;       // DLPF_CFG 0..6 → 256…5 Hz
+extern int   editImuAccelFs;        // AFS_SEL 0..3 → ±2/±4/±8/±16G
 extern int   editGyroThreshold;
 extern int   editGyroBumpThreshold;
 extern int   editAccelThreshold;
+extern int   editAccelThrStep;      // 0..4 → 200/500/1000/1500/2000
 extern float editZeroAngleX;
 extern float editZeroAngleY;
 extern float editImuKalmanMea;

@@ -136,9 +136,11 @@ float editRedrawAngle;        // порог перерисовки по углу
 float editRedrawPressure;     // порог перерисовки по давлению, бар
 int   editImuMotionDet;       // аппаратный порог детектора движения MPU (MOT)
 int   editImuDlpfMode;        // DLPF_CFG 0..6 (256/188/98/42/20/10/5 Hz)
-int   editGyroThreshold;      // порог |gyro−EMA| (меню ×8 → порог)
-int   editGyroBumpThreshold;  // порог |bump−EMA| — неровности дороги
-int   editAccelThreshold;     // порог |linAcc − EMA|
+int   editImuAccelFs;         // AFS_SEL 0..3 → ±2/±4/±8/±16G
+int   editGyroThreshold;      // чувствительность Δgyro (меню 1..25, ×8 → порог)
+int   editGyroBumpThreshold;  // чувствительность Δbump (меню 1..25, ×8 → порог)
+int   editAccelThreshold;     // порог |linAcc − EMA| (зеркало из ступени)
+int   editAccelThrStep;       // ступень Δlin 0..4 → 200/500/1000/1500/2000
 float editZeroAngleX;         // программный нуль углов X, °
 float editZeroAngleY;         // программный нуль углов Y, °
 float editImuKalmanMea;       // GKalman mea_e (шум измерения)
@@ -174,7 +176,7 @@ GEMPage autoPage("Авторежим", mainPage);
 GEMPage displayPage("Дисплей", mainPage);
 GEMPage movementPage("Движение", mainPage);
 GEMPage infoPage("Информация", mainPage);
-GEMPage imuPage("IMU", mainPage);
+GEMPage imuPage("MPU / фильтры", mainPage);
 GEMPage settingsViewPage("Просмотр", mainPage);
 
 Button button0(PIN_BUT1, INPUT_PULLUP, LOW);
@@ -379,9 +381,21 @@ void setup() {
   editRedrawPressure = constrain(ConfigManager::getRedrawPressureThr(), 0.01f, 0.5f);
   editImuMotionDet = constrain(ConfigManager::getImuMotionDet(), 20, 255);
   editImuDlpfMode = constrain(ConfigManager::getImuDlpfMode(), 0, 6);
-  editGyroThreshold = constrain(ConfigManager::getGyroThreshold(), 10, 200);
-  editGyroBumpThreshold = constrain(ConfigManager::getGyroBumpThreshold(), 10, 200);
+  editImuAccelFs = constrain(ConfigManager::getImuAccelFs(), 0, 3);
+  editGyroThreshold = constrain(ConfigManager::getGyroThreshold(), 1, 25);
+  editGyroBumpThreshold = constrain(ConfigManager::getGyroBumpThreshold(), 1, 25);
   editAccelThreshold = constrain(ConfigManager::getAccelThreshold(), 100, 3000);
+  {
+    static const int kLinThr[] = { 200, 500, 1000, 1500, 2000 };
+    int best = 1;  // 500 — дефолт
+    int bestDiff = abs(editAccelThreshold - kLinThr[0]);
+    for (int i = 0; i < 5; i++) {
+      const int d = abs(editAccelThreshold - kLinThr[i]);
+      if (d < bestDiff) { bestDiff = d; best = i; }
+    }
+    editAccelThrStep = best;
+    editAccelThreshold = kLinThr[best];
+  }
   editZeroAngleX = constrain(ConfigManager::getZeroAngleX(), -45.0f, 45.0f);
   editZeroAngleY = constrain(ConfigManager::getZeroAngleY(), -45.0f, 45.0f);
   editImuKalmanMea = constrain(ConfigManager::getImuKalmanMea(), 0.5f, 25.0f);

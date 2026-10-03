@@ -17,6 +17,7 @@ extern int   cfg_getImuAccelOffY();
 extern int   cfg_getImuAccelOffZ();
 extern int   cfg_getImuMotionDet();
 extern int   cfg_getImuDlpfMode();
+extern int   cfg_getImuAccelFs();
 
 /* ── ErrorHandler bridge function (defined in the .ino) ── */
 extern void cfg_errorRemove(uint8_t err);
@@ -127,7 +128,12 @@ void initializeDMP() {
       continue;
     }
 
-    mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_2);
+    static const uint8_t kAccelFs[] = {
+        MPU6050_ACCEL_FS_2, MPU6050_ACCEL_FS_4, MPU6050_ACCEL_FS_8, MPU6050_ACCEL_FS_16};
+    static const int kAccelG[] = { 2, 4, 8, 16 };
+    const uint8_t fsIdx = (uint8_t)constrain(cfg_getImuAccelFs(), 0, 3);
+
+    mpu.setFullScaleAccelRange(kAccelFs[fsIdx]);
     mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_250);
     mpu.setSleepEnabled(false);
     mpu.setInterruptMode(false);
@@ -150,8 +156,9 @@ void initializeDMP() {
     mpu.setYAccelOffset(cfg_getImuAccelOffY());
     mpu.setZAccelOffset(cfg_getImuAccelOffZ());
 
-    // DLPF после DMP (dmpInitialize перезаписывает CONFIG): режет ВЧ-вибрацию.
-    // Дефолт конфига = MPU6050_DLPF_BW_5 (0x06, ~5 Hz).
+    // Accel FS + DLPF после DMP (dmpInitialize перезаписывает регистры).
+    // Дефолт: ±8G + MPU6050_DLPF_BW_5 (~5 Hz).
+    mpu.setFullScaleAccelRange(kAccelFs[fsIdx]);
     const uint8_t dlpf = (uint8_t)constrain(cfg_getImuDlpfMode(), 0, 6);
     mpu.setDLPFMode(dlpf);
 
@@ -168,8 +175,9 @@ void initializeDMP() {
     (void)mpu.getIntStatus();  // очистка latched INT
 
     static const int kDlpfHz[] = { 256, 188, 98, 42, 20, 10, 5 };
-    Serial.printf("[MPU] DMP OK MotionApps 6.12 packet=%u | DLPF=%u(~%dHz) MOT_THR=%u MOT_DUR=%u INT_EN=0x%02X gyroOff=(%d,%d,%d)\n",
+    Serial.printf("[MPU] DMP OK MotionApps 6.12 packet=%u | accelFS=%dG DLPF=%u(~%dHz) MOT_THR=%u MOT_DUR=%u INT_EN=0x%02X gyroOff=(%d,%d,%d)\n",
                   (unsigned)mpu.dmpGetFIFOPacketSize(),
+                  kAccelG[fsIdx],
                   (unsigned)dlpf, kDlpfHz[dlpf],
                   (unsigned)cfg_getImuMotionDet(),
                   (unsigned)g_motDurMs,

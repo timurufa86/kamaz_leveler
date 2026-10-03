@@ -22,6 +22,7 @@ int   cfg_getImuAccelOffY()         { return ConfigManager::getImuAccelOffY(); }
 int   cfg_getImuAccelOffZ()         { return ConfigManager::getImuAccelOffZ(); }
 int   cfg_getImuMotionDet()         { return ConfigManager::getImuMotionDet(); }
 int   cfg_getImuDlpfMode()          { return ConfigManager::getImuDlpfMode(); }
+int   cfg_getImuAccelFs()           { return ConfigManager::getImuAccelFs(); }
 int   cfg_getGyroThreshold()        { return ConfigManager::getGyroThreshold(); }
 int   cfg_getGyroBumpThreshold()    { return ConfigManager::getGyroBumpThreshold(); }
 int   cfg_getAccelThreshold()       { return ConfigManager::getAccelThreshold(); }
@@ -85,8 +86,12 @@ void applyRuntimeSettings() {
   if (mpuOk) {
     MutexGuard i2c(xI2CMutex, pdMS_TO_TICKS(50));
     if (i2c) {
-      // DLPF режет ВЧ-вибрацию в gyro/accel (пути DMP + software MOT).
-      // Дефолт: MPU6050_DLPF_BW_5 (5 Hz).
+      // Accel FS + DLPF (dmpInitialize мог переписать регистры).
+      static const uint8_t kAccelFs[] = {
+          MPU6050_ACCEL_FS_2, MPU6050_ACCEL_FS_4, MPU6050_ACCEL_FS_8, MPU6050_ACCEL_FS_16};
+      static const int kAccelG[] = { 2, 4, 8, 16 };
+      const uint8_t fsIdx = (uint8_t)constrain(ConfigManager::getImuAccelFs(), 0, 3);
+      mpu.setFullScaleAccelRange(kAccelFs[fsIdx]);
       const uint8_t dlpf = (uint8_t)constrain(ConfigManager::getImuDlpfMode(), 0, 6);
       mpu.setDLPFMode(dlpf);
       // Аппаратный MOT после DMP: DHPF + THR + DUR + counter decrement + INT.
@@ -98,8 +103,8 @@ void applyRuntimeSettings() {
       mpu.setIntEnabled(0x52);  // MOT | FIFO_OFLOW | DMP_INT
       (void)mpu.getIntStatus();
       static const int kDlpfHz[] = { 256, 188, 98, 42, 20, 10, 5 };
-      Serial.printf("[IMU] DLPF=%u (~%dHz) MOT_THR=%d MOT_DUR=%u INT_EN=0x%02X\n",
-                    (unsigned)dlpf, kDlpfHz[dlpf],
+      Serial.printf("[IMU] accelFS=±%dG DLPF=%u(~%dHz) MOT_THR=%d MOT_DUR=%u INT_EN=0x%02X\n",
+                    kAccelG[fsIdx], (unsigned)dlpf, kDlpfHz[dlpf],
                     ConfigManager::getImuMotionDet(), (unsigned)g_motDurMs,
                     (unsigned)mpu.getIntEnabled());
     }
@@ -168,8 +173,12 @@ void saveMenuSettings() {
   ConfigManager::setMovementSettleSec(editMoveSettle);
   ConfigManager::setMovementCheckSec(editMoveCheck);
   ConfigManager::setMovementTolerance(editMoveTolerance);
-  ConfigManager::setGyroThreshold(editGyroThreshold);
-  ConfigManager::setGyroBumpThreshold(editGyroBumpThreshold);
+  ConfigManager::setGyroThreshold(constrain(editGyroThreshold, 1, 25));
+  ConfigManager::setGyroBumpThreshold(constrain(editGyroBumpThreshold, 1, 25));
+  // Ступени Δlin: 0..4 → 200/500/1000/1500/2000
+  static const int kLinThr[] = { 200, 500, 1000, 1500, 2000 };
+  editAccelThrStep = constrain(editAccelThrStep, 0, 4);
+  editAccelThreshold = kLinThr[editAccelThrStep];
   ConfigManager::setAccelThreshold(editAccelThreshold);
   ConfigManager::setBacklightOffMin(editBacklightOff);
   ConfigManager::setFrameMs(editFrameMs);
@@ -177,6 +186,7 @@ void saveMenuSettings() {
   ConfigManager::setRedrawPressureThr(editRedrawPressure);
   ConfigManager::setImuMotionDet(editImuMotionDet);
   ConfigManager::setImuDlpfMode(editImuDlpfMode);
+  ConfigManager::setImuAccelFs(constrain(editImuAccelFs, 0, 3));
   ConfigManager::setZeroAngleX(editZeroAngleX);
   ConfigManager::setZeroAngleY(editZeroAngleY);
   ConfigManager::setImuKalmanMea(editImuKalmanMea);
