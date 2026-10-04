@@ -1,4 +1,4 @@
-﻿# V 10.6.2
+# V 10.6.2
 
 - Nested menus: Система / Клапанный блок; removed redundant СОХРАНИТЬ (exit still saves)
 - Larger GEM checkbox sprites (2×)

@@ -1,0 +1,55 @@
+
+
+=== Kamaz‑Leveler (FreeRTOS OTA Optimized) ===
+Версия: V 9.0.0 FreeRTOS OTA
+[SETUP] Система в режиме BOOT, калибровка будет запущена автоматически.
+[INIT] Queues created
+[EVENTBUS] Queue created
+[ADS1015] I2C устройство найдено по адресу 0x48
+[ADS1015] ✅ Датчик найден
+[ADS1015] Адрес: 0x48
+[FS] Инициализация LittleFS...
+[FS] LittleFS смонтирован успешно
+[FS] Файл: config.txt (718 байт)
+[FS] Файл: wifi_config.txt (92 байт)
+[CFG] Загрузка конфигурации
+[CFG] Конфигурация загружена успешно (формат файла: 3)
+[CFG] v3 | Pmin=1.00 Pmax=7.00 Наклон X=0.50 Y=0.50 Ярк=50 Попыток=5 Инт=5 СБРОС=7 НАКАЧ=4
+[CFG] Движение: перед=3.50 зад=4.00 длит=30с усп=30с пров=120с доп=0.20 гиро=50 акс=1000
+[CFG] Магистраль=240с | Клапаны: макс=10с зона=0.20 | Авто: грубая=0.40 точная=0.15 хуже=1.20
+[CFG] Дисплей: подсветка=0мин кадр=50мс углы=0.05 давл=0.03 | IMU: det=100 гиро=0,0,0 акс=0,0,0 нуль=0.00,0.00
+[INFO][WiFi] Загрузка
+[INFO][WiFi] Конфиг загружен
+[WiFi] SSID роутера не выбран, запущен fallback AP
+[WiFi] AP fallback: Kamaz-OTA-AP, IP 192.168.4.1
+[MEM] Начально свободно: 178420 байт
+[INFO][MPU] Инициализация
+[DISPLAY] Force reset completed
+[INFO][MPU] Детектор движения настроен (порог=100, длительность=50ms)
+[MANUAL] Установлены целевые давления для всех подушек из текущих значений
+E (2428) task_wdt: esp_task_wdt_init(517): TWDT already initialized
+[WDT] TWDT уже инициализирован ядром, используем текущую конфигурацию
+[DEBUG] Valve Task started
+[CALIB] ШАГ 1/3: Инициализация ADS1015...
+[ADS1015] I2C устройство найдено по адресу 0x48
+[DISPLAY] Force reset completed
+[ERROR] Все ошибки удалены
+[CALIB] ✅ ADS1015 инициализирован, адрес 0x48
+[CALIB] ШАГ 2/3: Проверка датчика давления...
+[CALIB] ✅ Датчик давления исправен (raw=193)
+[CALIB] ШАГ 3/4: Проверка MPU6050...
+[SETUP] All tasks created successfully
+[SETUP] final state: currentState=0
+[CALIB] ❌ DMP ошибка 1
+[ERROR] MPU6050 DMP ошибка
+[WARNING][EMERGENCY] Остановка всех клапанов!
+[CALIB] ШАГ 4/4: Калибровка нуля давления...
+[STATE] Changed from 0 to 1
+[CALIB] Entering CALIBRATING state
+[DISPLAY] Принудительная перерисовка после сброса
+[DISPLAY] Перерисовка экрана ошибки. Код: 2
+[DISPLAY] Экран ошибки нарисован
+[INFO][SETUP] Инициализация завершена
+[RECOVERY] Запомнен режим: 0
+[RECOVERY] MPU6050 подключился!
+[INFO][MPU] Инициализация

@@ -7,6 +7,10 @@
 
 #include <Arduino.h>
 #include <new>
+#if __has_include(<esp_bt.h>)
+#include <esp_bt.h>
+#define KAMAZ_HAS_ESP_BT 1
+#endif
 #include "mutex_guard.h"
 #include "app_version.h"
 #include "app_pins.h"
@@ -192,11 +196,18 @@ VirtButton emergencyButton;
 /* ====================  SETUP ==================== */
 /* ====================  SETUP ==================== */
 void setup() {
-  Serial.setRxBufferSize(4096);
-  Serial.setTxBufferSize(2048);
+  // Smaller UART buffers — every KB helps mbedtls BIGNUM on non-PSRAM ESP32.
+  Serial.setRxBufferSize(1024);
+  Serial.setTxBufferSize(1024);
   Serial.begin(115200);
   Serial.println("\n\n=== Kamaz?Leveler (FreeRTOS OTA Optimized) ===");
   Serial.printf("Версия: %s\n", VERSION);
+#if defined(KAMAZ_HAS_ESP_BT) && defined(CONFIG_BT_ENABLED) && CONFIG_BT_ENABLED
+  {
+    const esp_err_t bte = esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
+    Serial.printf("[SETUP] BT mem_release: %s\n", esp_err_to_name(bte));
+  }
+#endif
   {
     const esp_reset_reason_t rr = esp_reset_reason();
     const char *rrs = "OTHER";
@@ -458,19 +469,19 @@ void setup() {
 
   // ========== 17. СОЗДАНИЕ ЗАДАЧ ==========
   TaskConfig taskConfigs[] = {
-    { "EventTask", eventHandlerTask, 4096, 2, 1, 20, nullptr },
-    // Было 16384/14336: лишний стек дробил кучу → TLS BIGNUM alloc fail.
-    { "ButtonTask", buttonTask, 8192, 4, 0, 20, nullptr },
-    { "DisplayTask", displayTask, 8192, 2, 1, 33, nullptr },
-    { "IMUTask", imuTask, 5632, 5, 0, 20, nullptr },
-    { "PressTask", pressureTask, 4608, 3, 1, 2000, nullptr },
-    { "ControlTask", controlTask, 5120, 3, 0, 500, nullptr },
-    { "CalibTask", calibrationTask, 4096, 2, 1, 1000, nullptr },
-    { "WatchdogTask", watchdogTask, 4096, 6, 1, 1000, nullptr },
-    // TLS в куче; стек нужен под JsonDocument + esp_ota + serial harness
-    { "OTATask", otaTask, 16384, 2, 1, 100, nullptr },
-    { "ErrRecTask", errorRecoveryTask, 4096, 2, 1, 500, nullptr },
-    { "ValveTask", valveTask, 4096, 4, 0, 10, nullptr }
+    { "EventTask", eventHandlerTask, 3072, 2, 1, 20, nullptr },
+    // Стеки в DRAM: каждый лишний КБ режет maxBlk → TLS BIGNUM OOM (~40KB нужно).
+    { "ButtonTask", buttonTask, 6144, 4, 0, 20, nullptr },
+    { "DisplayTask", displayTask, 6144, 2, 1, 33, nullptr },
+    { "IMUTask", imuTask, 5120, 5, 0, 20, nullptr },
+    { "PressTask", pressureTask, 4096, 3, 1, 2000, nullptr },
+    { "ControlTask", controlTask, 4096, 3, 0, 500, nullptr },
+    { "CalibTask", calibrationTask, 3072, 2, 1, 1000, nullptr },
+    { "WatchdogTask", watchdogTask, 2048, 6, 1, 1000, nullptr },
+    // TLS crypto + Json на стеке OTA; 10K → canary, 16K съедал maxBlk.
+    { "OTATask", otaTask, 14336, 2, 1, 100, nullptr },
+    { "ErrRecTask", errorRecoveryTask, 3072, 2, 1, 500, nullptr },
+    { "ValveTask", valveTask, 3072, 4, 0, 10, nullptr }
   };
 
   taskIndex_Event = TaskPool::addTask(taskConfigs[0]);
@@ -496,7 +507,8 @@ void setup() {
   }
 
   Serial.println("[SETUP] All tasks created successfully");
-  githubOtaReserveTlsHeap("post-tasks");
+  // Do not grab a large TLS reserve here — it caps maxBlk (~34KB) and TLS handshake
+  // then fails with "SSL - Memory allocation failed". Reserve only around OTA sessions.
 
   uptimeHours = 0;
 

@@ -1,0 +1,12 @@
+﻿[OTA-CMD] rx: TEST MOT CFG
+[TEST] MOT hold=1 mot=0 motSt=0x00 busy=0 gyro=6 thr=200 bump=6 bthr=200 bbusy=0 lin=6590 ldlt=11 lthr=500 lbusy=0 int=0x03 mode=MOVEMENT movActive=1 settleLeft=20.0
+[TEST] MOT_CFG duration=30s settle=30s gyroMenu=25 gyroThr=200 bumpMenu=25 bumpThr=200 linThr=500 det=75 motDur=40ms period=100ms
+[TEST] OK MOT_CFG
+
+samples=223
+gyro: min=1 avg=4.7 max=42 p95=8
+bump: min=0 avg=3.9 max=41 p95=6
+ldlt: min=1 avg=48.8 max=335 p95=112
+mot%=0.0 busy%=0.0 bbusy%=0.0 lbusy%=0.0 hold%=100.0
+modes {'MOVEMENT': 223}
+trigger_lines=0

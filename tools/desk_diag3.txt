@@ -1,0 +1,13 @@
+﻿[OTA-CMD] rx: TEST MOT CFG
+[TEST] MOT hold=1 mot=0 motSt=0x00 busy=0 gyro=3 thr=200 bump=3 bthr=200 bbusy=0 lin=6647 ldlt=4 lthr=500 lbusy=0 int=0x03 mode=MANUAL movActive=0 settleLeft=4.1
+[TEST] MOT_CFG duration=30s settle=10s gyroMenu=25 gyroThr=200 bumpMenu=25 bumpThr=200 linThr=500 det=75 motDur=40ms period=100ms
+[TEST] OK MOT_CFG
+[IMU] Stats - IMU:21ms, Moving:1, MPU:1
+
+samples=268
+gyro: min=1 avg=4.2 max=15 p95=6
+bump: min=0 avg=3.4 max=10 p95=6
+ldlt: min=0 avg=43.9 max=177 p95=104
+mot%=0.0 busy%=0.0 bbusy%=0.0 lbusy%=0.0 hold%=11.2
+modes {'MANUAL': 268}
+trigger_lines=0

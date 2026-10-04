@@ -43,20 +43,19 @@ public:
 
   static void checkTasks() {
     uint32_t currentTime = millis();
+    // TLS OTA blocks in http.GET/handshake — soft WDT must not emergencyStop mid-download.
+    if (otaInProgress || s_otaWorkersPaused) {
+      for (int i = 0; i < TASK_COUNT; i++) {
+        if (tasks[i].lastRunTime != 0) tasks[i].lastRunTime = currentTime;
+      }
+      return;
+    }
     for (int i = 0; i < TASK_COUNT; i++) {
       if (tasks[i].lastRunTime == 0) continue;  // ещё не стартовала
       if (currentTime - tasks[i].lastRunTime > TASK_WDT_TIMEOUT_MS) {
         // Pressure при SENSOR / до калибровки / в паузе опроса — не зависание.
         if (i == (int)TASK_PRESSURE &&
             (ErrorHandler::isErrorActive(ErrorHandler::Error::SENSOR) || !calibrationCompleted)) {
-          tasks[i].lastRunTime = currentTime;
-          continue;
-        }
-        // TLS OTA: воркеры специально на паузе — не поднимать WATCHDOG.
-        if (s_otaWorkersPaused &&
-            (i == (int)TASK_BUTTON || i == (int)TASK_DISPLAY || i == (int)TASK_IMU ||
-             i == (int)TASK_PRESSURE || i == (int)TASK_CONTROL || i == (int)TASK_VALVE ||
-             i == (int)TASK_ERROR_RECOVERY)) {
           tasks[i].lastRunTime = currentTime;
           continue;
         }

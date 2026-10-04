@@ -1,0 +1,89 @@
+[00:55:07] driver open+reset
+[FS] Инициализация LittleFS...
+[FS] LittleFS см��нтирован успешно
+[FS] Файл: config.bak (786 байт)
+[FS] Файл: config.txt (882 байт)
+[FS] Фай��: wifi_config.txt (102 байт)
+[CFG] Загрузка кон��игурации
+[CFG] Конфигурация ��агружена успешно (формат файла: 5)
+[CFG] v5 | Pmin=1.00 Pmax=7.00 Н��клон X=0.50 Y=0.50 Ярк=70 Попыток=5 Инт=5 СБ��ОС=7 НАКАЧ=4
+[CFG] Дв��жение: перед=3.50 з��д=4.00 длит=30с усп=30с пров=120с доп=0.20 ��иро=50 акс=1000
+[CFG] М��гистраль=330с | Кла��аны: макс=10с зона=0.20 | Авто: грубая=0.40 точная=0.15 хуже=1.20
+[CFG] Дисплей: под��ветка=1мин кадр=50��с углы=0.06 давл=0.03 | IMU: det=100 гиро=0,0,0 ��кс=0,0,0 нуль=0.00,0.00
+[CFG] IMU плавность: mea=7.00 est=4.50 q=0.005 poll=20м�� fifo=3 ema=0.20/0.07 thr=1.4 slew=60.0
+[INFO][WiFi] Загр��зка
+[INFO][WiFi] Конфи�� загружен
+[INFO][MPU] ��нициализация
+[I2C] scan (до MPU): 0x48 0x68
+[MPU] attempt 1: ACK 0x68=1 0x69=0 heap=221652
+[INFO][MPU] DMP готов
+[WiFi] Подключение к "lesnaya1/1"
+.....
+[WiFi] STA подключен, IP 192.168.0.204, RSSI -65 dBm
+[MEM] Начально свободно: 169756 байт
+[IMU] ��орог детектора д��ижения MPU: 100
+[IMU] К��лман mea=7.00 est=4.50 q=0.005 | poll=20ms fifo=3 ema=0.20/0.07 thr=1.4 slew=60.0
+[MENU] ��рименено: кадр=50 ��с, приглуш.=1 мин, ��она=0.20 бар, допус��=0.20 бар
+[MANUAL] Установлены ��елевые давления ��ля всех подушек ��з текущих значен�E (4074) task_wdt: esp_task_wdt_init(517): TWDT already initialized
+�й
+[WDT] TWDT уже ин��циализирован яд��ом, используем те��ущую конфигурац��ю
+[DEBUG] Valve Task started
+[OTA-CMD] ready: OTA HEAP|VER|LI
+>>> settle 20s after WiFi
+ST|INSTALL n|SELFTEST|ABORT
+[CALIB] ШАГ 1/3: Инициал��зация ADS1015...
+[ADS1015] I2C устройство на��дено по адресу 0x48
+[CALIB] ✅ ADS1015 иници��лизирован, адрес 0x48
+[CALIB] ШАГ 2/3: Про��ерка датчика дав��ения...
+[CALIB] ✅ Да��чик давления исп��авен (raw=193)
+[CALIB] ША�� 3/4: Проверка MPU6050...
+[CALIB] ✅ MPU6050 ини��иализирован успе��но
+[CALIB] ШАГ 4/4: Ка��ибровка нуля дав��ения...
+[STATE] Changed from 0 to 1
+[CALIB] Entering CALIBRATING state
+[SETUP] All tasks created successfully
+[SETUP] final state: currentState=1
+[DISPLAY] Force reset completed
+[INFO][SETUP] Инициализ��ция завершена
+[MEM] Новый минимум: 94284 байт
+[CALIB] start(): testRaw=198
+[CALIB] Фильтр иници��лизирован
+
+========================================
+     АВТОМАТИЧЕСКА�� КАЛИБРОВКА НУЛЯ
+========================================
+[CALIB] Клапан ��броса ОТКРЫТ
+[PRESS] Periodic measurement
+[CALIB] Ожидание ста��илизации заверше��о (прошло 3004 мс)
+[CALIB] Измерение 1: raw=197, filtered=192
+[CALIB] Измерение 2: raw=193, filtered=193
+[CALIB] Измерение 3: raw=194, filtered=193
+[IMU] Stats - Motion:100ms, IMU:24ms, Moving:0, MPU:1
+[CALIB] Измерение 4: raw=193, filtered=193
+[CALIB] Измерение 5: raw=194, filtered=193
+[CALIB] Измерение 6: raw=197, filtered=193
+[CALIB] Измерение 7: raw=192, filtered=193
+[CALIB] Измерение 8: raw=198, filtered=194
+[CALIB] Измерение 9: raw=192, filtered=192
+[CALIB] Измерение 10: raw=197, filtered=192
+[CALIB] Измерение 11: raw=197, filtered=194
+[CALIB] Измерение 12: raw=191, filtered=194
+[CALIB] Измерение 13: raw=198, filtered=197
+[CALIB] Измерение 14: raw=191, filtered=192
+[CALIB] Измерение 15: raw=196, filtered=192
+[CALIB] Измерение 16: raw=195, filtered=195
+[CALIB] Измерение 17: raw=193, filtered=195
+[CALIB] Измерение 18: raw=198, filtered=196
+[CALIB] Измерение 19: raw=191, filtered=193
+[CALIB] Измерение 20: raw=197, filtered=193
+[CALIB] Среднее (посл��дние 15): 193, Разбр��с: 5
+[CALIB] ✅ Датчик ��справен (АЦП=193 в ��орме 80-210)
+[CALIB] Клапан сброс�� ЗАКРЫТ
+[CALIB] Исходное сре��нее: 193
+[CALIB] Новая ��алибровка: filtered -= 193
+========================================
+     КАЛИБ��ОВКА НУЛЯ ЗАВЕРШ��НА
+========================================
+
+[INFO][EVENT] ��алибровка завер��ена
+[PRESS] Periodic measurement

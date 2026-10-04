@@ -32,70 +32,43 @@ void otaConfigureTls(WiFiClientSecure *client) {
 }
 
 void githubOtaDefragHeap() {
-  void *hold[64];
-  int n = 0;
-  size_t sz = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-  while (n < 64 && sz >= 1024) {
-    hold[n] = heap_caps_malloc(sz, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-    if (!hold[n]) {
-      sz /= 2;
-      continue;
+  // Two-pass coalesce: grab every large free block, free LIFO.
+  for (int pass = 0; pass < 2; pass++) {
+    void *hold[48];
+    int n = 0;
+    size_t sz = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    while (n < 48 && sz >= 512) {
+      hold[n] = heap_caps_malloc(sz, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+      if (!hold[n]) {
+        sz /= 2;
+        continue;
+      }
+      n++;
+      sz = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
     }
-    n++;
-    sz = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-  }
-  while (n > 0) {
-    heap_caps_free(hold[--n]);
+    while (n > 0) {
+      heap_caps_free(hold[--n]);
+    }
   }
 }
 
-static void *s_tlsHeapReserve = nullptr;
-static constexpr size_t kTlsHeapReserveBytes = 72 * 1024;
-
+// TLS-reserve disabled: parking 28KB split the free list so maxBlk stuck ~36KB
+// and mbedTLS BIGNUM failed even with ~85KB free. Prefer stack trims + defrag.
 void githubOtaReserveTlsHeap(const char *why) {
-  if (s_tlsHeapReserve) return;
-  githubOtaDefragHeap();
-
-  size_t maxBlk = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-  if (maxBlk < 28 * 1024) {
-    Serial.printf("[GH-OTA] TLS-reserve skip (%s) maxBlk=%u\n", why ? why : "?",
-                  static_cast<unsigned>(maxBlk));
-    return;
-  }
-  size_t want = (maxBlk > 1024) ? (maxBlk - 1024) : maxBlk;
-  if (want > kTlsHeapReserveBytes) want = kTlsHeapReserveBytes;
-  while (want >= 28 * 1024) {
-    s_tlsHeapReserve = heap_caps_malloc(want, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-    if (s_tlsHeapReserve) {
-      Serial.printf("[GH-OTA] TLS-reserve +%u (%s) free=%u maxBlk=%u\n",
-                    static_cast<unsigned>(want), why ? why : "?",
-                    static_cast<unsigned>(ESP.getFreeHeap()),
-                    static_cast<unsigned>(ESP.getMaxAllocHeap()));
-      return;
-    }
-    want -= 1024;
-  }
-  Serial.printf("[GH-OTA] TLS-reserve FAIL (%s) free=%u maxBlk=%u\n", why ? why : "?",
-                static_cast<unsigned>(ESP.getFreeHeap()),
-                static_cast<unsigned>(ESP.getMaxAllocHeap()));
+  (void)why;
 }
 
 void githubOtaReleaseTlsHeap(const char *why) {
-  if (!s_tlsHeapReserve) return;
-  heap_caps_free(s_tlsHeapReserve);
-  s_tlsHeapReserve = nullptr;
-  Serial.printf("[GH-OTA] TLS-reserve free (%s) free=%u maxBlk=%u\n", why ? why : "?",
-                static_cast<unsigned>(ESP.getFreeHeap()),
-                static_cast<unsigned>(ESP.getMaxAllocHeap()));
+  (void)why;
 }
 
 volatile bool s_otaWorkersPaused = false;
 
 void githubOtaPauseWorkers(bool pause) {
   s_otaWorkersPaused = pause;
-  const uint8_t idxs[] = {taskIndex_Display, taskIndex_IMU, taskIndex_Control,
-                          taskIndex_Valve,   taskIndex_Pressure, taskIndex_ErrRec,
-                          taskIndex_Button};
+  const uint8_t idxs[] = {taskIndex_Event,   taskIndex_Display, taskIndex_IMU,
+                          taskIndex_Control, taskIndex_Valve,   taskIndex_Pressure,
+                          taskIndex_ErrRec,  taskIndex_Button,  taskIndex_Calib};
   for (uint8_t idx : idxs) {
     if (idx == 0xFF) continue;
     if (pause) TaskPool::suspendTask(idx);
@@ -114,6 +87,24 @@ void githubOtaHeartbeat() {
   extern uint8_t taskIndex_OTA;
   TaskPool::markRun(taskIndex_OTA);
   TaskMonitor::updateTaskStatus(TaskMonitor::TASK_OTA);
+  // While workers are suspended for TLS, keep soft TaskMonitor happy.
+  if (s_otaWorkersPaused || otaInProgress) {
+    const uint8_t idxs[] = {taskIndex_Display, taskIndex_IMU, taskIndex_Control,
+                            taskIndex_Valve,   taskIndex_Pressure, taskIndex_ErrRec,
+                            taskIndex_Button,  taskIndex_Calib};
+    for (uint8_t idx : idxs) {
+      if (idx != 0xFF) TaskPool::markRun(idx);
+    }
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_BUTTON);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_DISPLAY);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_IMU);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_PRESSURE);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_CONTROL);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_VALVE);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_ERROR_RECOVERY);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_CALIB);
+    TaskMonitor::updateTaskStatus(TaskMonitor::TASK_EVENT);
+  }
 }
 
 static esp_ota_handle_t s_ghOtaHandle = 0;
@@ -153,11 +144,22 @@ bool githubResolveDownloadUrl(const char *url, char *out, size_t outLen,
                               const char *acceptHdr) {
   if (!url || !out || outLen < 24) return false;
   strlcpy(out, url, outLen);
-  // Only API asset URLs need a 302 → objects.githubusercontent.com hop.
+  // Only API asset URLs need a 302 в†’ objects.githubusercontent.com hop.
   if (!strstr(url, "api.github.com/") || !strstr(url, "/releases/assets/")) {
     return true;
   }
   if (WiFi.status() != WL_CONNECTED) return false;
+  if (strncmp(url, "https://", 8) != 0) return false;
+
+  const char *p = url + 8;
+  const char *slash = strchr(p, '/');
+  if (!slash) return false;
+  char host[96];
+  const size_t hostLen = static_cast<size_t>(slash - p);
+  if (hostLen == 0 || hostLen >= sizeof(host)) return false;
+  memcpy(host, p, hostLen);
+  host[hostLen] = '\0';
+  const char *path = slash;
 
   WiFi.setSleep(false);
   githubOtaReleaseTlsHeap("resolve-url");
@@ -175,35 +177,103 @@ bool githubResolveDownloadUrl(const char *url, char *out, size_t outLen,
   client->setHandshakeTimeout(25);
   client->setTimeout(20000);
 
-  {
-    HTTPClient http;
-    http.setConnectTimeout(15000);
-    http.setTimeout(20000);
-    if (http.begin(*client, url)) {
-      http.useHTTP10(true);
-      http.setReuse(false);
-      http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-      http.addHeader("User-Agent", "kamaz-leveler/10.6.5");
-      http.addHeader("Accept", acceptHdr ? acceptHdr : "application/octet-stream");
-      http.addHeader("Connection", "close");
-      const int code = http.GET();
-      Serial.printf("[GH-OTA] resolve GET > HTTP %d\n", code);
-      if (code == HTTP_CODE_MOVED_PERMANENTLY || code == HTTP_CODE_FOUND ||
-          code == HTTP_CODE_TEMPORARY_REDIRECT || code == 308) {
-        const String loc = http.getLocation();
-        if (loc.length() >= 12 && loc.length() + 1 < outLen) {
-          strlcpy(out, loc.c_str(), outLen);
-          Serial.printf("[GH-OTA] resolve → %.80s…\n", out);
-          ok = true;
-        }
-      } else if (code == HTTP_CODE_OK || code == HTTP_CODE_PARTIAL_CONTENT) {
-        ok = true;  // no redirect needed
-      } else if (code > 0) {
-        Serial.printf("[GH-OTA] resolve unexpected HTTP %d\n", code);
+  // Raw GET вЂ” HTTPClient often returns 302 with empty Location on ESP32.
+  // Long GitHub Location (~900+ chars) must not use Arduino String (frag/fail в†’ empty).
+  if (client->connect(host, 443)) {
+    client->printf(
+        "GET %s HTTP/1.0\r\n"
+        "Host: %s\r\n"
+        "User-Agent: kamaz-leveler/10.7.25\r\n"
+        "Accept: %s\r\n"
+        "X-GitHub-Api-Version: 2022-11-28\r\n"
+        "Connection: close\r\n\r\n",
+        path, host, acceptHdr ? acceptHdr : "application/octet-stream");
+
+    // Slurp status+headers until CRLFCRLF (heap — avoid permanent BSS).
+    constexpr size_t kHdrCap = 3072;
+    char *hdrBuf = static_cast<char *>(malloc(kHdrCap));
+    if (!hdrBuf) {
+      Serial.println("[GH-OTA] resolve hdr malloc fail");
+      client->stop();
+      delete client;
+      if (!otaInProgress) {
+        githubOtaReserveTlsHeap("resolve-done");
+        githubOtaPauseWorkers(false);
       }
-      http.end();
+      return false;
     }
+    size_t hdrLen = 0;
+    const uint32_t t0 = millis();
+    bool hdrDone = false;
+    while (!hdrDone && hdrLen + 1 < kHdrCap && (millis() - t0) < 25000) {
+      githubOtaHeartbeat();
+      if (client->available()) {
+        const int b = client->read();
+        if (b < 0) {
+          delay(1);
+          continue;
+        }
+        hdrBuf[hdrLen++] = static_cast<char>(b);
+        if (hdrLen >= 4 && hdrBuf[hdrLen - 4] == '\r' && hdrBuf[hdrLen - 3] == '\n' &&
+            hdrBuf[hdrLen - 2] == '\r' && hdrBuf[hdrLen - 1] == '\n') {
+          hdrDone = true;
+        }
+      } else if (!client->connected() && !client->available()) {
+        break;
+      } else {
+        delay(1);
+      }
+    }
+    hdrBuf[hdrLen] = '\0';
+
+    int code = -1;
+    if (strncmp(hdrBuf, "HTTP/", 5) == 0) {
+      const char *sp = strchr(hdrBuf, ' ');
+      if (sp) code = atoi(sp + 1);
+    }
+    Serial.printf("[GH-OTA] resolve GET > HTTP %d hdr=%u done=%d\n", code,
+                  static_cast<unsigned>(hdrLen), hdrDone ? 1 : 0);
+
+    char loc[1200];
+    loc[0] = '\0';
+    const char *pLoc = strstr(hdrBuf, "\nLocation:");
+    if (!pLoc) pLoc = strstr(hdrBuf, "\nlocation:");
+    if (pLoc) {
+      pLoc = strchr(pLoc, ':');
+      if (pLoc) {
+        ++pLoc;
+        while (*pLoc == ' ' || *pLoc == '\t') ++pLoc;
+        size_t n = 0;
+        while (pLoc[n] && pLoc[n] != '\r' && pLoc[n] != '\n' && n + 1 < sizeof(loc)) {
+          loc[n] = pLoc[n];
+          ++n;
+        }
+        loc[n] = '\0';
+      }
+    }
+    Serial.printf("[GH-OTA] resolve Location len=%u\n", static_cast<unsigned>(strlen(loc)));
+
+    if ((code == 301 || code == 302 || code == 307 || code == 308) && strlen(loc) >= 12) {
+      if (strlen(loc) + 1 <= outLen) {
+        strlcpy(out, loc, outLen);
+        Serial.printf("[GH-OTA] resolve -> %.80s...\n", out);
+        ok = true;
+      } else {
+        Serial.printf("[GH-OTA] resolve Location too long %u >= %u\n",
+                      static_cast<unsigned>(strlen(loc)), static_cast<unsigned>(outLen));
+      }
+    } else if (code == 200 || code == 206) {
+      ok = true;  // no redirect needed
+    } else if (code > 0) {
+      Serial.printf("[GH-OTA] resolve unexpected HTTP %d\n", code);
+    }
+    free(hdrBuf);
+  } else {
+    char errBuf[128];
+    const int elen = client->lastError(errBuf, sizeof(errBuf));
+    Serial.printf("[GH-OTA] resolve TLS fail (%d): %s\n", elen, errBuf);
   }
+
   client->stop();
   delete client;
   if (!otaInProgress) {
@@ -213,13 +283,251 @@ bool githubResolveDownloadUrl(const char *url, char *out, size_t outLen,
   return ok;
 }
 
+/** Raw HTTPS GET (no HTTPClient) вЂ” used for GitHub API JSON; HTTPClient truncates ~2вЂ“3KB. */
+static int githubRawApiGetToFile(const char *url, const char *outPath, uint32_t timeoutMs,
+                                 const char *acceptHdr) {
+  if (!url || strncmp(url, "https://", 8) != 0) return -1;
+  const char *p = url + 8;
+  const char *slash = strchr(p, '/');
+  if (!slash) return -1;
+  char host[96];
+  const size_t hostLen = static_cast<size_t>(slash - p);
+  if (hostLen == 0 || hostLen >= sizeof(host)) return -1;
+  memcpy(host, p, hostLen);
+  host[hostLen] = '\0';
+  const char *path = slash;
+
+  for (int attempt = 1; attempt <= 3; attempt++) {
+    githubOtaHeartbeat();
+    githubOtaDefragHeap();
+    Serial.printf("[GH-OTA] raw API try %d/3 heap=%u maxBlk=%u\n", attempt,
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMaxAllocHeap()));
+
+    WiFiClientSecure *client = new (std::nothrow) WiFiClientSecure();
+    if (!client) {
+      vTaskDelay(pdMS_TO_TICKS(200));
+      continue;
+    }
+    otaConfigureTls(client);
+    client->setHandshakeTimeout(30);
+    client->setTimeout(timeoutMs > 5000 ? timeoutMs : 30000);
+
+    if (!client->connect(host, 443)) {
+      char errBuf[128];
+      const int elen = client->lastError(errBuf, sizeof(errBuf));
+      Serial.printf("[GH-OTA] raw API TLS fail (%d): %s\n", elen, errBuf);
+      client->stop();
+      delete client;
+      vTaskDelay(pdMS_TO_TICKS(300 * attempt));
+      continue;
+    }
+
+    client->print(String("GET ") + path + " HTTP/1.0\r\n" +
+                  "Host: " + host + "\r\n" +
+                  "User-Agent: kamaz-leveler/10.7.25\r\n" +
+                  "Accept: " + String(acceptHdr ? acceptHdr : "application/vnd.github+json") +
+                  "\r\n" +
+                  "X-GitHub-Api-Version: 2022-11-28\r\n" +
+                  "Accept-Encoding: identity\r\n" +
+                  "Connection: close\r\n\r\n");
+
+    // Status line
+    String statusLine;
+    const uint32_t t0 = millis();
+    while (client->connected() && (millis() - t0) < 25000) {
+      githubOtaHeartbeat();
+      if (client->available()) {
+        char c = static_cast<char>(client->read());
+        if (c == '\n') break;
+        if (c != '\r') statusLine += c;
+      } else {
+        delay(1);
+      }
+    }
+    int code = -1;
+    if (statusLine.startsWith("HTTP/")) {
+      const int sp = statusLine.indexOf(' ');
+      if (sp > 0) code = statusLine.substring(sp + 1).toInt();
+    }
+    Serial.printf("[GH-OTA] raw API status %d (%s)\n", code, statusLine.c_str());
+
+    int contentLen = -1;
+    bool chunked = false;
+    // Headers
+    while ((millis() - t0) < timeoutMs) {
+      githubOtaHeartbeat();
+      String line;
+      const uint32_t tLine = millis();
+      while ((millis() - tLine) < 15000) {
+        if (client->available()) {
+          char c = static_cast<char>(client->read());
+          if (c == '\n') break;
+          if (c != '\r') line += c;
+        } else if (!client->connected() && !client->available()) {
+          break;
+        } else {
+          delay(1);
+        }
+      }
+      if (line.length() == 0) break;
+      String low = line;
+      low.toLowerCase();
+      if (low.startsWith("content-length:")) {
+        contentLen = low.substring(15).toInt();
+      } else if (low.startsWith("transfer-encoding:") && low.indexOf("chunked") >= 0) {
+        chunked = true;
+      }
+    }
+    Serial.printf("[GH-OTA] raw API CL=%d chunked=%d heap=%u maxBlk=%u\n", contentLen,
+                  chunked ? 1 : 0, static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMaxAllocHeap()));
+
+    if (code != 200) {
+      client->stop();
+      delete client;
+      if (code > 0) return code;
+      vTaskDelay(pdMS_TO_TICKS(300 * attempt));
+      continue;
+    }
+
+    // Stream body в†’ LittleFS (no large malloc; GitHub often omits CL / uses chunked).
+    LittleFS.remove(outPath);
+    File f = LittleFS.open(outPath, "w");
+    if (!f) {
+      Serial.println("[GH-OTA] raw API LittleFS open fail");
+      client->stop();
+      delete client;
+      continue;
+    }
+
+    size_t total = 0;
+    uint32_t lastDataMs = millis();
+    uint8_t buf[512];
+    bool wroteOk = true;
+
+    if (chunked) {
+      // Minimal chunked decoder: size line (hex), data, CRLF; ends at size 0.
+      while ((millis() - t0) < timeoutMs) {
+        githubOtaHeartbeat();
+        String sizeLine;
+        const uint32_t tSz = millis();
+        while ((millis() - tSz) < 15000) {
+          if (client->available()) {
+            char c = static_cast<char>(client->read());
+            if (c == '\n') break;
+            if (c != '\r') sizeLine += c;
+          } else if (!client->connected() && !client->available()) {
+            break;
+          } else {
+            delay(1);
+          }
+        }
+        // strip ;extensions
+        const int semi = sizeLine.indexOf(';');
+        if (semi >= 0) sizeLine = sizeLine.substring(0, semi);
+        sizeLine.trim();
+        if (sizeLine.length() == 0 && !client->connected()) break;
+        char *endptr = nullptr;
+        const unsigned long chunkSz = strtoul(sizeLine.c_str(), &endptr, 16);
+        if (chunkSz == 0) {
+          // consume trailing headers / final CRLF
+          while (client->available()) (void)client->read();
+          break;
+        }
+        size_t got = 0;
+        while (got < chunkSz && (millis() - t0) < timeoutMs) {
+          githubOtaHeartbeat();
+          size_t want = chunkSz - got;
+          if (want > sizeof(buf)) want = sizeof(buf);
+          int n = 0;
+          if (client->available()) {
+            n = client->read(buf, want);
+          } else if (!client->connected()) {
+            break;
+          } else {
+            delay(1);
+            continue;
+          }
+          if (n <= 0) {
+            delay(1);
+            continue;
+          }
+          if (f.write(buf, static_cast<size_t>(n)) != static_cast<size_t>(n)) {
+            wroteOk = false;
+            break;
+          }
+          got += static_cast<size_t>(n);
+          total += static_cast<size_t>(n);
+          lastDataMs = millis();
+        }
+        // CRLF after chunk
+        while (client->available()) {
+          char c = static_cast<char>(client->read());
+          if (c == '\n') break;
+        }
+        if (!wroteOk) break;
+      }
+    } else {
+      while ((millis() - t0) < timeoutMs) {
+        githubOtaHeartbeat();
+        if (contentLen > 0 && static_cast<int>(total) >= contentLen) break;
+        int avail = client->available();
+        if (avail <= 0) {
+          if (!client->connected() && (millis() - lastDataMs) > 500) break;
+          if ((millis() - lastDataMs) > 25000) {
+            Serial.println("[GH-OTA] raw API body stall");
+            break;
+          }
+          delay(2);
+          continue;
+        }
+        size_t want = static_cast<size_t>(avail);
+        if (want > sizeof(buf)) want = sizeof(buf);
+        if (contentLen > 0) {
+          const size_t left = static_cast<size_t>(contentLen) - total;
+          if (want > left) want = left;
+        }
+        const int n = client->read(buf, want);
+        if (n > 0) {
+          if (f.write(buf, static_cast<size_t>(n)) != static_cast<size_t>(n)) {
+            wroteOk = false;
+            break;
+          }
+          total += static_cast<size_t>(n);
+          lastDataMs = millis();
+        } else {
+          delay(2);
+        }
+      }
+    }
+
+    f.flush();
+    f.close();
+    client->stop();
+    delete client;
+
+    Serial.printf("[GH-OTA] raw API body %u (CL=%d chunked=%d)\n", static_cast<unsigned>(total),
+                  contentLen, chunked ? 1 : 0);
+    if (!wroteOk || total < 16 || (contentLen > 0 && static_cast<int>(total) < contentLen)) {
+      LittleFS.remove(outPath);
+      vTaskDelay(pdMS_TO_TICKS(400 * attempt));
+      continue;
+    }
+    Serial.printf("[GH-OTA] saved %u Р±Р°Р№С‚ > %s heap=%u\n", static_cast<unsigned>(total), outPath,
+                  static_cast<unsigned>(ESP.getFreeHeap()));
+    return HTTP_CODE_OK;
+  }
+  return -1;
+}
+
 int githubHttpsDownloadToFile(const char *url, const char *outPath,
                               uint32_t timeoutMs,
                               const char *acceptHdr,
                               const char *rangeHdr) {
   if (!url || !outPath) return -1;
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[GH-OTA] download: WiFi не STA");
+    Serial.println("[GH-OTA] download: WiFi РЅРµ STA");
     return -1;
   }
 
@@ -233,23 +541,44 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
     return -1;
   }
 
+  const bool isApiJson =
+      acceptHdr && (strstr(acceptHdr, "json") != nullptr) && strstr(url, "api.github.com");
+  // Always pause workers for GitHub TLS — need ~40KB contiguous for mbedtls.
+  const bool pauseWorkers = true;
   githubOtaReleaseTlsHeap("pre-GET");
-  if (!otaInProgress) {
-    githubOtaPauseWorkers(true);
-  } else if (!s_tlsHeapReserve) {
-    githubOtaPauseWorkers(true);
-  }
+  githubOtaPauseWorkers(true);
   githubOtaDefragHeap();
-  vTaskDelay(pdMS_TO_TICKS(80));
+  vTaskDelay(pdMS_TO_TICKS(120));
+  githubOtaDefragHeap();
 
   auto unlock = [&]() {
-    if (otaInProgress) {
-      if (s_ghMutex) xSemaphoreGive(s_ghMutex);
-      return;
+    if (pauseWorkers) {
+      githubOtaPauseWorkers(false);
     }
-    githubOtaPauseWorkers(false);
     if (s_ghMutex) xSemaphoreGive(s_ghMutex);
   };
+
+  if (isApiJson && !(rangeHdr && rangeHdr[0])) {
+    Serial.printf("[GH-OTA] TLS prep heap=%u maxBlk=%u internal=%u\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMaxAllocHeap()),
+                  static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)));
+    {
+      IPAddress ip;
+      const bool dnsOk = WiFi.hostByName("api.github.com", ip);
+      Serial.printf("[GH-OTA] DNS api.github.com > %s (%s)\n",
+                    dnsOk ? ip.toString().c_str() : "FAIL", dnsOk ? "ok" : "fail");
+    }
+    const int rawCode = githubRawApiGetToFile(url, outPath, timeoutMs, acceptHdr);
+    if (rawCode == HTTP_CODE_OK) {
+      unlock();
+      return rawCode;
+    }
+    Serial.printf("[GH-OTA] raw API fail code=%d — fallback HTTPClient\n", rawCode);
+    githubOtaDefragHeap();
+    vTaskDelay(pdMS_TO_TICKS(100));
+    // fall through to HTTPClient path below
+  }
 
   Serial.printf("[GH-OTA] TLS prep heap=%u maxBlk=%u internal=%u\n",
                 static_cast<unsigned>(ESP.getFreeHeap()),
@@ -272,10 +601,10 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
     githubOtaDefragHeap();
     const uint32_t maxBlk2 = ESP.getMaxAllocHeap();
     if (maxBlk2 < maxBlk) {
-      Serial.printf("[GH-OTA] defrag maxBlk %u → %u\n", maxBlk, maxBlk2);
+      Serial.printf("[GH-OTA] defrag maxBlk %u в†’ %u\n", maxBlk, maxBlk2);
     }
     if (maxBlk2 < 24000u) {
-      Serial.println("[GH-OTA] мало непрерывной RAM для TLS — пауза/defrag");
+      Serial.println("[GH-OTA] РјР°Р»Рѕ РЅРµРїСЂРµСЂС‹РІРЅРѕР№ RAM РґР»СЏ TLS вЂ” РїР°СѓР·Р°/defrag");
       vTaskDelay(pdMS_TO_TICKS(300 * attempt));
       githubOtaDefragHeap();
       if (ESP.getMaxAllocHeap() < 20000u) {
@@ -311,8 +640,9 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
         http.useHTTP10(true);
         http.setReuse(false);
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-        http.addHeader("User-Agent", "kamaz-leveler/9.4.0");
+        http.setUserAgent("kamaz-leveler/10.7.25");
         http.addHeader("Accept", acceptHdr ? acceptHdr : "*/*");
+        http.addHeader("X-GitHub-Api-Version", "2022-11-28");
         http.addHeader("Accept-Encoding", "identity");
         http.addHeader("Connection", "close");
         if (rangeHdr && rangeHdr[0]) {
@@ -320,7 +650,7 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
           Serial.printf("[GH-OTA] Range %s\n", rangeHdr);
         }
 
-        Serial.println("[GH-OTA] GET…");
+        Serial.println("[GH-OTA] GETвЂ¦");
         const uint32_t tGet0 = millis();
         code = http.GET();
         contentLen = http.getSize();
@@ -337,20 +667,72 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
         lastCode = code;
 
         if (code == HTTP_CODE_OK || code == HTTP_CODE_PARTIAL_CONTENT) {
-          File f = LittleFS.open(outPath, "w");
-          if (!f) {
-            Serial.println("[GH-OTA] LittleFS write open failed");
-            lastCode = -1;
+          WiFiClient *stream = http.getStreamPtr();
+          const uint32_t t0 = millis();
+          uint32_t lastDataMs = millis();
+          uint8_t buf[1024];
+          const bool ranged = (rangeHdr && rangeHdr[0]);
+          wroteOk = true;
+          const bool smallApiBody = !ranged && contentLen > 0 && contentLen < 48000 &&
+                                    acceptHdr && (strstr(acceptHdr, "json") != nullptr);
+
+          if (smallApiBody) {
+            // Full JSON into RAM first вЂ” LittleFS during TLS stalls the TCP window.
+            githubOtaHeartbeat();
+            String body;
+            body.reserve(static_cast<unsigned>(contentLen) + 8);
+            client->setTimeout(15000);
+            while (static_cast<int>(body.length()) < contentLen &&
+                   (millis() - t0) < timeoutMs) {
+              githubOtaHeartbeat();
+              const size_t left = static_cast<size_t>(contentLen) - body.length();
+              const size_t want = left < sizeof(buf) ? left : sizeof(buf);
+              const int n = stream->readBytes(buf, want);
+              if (n > 0) {
+                char tmp[sizeof(buf) + 1];
+                memcpy(tmp, buf, static_cast<size_t>(n));
+                tmp[n] = '\0';
+                body += tmp;
+                lastDataMs = millis();
+              } else if (!client->connected()) {
+                delay(40);
+                if (!stream->available()) break;
+              } else if ((millis() - lastDataMs) > 30000u && body.length() >= 16) {
+                Serial.println("[GH-OTA] JSON body stall 30s");
+                break;
+              } else {
+                delay(2);
+              }
+            }
+            total = body.length();
+            Serial.printf("[GH-OTA] api body %u (CL=%d)\n", static_cast<unsigned>(total),
+                          contentLen);
+            if (contentLen > 0 && static_cast<int>(total) >= contentLen) {
+              File f = LittleFS.open(outPath, "w");
+              if (!f || f.write(reinterpret_cast<const uint8_t *>(body.c_str()), total) != total) {
+                Serial.println("[GH-OTA] LittleFS write error");
+                wroteOk = false;
+                total = 0;
+                if (f) f.close();
+                LittleFS.remove(outPath);
+              } else {
+                f.flush();
+                f.close();
+              }
+            } else {
+              wroteOk = false;
+              total = 0;
+            }
           } else {
-            WiFiClient *stream = http.getStreamPtr();
-            const uint32_t t0 = millis();
-            uint32_t lastDataMs = millis();
-            uint8_t buf[512];
-            const bool ranged = (rangeHdr && rangeHdr[0]);
-            wroteOk = true;
-            if (ranged && contentLen > 0) {
+            File f = LittleFS.open(outPath, "w");
+            if (!f) {
+              Serial.println("[GH-OTA] LittleFS write open failed");
+              lastCode = -1;
+              wroteOk = false;
+            } else if (ranged && contentLen > 0) {
               client->setTimeout(8000);
               while (static_cast<int>(total) < contentLen && (millis() - t0) < timeoutMs) {
+                githubOtaHeartbeat();
                 const size_t want =
                     min(sizeof(buf), static_cast<size_t>(contentLen) - total);
                 const int n = stream->readBytes(buf, want);
@@ -367,37 +749,43 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
                 total += static_cast<size_t>(n);
                 lastDataMs = millis();
               }
+              f.flush();
+              f.close();
+              if (!wroteOk) LittleFS.remove(outPath);
             } else {
+              client->setTimeout(8000);
               while ((millis() - t0) < timeoutMs) {
-                int avail = stream->available();
-                if (avail <= 0) {
-                  const bool sockAlive = client->connected();
-                  const uint32_t quiet = millis() - lastDataMs;
-                  if (contentLen > 0 && static_cast<int>(total) >= contentLen) break;
-                  if (quiet > (sockAlive ? 5000u : 1500u) && total >= 16) break;
-                  delay(5);
-                  continue;
+                githubOtaHeartbeat();
+                if (contentLen > 0 && static_cast<int>(total) >= contentLen) break;
+                size_t want = sizeof(buf);
+                if (contentLen > 0) {
+                  const size_t left = static_cast<size_t>(contentLen) - total;
+                  if (left < want) want = left;
                 }
-                while (stream->available()) {
-                  const int n = stream->readBytes(buf, sizeof(buf));
-                  if (n <= 0) break;
+                const int n = stream->readBytes(buf, want);
+                if (n > 0) {
                   if (f.write(buf, static_cast<size_t>(n)) != static_cast<size_t>(n)) {
                     Serial.println("[GH-OTA] LittleFS write error");
                     wroteOk = false;
-                    goto gh_rw_done;
+                    break;
                   }
                   total += static_cast<size_t>(n);
                   lastDataMs = millis();
-                  if (contentLen > 0 && static_cast<int>(total) >= contentLen) goto gh_rw_done;
+                  continue;
                 }
+                const bool sockAlive = client->connected();
+                const uint32_t quiet = millis() - lastDataMs;
+                if (contentLen > 0) {
+                  if (!sockAlive && quiet > 2500u) break;
+                  if (sockAlive && quiet > 30000u) break;
+                } else if (quiet > (sockAlive ? 8000u : 2000u) && total >= 16) {
+                  break;
+                }
+                delay(5);
               }
-            }
-          gh_rw_done:
-            f.flush();
-            f.close();
-            if (!wroteOk) {
-              LittleFS.remove(outPath);
-              lastCode = -1;
+              f.flush();
+              f.close();
+              if (!wroteOk) LittleFS.remove(outPath);
             }
           }
         }
@@ -414,16 +802,15 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
       return code;
     }
     if (wroteOk && (total >= 16 || ((rangeHdr && rangeHdr[0]) && total >= 1))) {
-      const bool ranged = (rangeHdr && rangeHdr[0]);
-      if (ranged && contentLen > 0 && static_cast<int>(total) < contentLen) {
-        Serial.printf("[GH-OTA] incomplete range: got %u want %d — retry\n",
+      if (contentLen > 0 && static_cast<int>(total) < contentLen) {
+        Serial.printf("[GH-OTA] incomplete body: got %u want %d вЂ” retry\n",
                       static_cast<unsigned>(total), contentLen);
         LittleFS.remove(outPath);
         lastCode = -1;
         vTaskDelay(pdMS_TO_TICKS(400 * attempt));
         continue;
       }
-      Serial.printf("[GH-OTA] saved %u байт > %s heap=%u\n", static_cast<unsigned>(total),
+      Serial.printf("[GH-OTA] saved %u Р±Р°Р№С‚ > %s heap=%u\n", static_cast<unsigned>(total),
                     outPath, static_cast<unsigned>(ESP.getFreeHeap()));
       unlock();
       return (code == HTTP_CODE_PARTIAL_CONTENT) ? HTTP_CODE_PARTIAL_CONTENT : HTTP_CODE_OK;

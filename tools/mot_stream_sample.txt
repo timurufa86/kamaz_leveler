@@ -1,0 +1,45 @@
+[OTA-CMD] rx: TEST MOT STREAM 5
+[MOT] STREAM start 5s period=100ms (gyro thr=400 = menu50×8, linThr=1000)
+[TEST] OK MOT_STREAM
+[MOT] t=877585 mot=0 motSt=0x00 gyro=5 thr=400 busy=0 bump=5 bthr=320 bbusy=0 lin=6736 ldlt=47 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=24.8 enter=5.2 settleLeft=26.9 exit=-1.0 int=0x03
+[MOT] t=877698 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6678 ldlt=13 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=24.9 enter=5.1 settleLeft=26.8 exit=-1.0 int=0x03
+[MOT] t=877810 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6704 ldlt=6 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.0 enter=5.0 settleLeft=26.7 exit=-1.0 int=0x03
+[MOT] t=877922 mot=0 motSt=0x00 gyro=2 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6695 ldlt=2 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.1 enter=4.9 settleLeft=26.6 exit=-1.0 int=0x03
+[MOT] t=878035 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6626 ldlt=67 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.2 enter=4.8 settleLeft=26.5 exit=-1.0 int=0x03
+[MOT] t=878145 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6700 ldlt=16 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.3 enter=4.7 settleLeft=26.4 exit=-1.0 int=0x03
+[MOT] t=878257 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6599 ldlt=81 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.4 enter=4.6 settleLeft=26.3 exit=-1.0 int=0x03
+[MOT] t=878369 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6665 ldlt=14 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.5 enter=4.5 settleLeft=26.1 exit=-1.0 int=0x03
+[MOT] t=878481 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6781 ldlt=103 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.7 enter=4.3 settleLeft=26.0 exit=-1.0 int=0x03
+[MOT] t=878595 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6749 ldlt=68 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.8 enter=4.2 settleLeft=25.9 exit=-1.0 int=0x03
+[MOT] t=878709 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6657 ldlt=34 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=25.9 enter=4.1 settleLeft=25.8 exit=-1.0 int=0x03
+[MOT] t=878823 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6705 ldlt=14 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.0 enter=4.0 settleLeft=25.7 exit=-1.0 int=0x03
+[MOT] t=878935 mot=0 motSt=0x00 gyro=2 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6788 ldlt=95 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.1 enter=3.9 settleLeft=25.6 exit=-1.0 int=0x03
+[MOT] t=879047 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6719 ldlt=23 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.2 enter=3.8 settleLeft=25.5 exit=-1.0 int=0x03
+[MOT] t=879158 mot=0 motSt=0x00 gyro=5 thr=400 busy=0 bump=4 bthr=320 bbusy=0 lin=6674 ldlt=25 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.3 enter=3.7 settleLeft=25.3 exit=-1.0 int=0x03
+[MOT] t=879268 mot=0 motSt=0x00 gyro=2 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6732 ldlt=33 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.4 enter=3.6 settleLeft=25.2 exit=-1.0 int=0x03
+[MOT] t=879384 mot=0 motSt=0x00 gyro=6 thr=400 busy=0 bump=6 bthr=320 bbusy=0 lin=6668 ldlt=33 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.6 enter=3.4 settleLeft=25.1 exit=-1.0 int=0x03
+[MOT] t=879493 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6692 ldlt=3 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.7 enter=3.3 settleLeft=25.0 exit=-1.0 int=0x03
+[MOT] t=879609 mot=0 motSt=0x00 gyro=8 thr=400 busy=0 bump=7 bthr=320 bbusy=0 lin=6701 ldlt=9 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.8 enter=3.2 settleLeft=24.9 exit=-1.0 int=0x03
+[MOT] t=879721 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6717 ldlt=24 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=26.9 enter=3.1 settleLeft=24.8 exit=-1.0 int=0x03
+[MOT] t=879835 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=4 bthr=320 bbusy=0 lin=6681 ldlt=17 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.0 enter=3.0 settleLeft=24.7 exit=-1.0 int=0x03
+[MOT] t=879949 mot=0 motSt=0x00 gyro=1 thr=400 busy=0 bump=1 bthr=320 bbusy=0 lin=6719 ldlt=24 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.1 enter=2.9 settleLeft=24.6 exit=-1.0 int=0x03
+[MOT] t=880060 mot=0 motSt=0x00 gyro=5 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6768 ldlt=69 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.2 enter=2.8 settleLeft=24.4 exit=-1.0 int=0x03
+[MOT] t=880173 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6735 ldlt=34 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.3 enter=2.7 settleLeft=24.3 exit=-1.0 int=0x03
+[MOT] t=880284 mot=0 motSt=0x00 gyro=6 thr=400 busy=0 bump=6 bthr=320 bbusy=0 lin=6640 ldlt=67 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.5 enter=2.5 settleLeft=24.2 exit=-1.0 int=0x03
+[MOT] t=880396 mot=0 motSt=0x00 gyro=2 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6595 ldlt=109 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.6 enter=2.4 settleLeft=24.1 exit=-1.0 int=0x03
+[MOT] t=880508 mot=0 motSt=0x00 gyro=5 thr=400 busy=0 bump=4 bthr=320 bbusy=0 lin=6774 ldlt=77 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.7 enter=2.3 settleLeft=24.0 exit=-1.0 int=0x03
+[MOT] t=880621 mot=0 motSt=0x00 gyro=12 thr=400 busy=0 bump=11 bthr=320 bbusy=0 lin=6612 ldlt=96 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.8 enter=2.2 settleLeft=23.9 exit=-1.0 int=0x03
+[IMU] Stats - IMU:27ms, Moving:1, MPU:1
+[MOT] t=880733 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6696 ldlt=9 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=27.9 enter=2.1 settleLeft=23.8 exit=-1.0 int=0x03
+[MOT] t=880846 mot=0 motSt=0x00 gyro=5 thr=400 busy=0 bump=5 bthr=320 bbusy=0 lin=6677 ldlt=8 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.0 enter=2.0 settleLeft=23.7 exit=-1.0 int=0x03
+[MOT] t=880958 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=4 bthr=320 bbusy=0 lin=6651 ldlt=35 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.1 enter=1.9 settleLeft=23.5 exit=-1.0 int=0x03
+[MOT] t=881069 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=4 bthr=320 bbusy=0 lin=6668 ldlt=16 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.2 enter=1.8 settleLeft=23.4 exit=-1.0 int=0x03
+[MOT] t=881181 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6695 ldlt=11 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.4 enter=1.6 settleLeft=23.3 exit=-1.0 int=0x03
+[MOT] t=881294 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6680 ldlt=9 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.5 enter=1.5 settleLeft=23.2 exit=-1.0 int=0x03
+[MOT] t=881406 mot=0 motSt=0x00 gyro=2 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6726 ldlt=33 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.6 enter=1.4 settleLeft=23.1 exit=-1.0 int=0x03
+[MOT] t=881525 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6722 ldlt=36 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.7 enter=1.3 settleLeft=23.0 exit=-1.0 int=0x03
+[MOT] t=881641 mot=0 motSt=0x00 gyro=2 thr=400 busy=0 bump=2 bthr=320 bbusy=0 lin=6649 ldlt=32 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.8 enter=1.2 settleLeft=22.9 exit=-1.0 int=0x03
+[MOT] t=881753 mot=0 motSt=0x00 gyro=7 thr=400 busy=0 bump=6 bthr=320 bbusy=0 lin=6747 ldlt=62 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=28.9 enter=1.1 settleLeft=22.8 exit=-1.0 int=0x03
+[MOT] t=881864 mot=0 motSt=0x00 gyro=7 thr=400 busy=0 bump=7 bthr=320 bbusy=0 lin=6728 ldlt=41 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=29.0 enter=1.0 settleLeft=22.6 exit=-1.0 int=0x03
+[MOT] t=881978 mot=0 motSt=0x00 gyro=4 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6684 ldlt=8 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=29.2 enter=0.8 settleLeft=22.5 exit=-1.0 int=0x03
+[MOT] t=882086 mot=0 motSt=0x00 gyro=3 thr=400 busy=0 bump=3 bthr=320 bbusy=0 lin=6744 ldlt=53 lthr=1000 lbusy=0 hold=1 was=1 mode=MANUAL age=29.3 enter=0.7

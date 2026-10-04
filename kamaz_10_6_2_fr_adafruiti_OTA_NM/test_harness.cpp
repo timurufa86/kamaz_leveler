@@ -739,25 +739,8 @@ void processTestCommandLine(char *line) {
 }
 
 static void processSerialTestCommands() {
-  // Serial линии обычно забирает OTA-task → processTestCommandLine.
-  // Здесь — запасной путь + фоновый SELF/FULL.
-  static char line[96];
-  static uint8_t len = 0;
-
-  while (Serial.available() > 0) {
-    char c = (char)Serial.read();
-    if (c == '\r') continue;
-    if (c == '\n') {
-      line[len] = 0;
-      len = 0;
-      if (line[0] == 0) continue;
-      processTestCommandLine(line);
-    } else if (len < sizeof(line) - 1) {
-      line[len++] = c;
-    } else {
-      len = 0;
-    }
-  }
+  // UART owns OTA-task (task_ota.cpp → processTestCommandLine for "TEST …").
+  // Do NOT Serial.read() here: loop() races OTA and silently drops "OTA LIST/INSTALL".
 
   // Фоновый smoke: OPEN > wait > CLOSE > bright/dim > STATUS
   // FULL (phase>=10): + PRESS/IMU/WIFI + MODE AUTO/MANUAL/MOVEMENT

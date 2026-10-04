@@ -1,0 +1,20 @@
+﻿[╨н╨в╨Р╨Я 4/4] ╨Ш╤В╨╛╨│
+
+
+IDLE n=133
+  gyro: min=1 avg=10.9 max=194 p95=30
+  bump: min=0 avg=9.2 max=181 p95=26
+  ldlt: min=1 avg=74.4 max=1422 p95=160
+  mot%=0.0 busy%=0.0 bbusy%=0.0 lbusy%=0.8 hold%=100.0
+
+SHAKE n=134
+  gyro: min=7 avg=335.6 max=1589 p95=716
+  bump: min=4 avg=261.1 max=1354 p95=594
+  ldlt: min=5 avg=1295.9 max=10624 p95=3808
+  mot%=0.0 busy%=30.6 bbusy%=29.9 lbusy%=48.5 hold%=100.0
+
+=== SUGGESTED CALIB (idle p95 + margin) ===
+  TEST MOT SET gyro 10   # thr~80
+  TEST MOT SET bump 10   # thr~80
+  TEST MOT SET lin 400
+  separation shake/idle p95: gyro x23.9 bump x22.8 ldlt x23.8

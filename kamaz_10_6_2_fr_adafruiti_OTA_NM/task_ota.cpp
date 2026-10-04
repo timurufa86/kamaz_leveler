@@ -126,12 +126,11 @@ void otaTask(void *pvParameters) {
           Serial.printf("[OTA-CMD] VERSION=%s\n", VERSION);
         } else if (strcmp(upper, "OTA PING") == 0) {
           Serial.println("[OTA-CMD] PING…");
-          for (int w = 0; w < 40; w++) {
-            if (getSystemState() == SystemState::RUNNING) break;
-            vTaskDelay(pdMS_TO_TICKS(250));
-            githubOtaHeartbeat();
+          if (getSystemState() != SystemState::RUNNING) {
+            Serial.println("[OTA-CMD] PING busy (wait RUNNING)");
+          } else {
+            githubOtaPingDiag();
           }
-          githubOtaPingDiag();
         } else if (strcmp(upper, "OTA ABORT") == 0) {
           githubOtaClearUpdate("serial-abort");
           githubOtaEndInstallSession("dl-exit");
@@ -139,34 +138,38 @@ void otaTask(void *pvParameters) {
           Serial.println("[OTA-CMD] aborted");
         } else if (strcmp(upper, "OTA LIST") == 0) {
           Serial.println("[OTA-CMD] LIST…");
-          githubOtaPrintHeap("pre-list");
-          for (int w = 0; w < 40; w++) {
-            if (getSystemState() == SystemState::RUNNING) break;
-            vTaskDelay(pdMS_TO_TICKS(250));
-            githubOtaHeartbeat();
-          }
-          beginGitHubOtaProgressUi("Список…");
-          if (!fetchGitHubReleaseList() || otaReleaseCount == 0) {
-            Serial.printf("[OTA-CMD] LIST fail status=%s\n", otaListStatus);
-            endGitHubOtaProgressUi(true);
+          if (getSystemState() != SystemState::RUNNING) {
+            Serial.println("[OTA-CMD] LIST busy (wait RUNNING)");
           } else {
-            for (uint8_t k = 0; k < otaReleaseCount; ++k) {
-              Serial.printf("[OTA-CMD] #%u %s bin=%s\n", static_cast<unsigned>(k),
-                            otaReleases[k].tag, otaReleases[k].binUrl);
+            githubOtaPrintHeap("pre-list");
+            beginGitHubOtaProgressUi("Список…");
+            if (!fetchGitHubReleaseList() || otaReleaseCount == 0) {
+              Serial.printf("[OTA-CMD] LIST fail status=%s\n", otaListStatus);
+              endGitHubOtaProgressUi(true);
+            } else {
+              for (uint8_t k = 0; k < otaReleaseCount; ++k) {
+                Serial.printf("[OTA-CMD] #%u %s bin=%s\n", static_cast<unsigned>(k),
+                              otaReleases[k].tag, otaReleases[k].binUrl);
+              }
+              Serial.printf("[OTA-CMD] LIST ok count=%u\n",
+                            static_cast<unsigned>(otaReleaseCount));
+              endGitHubOtaProgressUi(true);
             }
-            Serial.printf("[OTA-CMD] LIST ok count=%u\n", static_cast<unsigned>(otaReleaseCount));
-            endGitHubOtaProgressUi(true);
           }
         } else if (strncmp(upper, "OTA INSTALL ", 12) == 0) {
           const int idx = atoi(serialLine + 12);
           Serial.printf("[OTA-CMD] INSTALL %d\n", idx);
-          beginGitHubOtaProgressUi("Установка…");
-          if (otaReleaseCount == 0 && !fetchGitHubReleaseList()) {
-            Serial.println("[OTA-CMD] INSTALL: no list");
-            endGitHubOtaProgressUi(true);
-          } else if (!installGitHubReleaseIndex(static_cast<int8_t>(idx))) {
-            Serial.printf("[OTA-CMD] INSTALL fail status=%s\n", otaListStatus);
-            endGitHubOtaProgressUi(true);
+          if (getSystemState() != SystemState::RUNNING) {
+            Serial.println("[OTA-CMD] INSTALL busy (wait RUNNING)");
+          } else {
+            beginGitHubOtaProgressUi("Установка…");
+            if (otaReleaseCount == 0 && !fetchGitHubReleaseList()) {
+              Serial.println("[OTA-CMD] INSTALL: no list");
+              endGitHubOtaProgressUi(true);
+            } else if (!installGitHubReleaseIndex(static_cast<int8_t>(idx))) {
+              Serial.printf("[OTA-CMD] INSTALL fail status=%s\n", otaListStatus);
+              endGitHubOtaProgressUi(true);
+            }
           }
         } else if (strcmp(upper, "OTA SELFTEST") == 0) {
           Serial.println("[OTA-CMD] SELFTEST…");

@@ -105,8 +105,9 @@ static bool parseGitHubReleaseListFile(const char *path) {
       if (name[0] == '\0') continue;
       const char *apiUrl = asset["url"] | "";
       const char *browserUrl = asset["browser_download_url"] | "";
-      // Prefer API asset URL — same host as LIST (api.github.com), avoids github.com TLS BIGNUM fail
-      const char *dl = (apiUrl[0] != '\0') ? apiUrl : browserUrl;
+      // Prefer short browser_download_url — HTTPClient follows 302 (esp32FOTA pattern).
+      // API asset URLs need Accept + long CDN Location that previously broke resolve.
+      const char *dl = (browserUrl[0] != '\0') ? browserUrl : apiUrl;
       if (dl[0] == '\0') continue;
 
       if (strcmp(name, GITHUB_ASSET_NAME) == 0) {
@@ -181,16 +182,21 @@ bool fetchGitHubReleaseList() {
 
   strlcpy(otaListHdrBuf, "связь с GitHub...", 40);
   if (menuVisible) displayDirty = true;
-  // Releases API (не tags): даёт asset.url на api.github.com + digest sha256
+  // LIST via raw TLS GET (JSON to RAM then LittleFS). Install uses Update + CDN.
   constexpr char kReleasesUrl[] =
-      "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=8";
+      "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=3";
   constexpr char kPath[] = "/gh_rels.json";
   Serial.printf("[GH-OTA] Список releases, heap %u\n", static_cast<unsigned>(ESP.getFreeHeap()));
-  const int code = githubHttpsDownloadToFile(kReleasesUrl, kPath, 25000, "application/json");
+  const int code =
+      githubHttpsDownloadToFile(kReleasesUrl, kPath, 60000, "application/vnd.github+json");
   if (code != HTTP_CODE_OK) {
     if (code <= 0) {
       strlcpy(otaListStatus, "сеть/TLS ошибка", sizeof(otaListStatus));
       strlcpy(otaListHdrBuf, "нет связи TLS", 40);
+    } else if (code == 403) {
+      strlcpy(otaListStatus, "GitHub 403 (лимит API)", sizeof(otaListStatus));
+      strlcpy(otaListHdrBuf, "лимит API, подождите", 40);
+      Serial.println("[GH-OTA] LIST HTTP 403 — unauth rate limit (~60/h) или блок IP");
     } else {
       snprintf(otaListStatus, sizeof(otaListStatus), "GitHub HTTP %d", code);
       snprintf(otaListHdrBuf, 40, "HTTP %d", code);

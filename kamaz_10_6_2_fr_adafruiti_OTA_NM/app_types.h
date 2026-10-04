@@ -148,7 +148,7 @@ struct OtaRelease {
   char tag[16]     = "";
   char date[11]    = "";      // YYYY-MM-DD
   uint32_t size    = 0;
-  char binUrl[176] = "";
-  char shaUrl[176] = "";
+  char binUrl[256] = "";
+  char shaUrl[256] = "";
   char sha256[65]  = "";      // заполняется проверкой sha256-ассета
 };

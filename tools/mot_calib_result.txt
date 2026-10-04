@@ -1,0 +1,45 @@
+﻿╨Я╨╛╤А╤В COM4. ╨Я╨╛╤Б╨╗╨╡ ╤Б╨▒╤А╨╛╤Б╨░ тАФ ╨╢╨┤╨╡╨╝ ╨┐╨╛╨║╨╛╨╣, ╨╛╤В╤Б╤З╨╡╤В 5 ╤Б, ╨Я╨Ю╨Ъ╨Ю╨Щ 15 ╤Б, ╨┐╨╛╤В╨╛╨╝ ╨в╨а╨п╨б╨Ъ╨Р 15 ╤Б.
+
+[MOT] stats reset
+
+[TEST] OK MOT_RESET
+[TEST] VER V 10.3.1 FreeRTOS OTA
+[TEST] OK VER
+
+╨Ц╨┤╤Г ╨┐╨╛╨║╨╛╤П (hold=0), ╨┤╨╛ 40 ╤Б тАФ ╨┤╨░╤В╤З╨╕╨║ ╨Э╨Х ╤В╤А╤П╤Б╤В╨╕...
+  hold=0 (╨╜╤Г╨╢╨╜╨╛ 3 ╨┐╨╛╨┤╤А╤П╨┤ hold=0)
+╨Я╨╛╨║╨╛╨╣ ╨┤╨╛╤Б╤В╨╕╨│╨╜╤Г╤В.
+
+  5... ╨│╨╛╤В╨╛╨▓╤М╤В╨╡╤Б╤М тАФ ╤Д╨░╨╖╨░ 1 ╨▒╤Г╨┤╨╡╤В ╨Я╨Ю╨Ъ╨Ю╨Щ (╨╜╨╡ ╨┤╨▓╨╕╨│╨░╤В╤М)
+  4... ╨│╨╛╤В╨╛╨▓╤М╤В╨╡╤Б╤М тАФ ╤Д╨░╨╖╨░ 1 ╨▒╤Г╨┤╨╡╤В ╨Я╨Ю╨Ъ╨Ю╨Щ (╨╜╨╡ ╨┤╨▓╨╕╨│╨░╤В╤М)
+  3... ╨│╨╛╤В╨╛╨▓╤М╤В╨╡╤Б╤М тАФ ╤Д╨░╨╖╨░ 1 ╨▒╤Г╨┤╨╡╤В ╨Я╨Ю╨Ъ╨Ю╨Щ (╨╜╨╡ ╨┤╨▓╨╕╨│╨░╤В╤М)
+  2... ╨│╨╛╤В╨╛╨▓╤М╤В╨╡╤Б╤М тАФ ╤Д╨░╨╖╨░ 1 ╨▒╤Г╨┤╨╡╤В ╨Я╨Ю╨Ъ╨Ю╨Щ (╨╜╨╡ ╨┤╨▓╨╕╨│╨░╤В╤М)
+  1... ╨│╨╛╤В╨╛╨▓╤М╤В╨╡╤Б╤М тАФ ╤Д╨░╨╖╨░ 1 ╨▒╤Г╨┤╨╡╤В ╨Я╨Ю╨Ъ╨Ю╨Щ (╨╜╨╡ ╨┤╨▓╨╕╨│╨░╤В╤М)
+
+>>> ╨д╨Р╨Ч╨Р 1: ╨Ф╨Х╨а╨Ц╨Ш╨в╨Х ╨Т ╨Я╨Ю╨Ъ╨Ю╨Х (╨╜╨╡ ╤В╤А╤П╤Б╤В╨╕!) <<<
+--- IDLE: samples=133 ---
+
+>>> ╨д╨Р╨Ч╨Р 2: ╨в╨а╨п╨б╨Ш╨в╨Х ╨Ф╨Р╨в╨з╨Ш╨Ъ (╤Б╨╡╨╣╤З╨░╤Б!) <<<
+--- SHAKE: samples=134 ---
+[TEST] MOT hold=1 mot=0 motSt=0x00 busy=0 gyro=14 thr=400 bump=12 bthr=320 bbusy=0 lin=6723 ldlt=105 lthr=1000 lbusy=0 int=0x03 mode=MANUAL movActive=0 settleLeft=29.7
+[TEST] MOT_CFG duration=30s settle=30s gyroMenu=50 gyroThr=400 bumpMenu=40 bumpThr=320 linThr=1000 det=75 motDur=40ms period=100ms
+[TEST] OK MOT_CFG
+
+
+IDLE n=133
+  gyro: min=1 avg=3.7 max=7 p95=6
+  bump: min=0 avg=3.1 max=7 p95=5
+  ldlt: min=0 avg=44.6 max=193 p95=116
+  mot%=0.0 busy%=0.0 bbusy%=0.0 lbusy%=0.0 hold%=0.0
+
+SHAKE n=134
+  gyro: min=1 avg=3.8 max=8 p95=6
+  bump: min=0 avg=3.2 max=8 p95=6
+  ldlt: min=1 avg=45.6 max=246 p95=102
+  mot%=0.0 busy%=0.0 bbusy%=0.0 lbusy%=0.0 hold%=0.0
+
+=== SUGGESTED CALIB (idle p95 + margin) ===
+  TEST MOT SET gyro 10   # thr~80
+  TEST MOT SET bump 10   # thr~80
+  TEST MOT SET lin 290
+  separation shake/idle p95: gyro x1.0 bump x1.2 ldlt x0.9
