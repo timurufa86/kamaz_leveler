@@ -1,0 +1,848 @@
+#include "ui_menu_build.h"
+#include "ui_ota_menu.h"
+#include "ui_marquee.h"
+#include "ui_theme.h"
+#include "ui_text.h"
+#include "app_globals.h"
+#include "app_types.h"
+#include "app_version.h"
+#include "mutex_guard.h"
+#include "wifi_setup.h"
+#include "service_ui.h"
+#include "valve_ctrl.h"
+#include "task_display.h"
+#include "app_pins.h"
+#include "error_handler.h"
+#include "logger.h"
+#include "FontsRus/CourierCyr7.h"
+#include "FontsRus/CourierCyr9.h"
+#include <Adafruit_ST7789.h>
+#include <WiFi.h>
+
+extern uint32_t uptimeHours;
+extern char wifi_ssid[32];
+extern char sta_ssid[33];
+uint32_t lastUserActivityMs = 0;
+bool backlightDimmed = false;
+
+void resetSystemErrors();
+void requestWiFiSetup();
+void saveMenuSettings();
+extern void cfg_setMasterLowBar(float v);
+extern void cfg_setBacklightOffMin(int v);
+
+enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
+
+extern bool cfg_errorHasUiBlocking();
+extern bool cfg_errorHasActive();
+extern bool cfg_errorHasCriticalPneumatic();
+extern bool cfg_errorIsActive(uint8_t err);
+extern void cfg_errorRemove(uint8_t err);
+extern void cfg_errorMarkCleared(uint8_t err);
+extern int cfg_errorActiveCount();
+extern uint8_t cfg_errorCurrent();
+extern int cfg_errorDisplayIndex();
+extern const char *cfg_errorMessage(uint8_t err);
+extern void cfg_taskMonitorUpdate(uint8_t idx);
+extern int cfg_getBacklightOffMin();
+extern float cfg_getCoarseZoneRatio();
+extern int cfg_getContrast();
+extern float cfg_getFineZoneRatio();
+extern float cfg_getImuKalmanEst();
+extern float cfg_getImuKalmanMea();
+extern float cfg_getImuKalmanQ();
+extern int cfg_getImuMotionDet();
+extern int cfg_getImuAccelFs();
+extern int cfg_getImuPollMs();
+extern int cfg_getGyroThreshold();
+extern int cfg_getGyroBumpThreshold();
+extern int cfg_getInflateDelay();
+extern int cfg_getManualMaxTimeSec();
+extern int cfg_getMasterCheckSec();
+extern float cfg_getMasterLowBar();
+extern float cfg_getMovementPressureFront();
+extern float cfg_getMovementPressureRear();
+extern int cfg_getMovementDurationSec();
+extern int cfg_getMovementSettleSec();
+extern int cfg_getNivCount();
+extern float cfg_getPressureDeadband();
+extern float cfg_getPressureMax();
+extern float cfg_getPressureMin();
+extern float cfg_getRedrawAngleThr();
+extern float cfg_getRedrawPressureThr();
+extern int cfg_getReleaseDelay();
+extern float cfg_getTiltThresholdX();
+extern float cfg_getTiltThresholdY();
+extern int cfg_getTimeInterval();
+extern float cfg_getWorseningRatio();
+
+/* ====================  НАСТРОЙКИ МЕНЮ ====================  ST77XX_WHITE */
+constexpr uint8_t MENU_COLS = 60;          // символов в строке
+constexpr uint8_t MENU_ROWS = 9;           // строк на экране (240/24 ? 10)
+constexpr uint8_t MENU_TOP_OFFSET = 14;    // отступ сверху
+constexpr uint8_t MENU_LEFT_PADDING = 15;  // отступ слева (для внешних панелей)
+constexpr uint8_t ROW_HEIGHT = 22;         // высота строки (важно!)
+constexpr uint8_t CURSOR_WIDTH = 2;
+// Колонка значений в меню GEM (названия слева, значения с этой колонки).
+// +2 символа к ширине названий (~8 px × 2) относительно прежних 200.
+constexpr uint8_t MENU_VALUES_LEFT_OFFSET = 216;
+constexpr uint16_t MENU_BG_COLOR = ST77XX_BLACK;
+constexpr uint16_t MENU_TEXT_COLOR = ST77XX_WHITE;
+constexpr uint16_t MENU_SEL_COLOR = ST77XX_BLUE;
+
+/* ====================  SPINNER ДЛЯ МЕНЮ ==================== */
+
+// --- Spinner для целых чисел (1-10, шаг 1) ---
+GEMSpinnerBoundariesInt spinnerInt1_10 = { .step = 1, .min = 1, .max = 10 };
+GEMSpinner spinnerRelease(spinnerInt1_10);  // Имп.СБРОС, с (AUTO и ручной)
+GEMSpinner spinnerInflate(spinnerInt1_10);  // Имп.НАКАЧ, с (AUTO и ручной)
+
+// --- Spinner для целых чисел (1-20, шаг 1) ---
+GEMSpinnerBoundariesInt spinnerInt1_20 = { .step = 1, .min = 1, .max = 20 };
+GEMSpinner spinnerNivCount(spinnerInt1_20);  // Попыток в час
+
+// --- Spinner для целых чисел (1-60, шаг 1) ---
+GEMSpinnerBoundariesInt spinnerInt1_60 = { .step = 1, .min = 1, .max = 60 };
+GEMSpinner spinnerTimeInterval(spinnerInt1_60);  // Интервал попыток, мин
+
+// --- Spinner для целых чисел (1-100, шаг 1) ---
+GEMSpinnerBoundariesInt spinnerInt10_100 = { .step = 1, .min = 10, .max = 100 };
+GEMSpinner spinnerContrast(spinnerInt10_100);  // Яркость (мин. 10)
+
+// --- Spinner для float (0.0-3.0, шаг 0.1) ---
+GEMSpinnerBoundariesFloat spinnerFloat0_5 = { .step = 0.1f, .min = 0.0f, .max = 5.0f };
+GEMSpinner spinnerTiltX(spinnerFloat0_5);  // Поперечный
+GEMSpinner spinnerTiltY(spinnerFloat0_5);  // Продольный
+
+// --- Spinner для float (0.1-5.0, шаг 0.1) ---
+GEMSpinnerBoundariesFloat spinnerFloat0_1_5 = { .step = 0.1f, .min = 0.1f, .max = 5.0f };
+GEMSpinner spinnerPressureMin(spinnerFloat0_1_5);  // P.МИНИМУМ
+
+// --- Spinner int 0…40 (= 0.0…4.0 бар) — без float ?0.00 у GEM ---
+GEMSpinnerBoundariesInt spinnerInt0_40 = { .step = 1, .min = 0, .max = 40 };
+GEMSpinner spinnerMasterLow(spinnerInt0_40);
+
+// --- Spinner для float (1.0-8.0, шаг 0.1) ---
+GEMSpinnerBoundariesFloat spinnerFloat1_8 = { .step = 0.1f, .min = 1.0f, .max = 8.0f };
+GEMSpinner spinnerPressureMax(spinnerFloat1_8);  // P.МАКСИМУМ
+
+// --- Spinner для float (1.0-6.0, шаг 0.1) ---
+GEMSpinnerBoundariesFloat spinnerFloat1_6 = { .step = 0.1f, .min = 1.0f, .max = 6.0f };
+GEMSpinnerBoundariesFloat spinnerFloat0_6 = { .step = 0.1f, .min = 0.0f, .max = 6.0f };  // стоянка: 0 = из движения
+GEMSpinner spinnerMovementFront(spinnerFloat1_6);  // ПЕРЕДНИЕ
+GEMSpinner spinnerMovementRear(spinnerFloat1_6);   // ЗАДНИЕ
+GEMSpinner spinnerParkingPressure(spinnerFloat0_6); // Давл.стоянки
+
+/* ===== 8.8.0: спиннеры новых параметров ===== */
+// --- целочисленные ---
+GEMSpinnerBoundariesInt spinnerInt1_10_master = { .step = 1, .min = 1, .max = 10 };   // Проверка P Маг., мин
+GEMSpinnerBoundariesInt spinnerInt1_30 = { .step = 1, .min = 1, .max = 30 };          // Макс. время операции
+GEMSpinnerBoundariesInt spinnerInt100_2000 = { .step = 50, .min = 100, .max = 2000 }; // t до P, мс
+GEMSpinnerBoundariesInt spinnerInt500_3000 = { .step = 100, .min = 500, .max = 3000 }; // Стаб.,мс
+GEMSpinnerBoundariesInt spinnerInt2_15 = { .step = 1, .min = 2, .max = 15 };            // Таймаут стаб,с
+GEMSpinnerBoundariesFloat spinnerFloat001_05_stab = { .step = 0.01f, .min = 0.01f, .max = 0.50f }; // Стаб.,гра x.xx
+GEMSpinnerBoundariesInt spinnerInt2_30 = { .step = 1, .min = 2, .max = 30 };          // Пауза опроса, мин
+GEMSpinnerBoundariesInt spinnerInt20_300 = { .step = 5, .min = 20, .max = 300 };      // Вход/выход через, с
+GEMSpinnerBoundariesInt spinnerInt20_600 = { .step = 10, .min = 20, .max = 600 };     // Проверка P через, с
+GEMSpinnerBoundariesInt spinnerInt0_2 = { .step = 1, .min = 0, .max = 2 };            // Пресет IMU
+GEMSpinnerBoundariesInt spinnerInt0_3 = { .step = 1, .min = 0, .max = 3 };            // Accel FS
+GEMSpinnerBoundariesInt spinnerInt0_4 = { .step = 1, .min = 0, .max = 4 };            // Ступень Δlin
+GEMSpinnerBoundariesInt spinnerInt0_6 = { .step = 1, .min = 0, .max = 6 };            // DLPF_CFG
+GEMSpinnerBoundariesInt spinnerInt0_30 = { .step = 1, .min = 0, .max = 30 };          // Приглушить подсветку, мин
+GEMSpinnerBoundariesInt spinnerInt20_200 = { .step = 5, .min = 20, .max = 200 };      // Интервал кадра
+GEMSpinnerBoundariesInt spinnerInt20_255 = { .step = 5, .min = 20, .max = 255 };      // Порог MOT
+GEMSpinnerBoundariesInt spinnerInt1_25 = { .step = 1, .min = 1, .max = 25 };          // Чувств. abs gyro/bump
+GEMSpinnerBoundariesInt spinnerInt15_100 = { .step = 5, .min = 15, .max = 100 };      // Период опроса IMU
+
+// --- float ---
+GEMSpinnerBoundariesFloat spinnerFloat005_05 = { .step = 0.05f, .min = 0.05f, .max = 0.5f };  // Зона нечувствительности
+GEMSpinnerBoundariesFloat spinnerFloat02_09 = { .step = 0.05f, .min = 0.2f, .max = 0.9f };    // Грубая зона
+GEMSpinnerBoundariesFloat spinnerFloat005_03 = { .step = 0.01f, .min = 0.05f, .max = 0.3f };  // Точная зона
+GEMSpinnerBoundariesFloat spinnerFloat105_2 = { .step = 0.05f, .min = 1.05f, .max = 2.0f };   // «Стало хуже»
+GEMSpinnerBoundariesFloat spinnerFloat01_05 = { .step = 0.1f, .min = 0.1f, .max = 0.5f };    // Гистерезис P., бар
+GEMSpinnerBoundariesFloat spinnerFloat001_05 = { .step = 0.01f, .min = 0.01f, .max = 0.5f };  // Пороги перерисовки
+GEMSpinnerBoundariesFloat spinnerFloatNeg45_45 = { .step = 0.01f, .min = -45.0f, .max = 45.0f };  // Нуль углов (наклон рамы)
+GEMSpinnerBoundariesFloat spinnerFloatSlew = { .step = 5.0f, .min = 5.0f, .max = 120.0f };   // slew °/с
+
+GEMSpinner spinnerMasterCheck(spinnerInt1_10_master);   // Проверка P Маг., мин (в конфиге → ×60 с)
+GEMSpinner spinnerManualMaxTime(spinnerInt1_30);        // Макс. время операции
+GEMSpinner spinnerPressStabilize(spinnerInt100_2000);   // t до P, мс
+GEMSpinner spinnerPressIdle(spinnerInt2_30);            // Пауза опроса, мин
+GEMSpinner spinnerDeadband(spinnerFloat005_05);         // Зона нечувствительности
+GEMSpinner spinnerCoarseZone(spinnerFloat02_09);        // Грубая зона
+GEMSpinner spinnerFineZone(spinnerFloat005_03);         // Точная зона
+GEMSpinner spinnerWorsening(spinnerFloat105_2);         // Порог «стало хуже»
+GEMSpinner spinnerStableThr(spinnerFloat001_05_stab);   // Стаб.,гра x.xx
+GEMSpinner spinnerStableHold(spinnerInt500_3000);       // Стаб.,мс
+GEMSpinner spinnerStableTimeout(spinnerInt2_15);        // Таймаут стаб,с
+GEMSpinner spinnerMoveDuration(spinnerInt20_300);       // Вход через, с
+GEMSpinner spinnerMoveSettle(spinnerInt20_300);         // Выход через, с
+GEMSpinner spinnerMoveCheck(spinnerInt20_600);          // Проверка P через, с
+GEMSpinner spinnerMoveTolerance(spinnerFloat01_05);     // Гистерезис P., бар
+GEMSpinner spinnerBacklightOff(spinnerInt0_30);         // Приглушить подсветку, мин
+GEMSpinner spinnerFrameMs(spinnerInt20_200);            // Интервал кадра
+GEMSpinner spinnerRedrawAngle(spinnerFloat001_05);      // Порог перерисовки углов
+GEMSpinner spinnerRedrawPressure(spinnerFloat001_05);   // Порог перерисовки давления
+GEMSpinner spinnerImuMotionDet(spinnerInt20_255);       // Чувств. MOT (мг)
+GEMSpinner spinnerImuDlpf(spinnerInt0_6);               // DLPF: 256…5 Hz
+GEMSpinner spinnerImuAccelFs(spinnerInt0_3);            // Accel ±2/4/8/16G
+GEMSpinner spinnerGyroThreshold(spinnerInt1_25);        // Чувств. вибрации
+GEMSpinner spinnerGyroBumpThreshold(spinnerInt1_25);    // Чувств. неровностей
+GEMSpinner spinnerAccelThrStep(spinnerInt0_4);          // Чувств. ускорения (ступени)
+GEMSpinner spinnerZeroAngleX(spinnerFloatNeg45_45);     // Нуль крен
+GEMSpinner spinnerZeroAngleY(spinnerFloatNeg45_45);     // Нуль тангаж
+GEMSpinner spinnerImuPollMs(spinnerInt15_100);          // Опрос IMU
+GEMSpinner spinnerImuSlewDps(spinnerFloatSlew);         // макс. скорость угла
+GEMSpinner spinnerImuPreset(spinnerInt0_2);             // Плавность: Плавно/Быстро/Баланс
+
+/* --- Страница «Информация»: строки обновляются динамически (refreshInfoPage) ---
+ * Важно: LABEL-пункт создаётся конструктором с ОДНИМ аргументом (GEMItem.cpp:43
+ * выставляет type = GEM_ITEM_LABEL). Вариант ("текст", nullptr, GEM_ITEM_LABEL)
+ * даёт readonly-ссылку, а не метку.
+ */
+static GEMItem itemInfoVersion("Версия: …");
+// 10.1.0: строки страницы «Просмотр» (обновляются в refreshSettingsView)
+static GEMItem itemSet1("P: …");
+static GEMItem itemSet2("Клапаны: …");
+static GEMItem itemSet3("Авто: …");
+static GEMItem itemSet4("Движение: …");
+static GEMItem itemSet5("Распозн: …");
+static GEMItem itemSet6("Дисплей: …");
+static GEMItem itemSet7("Датчик: …");
+static GEMItem itemInfoMode("Режим: …");
+static GEMItem itemInfoMpu("MPU: …");
+static GEMItem itemInfoMaster("МП: …");
+static GEMItem itemInfoWiFi("Wi-Fi: …");
+static GEMItem itemInfoSystem("Аптайм: …");
+static GEMItem itemInfoErrors("Ошибки: …");
+
+static void refreshInfoPage();   // определена ниже
+static void refreshSettingsView(); // определена ниже
+
+/** Живые строки динамических страниц меню — вызывается перед отрисовкой. */
+void refreshDynamicMenu() {
+  GEMPage *page = gem.getCurrentMenuPage();
+  if (page == &infoPage) {
+    refreshInfoPage();
+  } else if (page == &otaPage) {
+    refreshOtaPage();
+  } else if (page == &otaListPage) {
+    refreshOtaListPage();
+  } else if (page == &otaCardPage) {
+    refreshOtaCard();
+  } else if (page == &settingsViewPage) {
+    refreshSettingsView();  // 8.8.0: просмотр всех значений конфига
+  }
+}
+
+/* Marquee + refreshOta/DynamicMenu -> ui_marquee, ui_ota_menu */
+
+static void refreshSettingsView() {
+  static char b1[52], b2[52], b3[52], b4[52], b5[52], b6[52], b7[52];
+  snprintf(b1, sizeof(b1), "P %.1f-%.1f Маг%.1f Δ%.2f", cfg_getPressureMin(),
+           cfg_getPressureMax(), cfg_getMasterLowBar(),
+           cfg_getPressureDeadband());
+  snprintf(b2, sizeof(b2), "Клап сбр%d/нак%d макс%dс", cfg_getReleaseDelay(),
+           cfg_getInflateDelay(), cfg_getManualMaxTimeSec());
+  snprintf(b3, sizeof(b3), "Авто %.2f/%.2f° поп%d/%dm", cfg_getTiltThresholdX(),
+           cfg_getTiltThresholdY(), cfg_getNivCount(), cfg_getTimeInterval());
+  snprintf(b4, sizeof(b4), "Движ %.1f/%.1f вх%dc вых%dc",
+           cfg_getMovementPressureFront(), cfg_getMovementPressureRear(),
+           cfg_getMovementDurationSec(), cfg_getMovementSettleSec());
+  snprintf(b5, sizeof(b5), "Распозн толч%dмг виб%d нер%d",
+           cfg_getImuMotionDet() * 2, cfg_getGyroThreshold(),
+           cfg_getGyroBumpThreshold());
+  snprintf(b6, sizeof(b6), "Дисп ярк%d %dмин", cfg_getContrast(),
+           cfg_getBacklightOffMin());
+  static const int kAccelG[] = { 2, 4, 8, 16 };
+  const int fs = constrain(cfg_getImuAccelFs(), 0, 3);
+  snprintf(b7, sizeof(b7), "Датчик +-%dG опрос%dмс", kAccelG[fs],
+           cfg_getImuPollMs());
+  itemSet1.setTitle(b1);
+  itemSet2.setTitle(b2);
+  itemSet3.setTitle(b3);
+  itemSet4.setTitle(b4);
+  itemSet5.setTitle(b5);
+  itemSet6.setTitle(b6);
+  itemSet7.setTitle(b7);
+}
+
+
+/** Живые строки страницы «Информация» — вызывается перед отрисовкой меню. */
+static void refreshInfoPage() {
+  if (gem.getCurrentMenuPage() != &infoPage) return;
+
+  static char sMode[28];
+  static char sMpu[28];
+  static char sMaster[28];
+  static char sWifiVal[48];
+  static char sSysVal[48];
+  static char sErr[28];
+
+  float localMaster = 0.0f;
+  {
+    MutexGuard guard(xStateMutex, pdMS_TO_TICKS(20));
+    if (guard) localMaster = masterPressure;
+  }
+
+  const char *modeStr = (currentSystemMode == SystemMode::AUTO)       ? "АВТО"
+                        : (currentSystemMode == SystemMode::MOVEMENT) ? "ДВИЖ"
+                                                                     : "РУЧ";
+
+  snprintf(sMode, sizeof(sMode), "Режим: %s", modeStr);
+  snprintf(sMpu, sizeof(sMpu), "MPU: %s", mpuOk ? "OK" : "ОШИБКА");
+  snprintf(sMaster, sizeof(sMaster), "МП: %.1f бар", localMaster);
+
+  if (WiFi.status() == WL_CONNECTED) {
+    snprintf(sWifiVal, sizeof(sWifiVal), "%s %d dBm", sta_ssid, static_cast<int>(WiFi.RSSI()));
+  } else if (sta_ssid[0] != '\0') {
+    snprintf(sWifiVal, sizeof(sWifiVal), "нет связи (%s)", sta_ssid);
+  } else {
+    snprintf(sWifiVal, sizeof(sWifiVal), "AP %s", wifi_ssid);
+  }
+
+  snprintf(sSysVal, sizeof(sSysVal), "%lu ч  RAM %lu КБ",
+           static_cast<unsigned long>(uptimeHours),
+           static_cast<unsigned long>(ESP.getFreeHeap() / 1024));
+  snprintf(sErr, sizeof(sErr), "Ошибки: %d", cfg_errorActiveCount());
+
+  mqBind(MQ_INFO_VER, itemInfoVersion, "Версия: ", VERSION);
+  itemInfoMode.setTitle(sMode);
+  itemInfoMpu.setTitle(sMpu);
+  itemInfoMaster.setTitle(sMaster);
+  mqBind(MQ_INFO_WIFI, itemInfoWiFi, "Wi-Fi: ", sWifiVal);
+  mqBind(MQ_INFO_SYS, itemInfoSystem, "Аптайм: ", sSysVal);
+  itemInfoErrors.setTitle(sErr);
+}
+
+/** Подсказка по кнопкам меню — рисуется поверх GEM в правой части шапки. */
+static void menuButtonsHint() {
+  ui.setTransparent(true);
+  ui.setFont(UiFont::Tiny);
+  ui.setColors(theme::TEXT_DIM, theme::BG);
+  ui.box(theme::SCREEN_W - 200, 0, 200, 14, "КН3+КН4 выход",
+         UiHAlign::Right, UiVAlign::Middle, true);
+  // U8g2 не должен оставлять GFX без шрифта GEM — иначе при смене пункта кириллица «кракозябрами»
+  gemRestoreMenuItemFont();
+}
+
+/** Кн4 на главной странице меню: сохранить настройки и выйти (как Кн5). */
+void menuExitAction() {
+  requestMenuClose("menuExitAction");
+}
+
+/**
+ * 8.8.0: обработчик изменения пункта меню со спиннером (две перегрузки вместо шаблона —
+ * шаблонное определение функции первой строкой ломает автогенерацию прототипов Arduino).
+ * Копирует значение из связанной переменной GEM в зеркало edit* и помечает настройки изменёнными.
+ */
+static void menuSpinChanged(GEMCallbackData data, int &dst) {
+  void *ptr = data.pMenuItem->getLinkedVariablePointer();
+  if (!ptr) return;
+  dst = *(int *)ptr;
+  settingsChanged = true;
+  displayDirty = true;
+}
+
+static void menuSpinChanged(GEMCallbackData data, float &dst) {
+  void *ptr = data.pMenuItem->getLinkedVariablePointer();
+  if (!ptr) return;
+  dst = *(float *)ptr;
+  settingsChanged = true;
+  displayDirty = true;
+}
+
+/** Подпись спиннера Низк.МП: индекс 0…40 > «0.00»…«4.00» (не float-спиннер GEM). */
+static const char *masterLowSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static char buf[8];
+  float v = constrain(index, 0, 40) * 0.1f;
+  dtostrf(v, 3, 1, buf);
+  return buf;
+}
+
+/** Подписи спиннеров MPU (index = selectedOptionNum, 0 = boundaries.min). */
+static const char *imuDlpfSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static const char *labels[] = { "256 Гц", "188 Гц", "98 Гц", "42 Гц", "20 Гц", "10 Гц", "5 Гц" };
+  if (index < 0 || index > 6) return "?";
+  return labels[index];
+}
+
+static const char *imuAccelFsSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static const char *labels[] = { "+-2G", "+-4G", "+-8G", "+-16G" };
+  if (index < 0 || index > 3) return "?";
+  return labels[index];
+}
+
+/** MOT: thr = 20+index*5, мг = thr×2 (LSB=2mg в чип). */
+static const char *imuMotSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static char buf[12];
+  const int thr = 20 + constrain(index, 0, 47) * 5;
+  snprintf(buf, sizeof(buf), "%d мг", thr * 2);
+  return buf;
+}
+
+/** 1…25: порог в коде = N×8 (°/с DMP). Меньше = чувствительнее. */
+static const char *imuSensSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static char buf[20];
+  const int v = 1 + constrain(index, 0, 24);
+  const char *lvl = (v <= 8) ? "слаб" : ((v <= 16) ? "норм" : "жёстк");
+  snprintf(buf, sizeof(buf), "%d ~%d°/с %s", v, v * 8, lvl);
+  return buf;
+}
+
+static const char *imuLinThrSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static const char *labels[] = { "Δ200 слаб", "Δ500 норм", "Δ1000", "Δ1500", "Δ2000 жёстк" };
+  if (index < 0 || index > 4) return "?";
+  return labels[index];
+}
+
+static const char *imuPresetSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
+  static const char *const names[] = {"Плавно", "Быстро", "Баланс"};
+  if (index < 0 || index > 2) return "—";
+  return names[index];
+}
+
+/** Загрузить параметры пресета IMU в зеркала edit* (нужен СОХРАНИТЬ).
+ *  Значения кратны шагам спиннеров (slew step=5 и т.д.) и совпадают с TEST IMU PRESET.
+ *  10.1.28: Баланс/Плавно чуть ослаблены (быстрее реакция, меньше «залипание»). */
+static void loadImuPresetToEdit(int idx) {
+  switch (constrain(idx, 0, 2)) {
+    case 0:  // Плавно (= SMOOTH) — ослаблено
+      editImuKalmanMea = 8.0f; editImuKalmanEst = 5.0f; editImuKalmanQ = 0.004f;
+      editImuPollMs = 25; editImuFifoAvg = 4;
+      editImuEmaAlpha = 0.18f; editImuEmaSpikeAlpha = 0.07f; editImuEmaSpikeThr = 1.4f;
+      editImuSlewDps = 25.0f; editRedrawAngle = 0.07f;
+      break;
+    case 1:  // Быстро (= FAST) — без изменений
+      editImuKalmanMea = 3.5f; editImuKalmanEst = 3.0f; editImuKalmanQ = 0.015f;
+      editImuPollMs = 15; editImuFifoAvg = 1;
+      editImuEmaAlpha = 0.50f; editImuEmaSpikeAlpha = 0.18f; editImuEmaSpikeThr = 2.5f;
+      editImuSlewDps = 90.0f; editRedrawAngle = 0.04f;
+      break;
+    default: // Баланс (= BAL) — ослаблено
+      editImuKalmanMea = 5.5f; editImuKalmanEst = 3.5f; editImuKalmanQ = 0.008f;
+      editImuPollMs = 20; editImuFifoAvg = 2;
+      editImuEmaAlpha = 0.28f; editImuEmaSpikeAlpha = 0.10f; editImuEmaSpikeThr = 1.8f;
+      editImuSlewDps = 70.0f; editRedrawAngle = 0.05f;
+      break;
+  }
+  editImuPreset = constrain(idx, 0, 2);
+}
+
+void initGEM() {
+    // Настройка внешнего вида (sprites=nullptr > дефолтные иконки GEM)
+    GEMAppearance appearance{};
+    appearance.menuPointerType = GEM_POINTER_ROW;
+    appearance.menuItemsPerScreen = GEM_ITEMS_COUNT_AUTO;
+    appearance.menuItemHeight = ROW_HEIGHT;
+    appearance.menuPageScreenTopOffset = MENU_TOP_OFFSET;
+    appearance.menuValuesLeftOffset = MENU_VALUES_LEFT_OFFSET;
+    appearance.sprites = nullptr;
+
+    gem.setAppearance(appearance);
+    gem.setBackgroundColor(MENU_BG_COLOR);
+    gem.setForegroundColor(MENU_TEXT_COLOR);
+    gem.setFontBig(&CourierCyr9pt8b);
+    gem.setFontSmall(&CourierCyr7pt8b);
+    gem.setSpriteSize(2);  // галочка/стрелки 2× (14×16 вместо 7×8) — видно на ST7789
+    gem.setDrawMenuCallback(menuButtonsHint);   // подсказка по кнопкам в шапке меню
+
+    // --- Страница "Система" ---
+    static GEMItem itemReset("Сброс ошибок", []() { resetSystemErrors(); });
+    static GEMItem itemWiFi("Настроить WiFi", []() { requestWiFiSetup(); });
+    static GEMItem linkOta("Обновления", &otaPage);
+    static GEMItem linkDisplay("Дисплей", &displayPage);
+    static GEMItem linkInfo("Информация", &infoPage);
+    systemPage.addMenuItem(itemReset);
+    systemPage.addMenuItem(itemWiFi);
+    systemPage.addMenuItem(linkOta);
+    systemPage.addMenuItem(linkDisplay);
+    systemPage.addMenuItem(linkInfo);
+
+    // --- Страница «Клапанный блок» ---
+    static GEMItem linkPressure("Давление", &pressurePage);
+    static GEMItem linkValve("Клапаны", &valvePage);
+    static GEMItem linkTest("Тесты", &testPage);
+    valveBlockPage.addMenuItem(linkPressure);
+    valveBlockPage.addMenuItem(linkValve);
+    valveBlockPage.addMenuItem(linkTest);
+
+    // --- Страница "Обновления" ---
+    otaPage.addMenuItem(itemOtaCurrent);
+    otaPage.addMenuItem(itemOtaStatus);
+    otaPage.addMenuItem(itemOtaList);
+    otaPage.addMenuItem(itemOtaInstallLast);
+    otaPage.addMenuItem(itemOtaArduino);
+    otaPage.addMenuItem(itemOtaExit);
+
+    otaListPage.addMenuItem(itemOtaListHdr);
+    otaListPage.addMenuItem(itemOtaRel0);
+    otaListPage.addMenuItem(itemOtaRel1);
+    otaListPage.addMenuItem(itemOtaRel2);
+
+    otaCardPage.addMenuItem(itemCardTag);
+    otaCardPage.addMenuItem(itemCardInfo);
+    otaCardPage.addMenuItem(itemCardStatus);
+    otaCardPage.addMenuItem(itemCardSha);
+    otaCardPage.addMenuItem(itemCardInstall);
+    otaCardPage.addMenuItem(itemCardCheckSha);
+
+    // --- Страница "Тестирование" ---
+    static GEMItem itemTest("Запустить тест", []() {
+        if (currentSystemMode == SystemMode::MANUAL && !cfg_errorHasActive()) {
+            startValveTest();
+            menuVisible = false;
+        }
+    });
+    testPage.addMenuItem(itemTest);
+
+    // 8.8.0: ручной тест клапанов (6 выходов, клапан открыт, пока удерживается КН3)
+    static GEMItem itemValveTestManual("Тест клапанов (ручной)", []() { openValveTestScreen(); });
+    testPage.addMenuItem(itemValveTestManual);
+
+    // --- Страница «Клапаны» ---
+    static GEMItem itemReleaseDelay("Сброс, с", editReleaseDelay, spinnerRelease, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editReleaseDelay = *(int*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemInflateDelay("Накачка, с", editInflateDelay, spinnerInflate, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editInflateDelay = *(int*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemManualMaxTime("Макс. ручная, с", editManualMaxTime, spinnerManualMaxTime, [](GEMCallbackData d) { menuSpinChanged(d, editManualMaxTime); });
+    valvePage.addMenuItem(itemReleaseDelay);
+    valvePage.addMenuItem(itemInflateDelay);
+    valvePage.addMenuItem(itemManualMaxTime);
+
+    // --- Страница «Давление» ---
+    static GEMItem itemPressureMin("min P подушек, бар", editPressureMin, spinnerPressureMin, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editPressureMin = *(float*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemPressureMax("max P подушек, бар", editPressureMax, spinnerPressureMax, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editPressureMax = *(float*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemMasterLow("min P магистрали, бар", editMasterLowTenths, spinnerMasterLow, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (!ptr) return;
+        editMasterLowTenths = constrain(*(int*)ptr, 0, 40);
+        *(int*)ptr = editMasterLowTenths;
+        const float bar = editMasterLowTenths * 0.1f;
+        cfg_setMasterLowBar(bar);
+        settingsChanged = true;
+        displayDirty = true;
+        if (editMasterLowTenths <= 0 &&
+            cfg_errorIsActive((uint8_t)EH_Error::LOW_PRESSURE)) {
+          cfg_errorRemove((uint8_t)EH_Error::LOW_PRESSURE);
+          SERIAL_DBGLN("[MENU] LOW_PRESSURE снята (Низк.МП=0.00)");
+        }
+    });
+    static GEMItem itemDeadband("Допуск P, бар", editDeadband, spinnerDeadband, [](GEMCallbackData d) { menuSpinChanged(d, editDeadband); });
+    static GEMItem itemMasterCheck("Проверка магистрали, мин", editMasterCheck, spinnerMasterCheck, [](GEMCallbackData d) { menuSpinChanged(d, editMasterCheck); });
+    static GEMItem itemPressStabilize("Пауза до замера P, мс", editPressStabilizeMs, spinnerPressStabilize, [](GEMCallbackData d) { menuSpinChanged(d, editPressStabilizeMs); });
+    static GEMItem itemPressIdle("Цикл опроса P, мин", editPressIdleMin, spinnerPressIdle, [](GEMCallbackData d) { menuSpinChanged(d, editPressIdleMin); });
+    pressurePage.addMenuItem(itemPressureMin);
+    pressurePage.addMenuItem(itemPressureMax);
+    pressurePage.addMenuItem(itemMasterLow);
+    pressurePage.addMenuItem(itemDeadband);
+    pressurePage.addMenuItem(itemMasterCheck);
+    pressurePage.addMenuItem(itemPressStabilize);
+    pressurePage.addMenuItem(itemPressIdle);
+
+    // --- Автовыравнивание (основные + Расширенные) ---
+    static GEMItem itemTiltX("Крен допуск, °", editTiltX, spinnerTiltX, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editTiltX = *(float*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemTiltY("Тангаж допуск, °", editTiltY, spinnerTiltY, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editTiltY = *(float*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemNivCount("Попыток в час", editNivCount, spinnerNivCount, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editNivCount = *(int*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemTimeInterval("Пауза попыток, мин", editTimeInterval, spinnerTimeInterval, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editTimeInterval = *(int*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemCoarseZone("Зона грубая ×", editCoarseZone, spinnerCoarseZone, [](GEMCallbackData d) { menuSpinChanged(d, editCoarseZone); });
+    static GEMItem itemFineZone("Зона точная ×", editFineZone, spinnerFineZone, [](GEMCallbackData d) { menuSpinChanged(d, editFineZone); });
+    static GEMItem itemWorsening("Порог «хуже» ×", editWorsening, spinnerWorsening, [](GEMCallbackData d) { menuSpinChanged(d, editWorsening); });
+    static GEMItem itemStableThr("Стабильность, °", editStableThr, spinnerStableThr, [](GEMCallbackData d) { menuSpinChanged(d, editStableThr); });
+    static GEMItem itemStableHold("Удержание, мс", editStableHoldMs, spinnerStableHold, [](GEMCallbackData d) { menuSpinChanged(d, editStableHoldMs); });
+    static GEMItem itemStableTimeout("Таймаут стаб., с", editStableTimeoutSec, spinnerStableTimeout, [](GEMCallbackData d) { menuSpinChanged(d, editStableTimeoutSec); });
+    itemCoarseZone.setMultiplySep(true);
+    itemFineZone.setMultiplySep(true);
+    itemWorsening.setMultiplySep(true);
+    static GEMItem linkAutoAdv("Расширенные", &autoAdvPage);
+    autoPage.addMenuItem(itemTiltX);
+    autoPage.addMenuItem(itemTiltY);
+    autoPage.addMenuItem(itemNivCount);
+    autoPage.addMenuItem(itemTimeInterval);
+    autoPage.addMenuItem(linkAutoAdv);
+    autoAdvPage.addMenuItem(itemCoarseZone);
+    autoAdvPage.addMenuItem(itemFineZone);
+    autoAdvPage.addMenuItem(itemWorsening);
+    autoAdvPage.addMenuItem(itemStableThr);
+    autoAdvPage.addMenuItem(itemStableHold);
+    autoAdvPage.addMenuItem(itemStableTimeout);
+
+    // --- Дисплей + Расширенные ---
+    static GEMItem itemContrast("Яркость, %", editContrast, spinnerContrast, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editContrast = constrain(*(int*)ptr, CONTRAST_MIN, CONTRAST_MAX);
+            backlightDimmed = false;
+            applyBacklightPwm(editContrast);
+            settingsChanged = true;
+        }
+    });
+    itemContrast.setPreviewCallback([](GEMPreviewCallbackData d) {
+      if (d.type == GEM_VAL_INTEGER) {
+        backlightDimmed = false;
+        applyBacklightPwm(constrain(d.previewValInt, CONTRAST_MIN, CONTRAST_MAX));
+      }
+    });
+    static GEMItem itemBacklightOff("Приглушение, мин", editBacklightOff, spinnerBacklightOff, [](GEMCallbackData d) {
+      menuSpinChanged(d, editBacklightOff);
+      cfg_setBacklightOffMin(editBacklightOff);
+      backlightDimmed = false;
+      lastUserActivityMs = millis();
+      applyBacklightPwm(constrain(cfg_getContrast(), CONTRAST_MIN, CONTRAST_MAX));
+      SERIAL_DBG("[DISP] Приглушение через %d мин (0=выкл)\n", editBacklightOff);
+    });
+    static GEMItem itemFrameMs("Интервал кадра, мс", editFrameMs, spinnerFrameMs, [](GEMCallbackData d) { menuSpinChanged(d, editFrameMs); });
+    static GEMItem itemRedrawAngle("Порог обновл. углов, °", editRedrawAngle, spinnerRedrawAngle, [](GEMCallbackData d) { menuSpinChanged(d, editRedrawAngle); });
+    static GEMItem itemRedrawPressure("Порог обновл. P, бар", editRedrawPressure, spinnerRedrawPressure, [](GEMCallbackData d) { menuSpinChanged(d, editRedrawPressure); });
+    static GEMItem linkDispAdv("Расширенные", &dispAdvPage);
+    displayPage.addMenuItem(itemContrast);
+    displayPage.addMenuItem(itemBacklightOff);
+    displayPage.addMenuItem(linkDispAdv);
+    dispAdvPage.addMenuItem(itemFrameMs);
+    dispAdvPage.addMenuItem(itemRedrawAngle);
+    dispAdvPage.addMenuItem(itemRedrawPressure);
+
+    // --- Движение: давления + Распознавание + Поддержание P ---
+    static GEMItem itemMovementEnabled("Режим Движение", editMovementEnabled, [](GEMCallbackData data) {
+        void *ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editMovementEnabled = *(bool *)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemMovementFront("P перед, бар", editMovementPressureFront, spinnerMovementFront, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editMovementPressureFront = *(float*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemMovementRear("P зад, бар", editMovementPressureRear, spinnerMovementRear, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editMovementPressureRear = *(float*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemParkingPressure("P стоянки, бар", editParkingPressure, spinnerParkingPressure, [](GEMCallbackData data) {
+        void* ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editParkingPressure = *(float*)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+        }
+    });
+    static GEMItem itemImuMotionDet("Порог толчка, мг", editImuMotionDet, spinnerImuMotionDet, [](GEMCallbackData d) { menuSpinChanged(d, editImuMotionDet); });
+    static GEMItem itemGyroThr("Вибрация", editGyroThreshold, spinnerGyroThreshold, [](GEMCallbackData d) { menuSpinChanged(d, editGyroThreshold); });
+    static GEMItem itemGyroBump("Неровности", editGyroBumpThreshold, spinnerGyroBumpThreshold, [](GEMCallbackData d) { menuSpinChanged(d, editGyroBumpThreshold); });
+    static GEMItem itemAccelThr("Ускорение", editAccelThrStep, spinnerAccelThrStep, [](GEMCallbackData d) { menuSpinChanged(d, editAccelThrStep); });
+    static GEMItem itemMoveDuration("Вход в езду, с", editMoveDuration, spinnerMoveDuration, [](GEMCallbackData d) { menuSpinChanged(d, editMoveDuration); });
+    static GEMItem itemMoveSettle("Выход из езды, с", editMoveSettle, spinnerMoveSettle, [](GEMCallbackData d) { menuSpinChanged(d, editMoveSettle); });
+    static GEMItem itemMoveCheck("Проверка P, с", editMoveCheck, spinnerMoveCheck, [](GEMCallbackData d) { menuSpinChanged(d, editMoveCheck); });
+    static GEMItem itemMoveTolerance("Допуск P, бар", editMoveTolerance, spinnerMoveTolerance, [](GEMCallbackData d) { menuSpinChanged(d, editMoveTolerance); });
+    static GEMItem linkMovDetect("Распознавание", &movDetectPage);
+    static GEMItem linkMovHold("Поддержание P", &movHoldPage);
+    movementPage.addMenuItem(itemMovementEnabled);
+    movementPage.addMenuItem(itemMovementFront);
+    movementPage.addMenuItem(itemMovementRear);
+    movementPage.addMenuItem(itemParkingPressure);
+    movementPage.addMenuItem(linkMovDetect);
+    movementPage.addMenuItem(linkMovHold);
+    movDetectPage.addMenuItem(itemImuMotionDet);
+    movDetectPage.addMenuItem(itemGyroThr);
+    movDetectPage.addMenuItem(itemGyroBump);
+    movDetectPage.addMenuItem(itemAccelThr);
+    movDetectPage.addMenuItem(itemMoveDuration);
+    movDetectPage.addMenuItem(itemMoveSettle);
+    movHoldPage.addMenuItem(itemMoveCheck);
+    movHoldPage.addMenuItem(itemMoveTolerance);
+
+    // --- Информация ---
+    infoPage.addMenuItem(itemInfoVersion);
+    infoPage.addMenuItem(itemInfoMode);
+    infoPage.addMenuItem(itemInfoMpu);
+    infoPage.addMenuItem(itemInfoMaster);
+    infoPage.addMenuItem(itemInfoWiFi);
+    infoPage.addMenuItem(itemInfoSystem);
+    infoPage.addMenuItem(itemInfoErrors);
+
+    // --- Датчик (действия/углы) + Расширенные ---
+    static GEMItem itemImuZero("Обнулить углы", []() { openImuZeroConfirm(); });
+    static GEMItem itemImuCalib("Калибровка офсетов", []() { openImuCalibScreen(); });
+    static GEMItem itemImuDiag("Диагностика датчика", []() { openMpuDiagScreen(); });
+    static GEMItem itemImuAccelFs("Диапазон accel", editImuAccelFs, spinnerImuAccelFs, [](GEMCallbackData d) { menuSpinChanged(d, editImuAccelFs); });
+    static GEMItem itemImuDlpf("Фильтр DLPF", editImuDlpfMode, spinnerImuDlpf, [](GEMCallbackData d) { menuSpinChanged(d, editImuDlpfMode); });
+    static GEMItem itemZeroAngleX("Нуль крен, °", editZeroAngleX, spinnerZeroAngleX, [](GEMCallbackData d) { menuSpinChanged(d, editZeroAngleX); });
+    static GEMItem itemZeroAngleY("Нуль тангаж, °", editZeroAngleY, spinnerZeroAngleY, [](GEMCallbackData d) { menuSpinChanged(d, editZeroAngleY); });
+    static GEMItem itemImuPreset("Плавность углов", editImuPreset, spinnerImuPreset, [](GEMCallbackData data) {
+        void *ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (!ptr) return;
+        editImuPreset = constrain(*(int *)ptr, 0, 2);
+        *(int *)ptr = editImuPreset;
+        loadImuPresetToEdit(editImuPreset);
+        settingsChanged = true;
+        SERIAL_DBG("[IMU] Пресет «%s» загружен в меню (СОХРАНИТЬ)\n",
+                      editImuPreset == 0 ? "Плавно" : (editImuPreset == 1 ? "Быстро" : "Баланс"));
+    });
+    static GEMItem itemImuPollMs("Опрос, мс", editImuPollMs, spinnerImuPollMs, [](GEMCallbackData d) { menuSpinChanged(d, editImuPollMs); });
+    static GEMItem itemImuSlew("Скор. угла, °/с", editImuSlewDps, spinnerImuSlewDps, [](GEMCallbackData d) { menuSpinChanged(d, editImuSlewDps); });
+    static GEMItem linkImuAdv("Расширенные", &imuAdvPage);
+    imuPage.addMenuItem(itemImuZero);
+    imuPage.addMenuItem(itemImuCalib);
+    imuPage.addMenuItem(itemImuDiag);
+    imuPage.addMenuItem(itemZeroAngleX);
+    imuPage.addMenuItem(itemZeroAngleY);
+    imuPage.addMenuItem(itemImuPreset);
+    imuPage.addMenuItem(linkImuAdv);
+    imuAdvPage.addMenuItem(itemImuAccelFs);
+    imuAdvPage.addMenuItem(itemImuDlpf);
+    imuAdvPage.addMenuItem(itemImuPollMs);
+    imuAdvPage.addMenuItem(itemImuSlew);
+
+    // --- Просмотр ---
+    settingsViewPage.addMenuItem(itemSet1);
+    settingsViewPage.addMenuItem(itemSet2);
+    settingsViewPage.addMenuItem(itemSet3);
+    settingsViewPage.addMenuItem(itemSet4);
+    settingsViewPage.addMenuItem(itemSet5);
+    settingsViewPage.addMenuItem(itemSet6);
+    settingsViewPage.addMenuItem(itemSet7);
+
+    // --- Главное меню ---
+    static GEMItem linkSystem("Система", &systemPage);
+    static GEMItem linkValveBlock("Клапанный блок", &valveBlockPage);
+    static GEMItem linkAuto("Автовыравнивание", &autoPage);
+    static GEMItem linkMovement("Движение", &movementPage);
+    static GEMItem linkImu("Датчик", &imuPage);
+    static GEMItem linkSettings("Просмотр", &settingsViewPage);
+
+    mainPage.addMenuItem(linkSystem);
+    mainPage.addMenuItem(linkValveBlock);
+    mainPage.addMenuItem(linkAuto);
+    mainPage.addMenuItem(linkMovement);
+    mainPage.addMenuItem(linkImu);
+    mainPage.addMenuItem(linkSettings);
+
+    // Давления (бар): X.X; углы/зоны авто — x.xx
+    itemDeadband.setPrecision(1);
+    itemTiltX.setPrecision(2);
+    itemTiltY.setPrecision(2);
+    itemPressureMin.setPrecision(1);
+    itemPressureMax.setPrecision(1);
+    spinnerMasterLow.setProduceOptionNameByIndexCallback(masterLowSpinnerLabel);
+    spinnerImuPreset.setProduceOptionNameByIndexCallback(imuPresetSpinnerLabel);
+    spinnerImuDlpf.setProduceOptionNameByIndexCallback(imuDlpfSpinnerLabel);
+    spinnerImuAccelFs.setProduceOptionNameByIndexCallback(imuAccelFsSpinnerLabel);
+    spinnerImuMotionDet.setProduceOptionNameByIndexCallback(imuMotSpinnerLabel);
+    spinnerGyroThreshold.setProduceOptionNameByIndexCallback(imuSensSpinnerLabel);
+    spinnerGyroBumpThreshold.setProduceOptionNameByIndexCallback(imuSensSpinnerLabel);
+    spinnerAccelThrStep.setProduceOptionNameByIndexCallback(imuLinThrSpinnerLabel);
+    itemCoarseZone.setPrecision(2);
+    itemFineZone.setPrecision(2);
+    itemWorsening.setPrecision(2);
+    itemStableThr.setPrecision(2);
+    itemRedrawAngle.setPrecision(2);
+    itemRedrawPressure.setPrecision(1);
+    itemMovementFront.setPrecision(1);
+    itemMovementRear.setPrecision(1);
+    itemParkingPressure.setPrecision(1);
+    itemMoveTolerance.setPrecision(1);
+    itemZeroAngleX.setPrecision(2);
+    itemZeroAngleY.setPrecision(2);
+    itemImuSlew.setPrecision(1);
+
+    gem.setMenuPageCurrent(mainPage);
+}
+
+static int contrastToPwm(int level) {
+  return map(constrain(level, 1, CONTRAST_MAX), 1, CONTRAST_MAX, 0, 255);
+}
+
+void applyBacklightPwm(int level) {
+  analogWrite(PIN_TFT_BL, contrastToPwm(level));
+}
+
+/** Открыть меню. Вызывать из DisplayTask (под xDisplayMutex) или только флаги. */
+void openMenu() {
+  if (menuVisible) return;
+  if (manualControlActive) {
+    stopManualOperation();
+  }
+  // С экрана ошибки тоже можно войти в меню: снимаем блокировку отрисовки.
+  errorScreenBlocking = false;
+  gem.setMenuPageCurrent(mainPage);
+  menuVisible = true;
+  lastUserActivityMs = millis();
+  displayDirty = true;
+  SERIAL_DBGLN("[MENU] OPEN ok");
+}
+
+/** Запрос открытия меню — безопасен из ButtonTask / Serial. */
+void requestMenuOpen(const char *via) {
+  g_menuReq = MenuReq::Open;
+  SERIAL_DBG("[MENU] OPEN req via %s\n", via ? via : "?");
+}
+
+/** Запрос закрытия с сохранением — безопасен из ButtonTask / Serial / GEM.
+ *  Реальная работа (cancel edit, save, fillScreen) в DisplayTask. */
+void requestMenuClose(const char *via) {
+  g_menuReq = MenuReq::Close;
+  SERIAL_DBG("[MENU] CLOSE req via %s\n", via ? via : "?");
+}
