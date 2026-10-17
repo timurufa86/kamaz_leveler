@@ -274,27 +274,39 @@ static size_t rawHttpsStreamToUpdate(const char *url, int expectLen, mbedtls_sha
 }
 
 /**
- * One TLS session + HTTP/1.1 keep-alive Range into a static 4KB buffer.
+ * One TLS session + HTTP/1.1 keep-alive Range into a static 16KB buffer.
  * esp_ota_write only runs between chunks (socket idle) — flash ops must not
  * run while TLS is receiving, or WiFi drops on this no-PSRAM chip.
+ *
+ * 10.15.2: the CDN (release-assets.githubusercontent.com) closes long keep-alive
+ * sessions mid-download (observed after ~540KB). A dropped socket is now
+ * recovered by reconnecting and resuming from the byte offset already written;
+ * before this, the whole attempt was aborted and restarted from zero, so a
+ * 1.6MB image never completed. Chunks are also 16KB instead of 4KB (4x fewer
+ * requests per image), and the resolved CDN URL is reused on the retry attempt
+ * instead of asking GitHub for a fresh redirect.
  */
 static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *sha,
                                        uint32_t knownSize) {
   if (!url || !sha) return 0;
 
   static char directUrl[1400];
-  static constexpr size_t kChunk = 4 * 1024;
+  static constexpr size_t kChunk = 16 * 1024;
   static uint8_t s_chunk[kChunk];
 
+  bool haveDirect = false;
+  int probedLen = -1;
   for (int attempt = 1; attempt <= 2; attempt++) {
     githubOtaDefragHeap();
     githubOtaHeartbeat();
     SERIAL_DBG("[GH-OTA] keep-alive range try %d/2\n", attempt);
 
-    int probedLen = -1;
-    if (!githubProbeDirectUrl(url, directUrl, sizeof(directUrl), &probedLen)) {
-      vTaskDelay(pdMS_TO_TICKS(300 * attempt));
-      continue;
+    if (!haveDirect) {
+      if (!githubProbeDirectUrl(url, directUrl, sizeof(directUrl), &probedLen)) {
+        vTaskDelay(pdMS_TO_TICKS(300 * attempt));
+        continue;
+      }
+      haveDirect = true;
     }
 
     size_t total = 0;
@@ -354,7 +366,29 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     SERIAL_DBG("[GH-OTA] TLS connect %s heap=%u maxBlk=%u\n", host,
                   static_cast<unsigned>(ESP.getFreeHeap()),
                   static_cast<unsigned>(ESP.getMaxAllocHeap()));
+    {
+      IPAddress diagIp;
+      const bool dnsOk = WiFi.hostByName(host, diagIp);
+      SERIAL_DBG("[GH-OTA] DIAG dns %s > %s\n", host,
+                    dnsOk ? diagIp.toString().c_str() : "FAIL");
+      if (dnsOk) {
+        WiFiClient tcpDiag;
+        tcpDiag.setTimeout(5000);
+        const uint32_t tTcp = millis();
+        const bool tcpOk = tcpDiag.connect(diagIp, port);
+        SERIAL_DBG("[GH-OTA] DIAG tcp %s:%u > %s in %lums\n",
+                      diagIp.toString().c_str(), static_cast<unsigned>(port),
+                      tcpOk ? "OK" : "FAIL",
+                      static_cast<unsigned long>(millis() - tTcp));
+        if (tcpOk) tcpDiag.stop();
+      }
+    }
     if (!client->connect(host, port)) {
+      {
+        char errBuf[128];
+        const int elen = client->lastError(errBuf, sizeof(errBuf));
+        SERIAL_DBG("[GH-OTA] DIAG tls lastError(%d)=%s\n", elen, errBuf);
+      }
       SERIAL_DBG("[GH-OTA] TLS connect fail wifi=%d\n", static_cast<int>(WiFi.status()));
       delete client;
       githubOtaClearUpdate("tls-fail");
@@ -365,6 +399,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     size_t written = 0;
     int lastPct = -1;
     bool ok = true;
+    int recoveries = 0;
     const uint32_t t0 = millis();
     char line[192];
 
@@ -397,7 +432,14 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         SERIAL_DBGLN("[GH-OTA] TLS dropped — reconnect");
         client->stop();
         githubOtaDefragHeap();
-        if (!client->connect(host, port)) {
+        bool reconnected = false;
+        for (int r = 1; r <= 3 && !reconnected; r++) {
+          if (recoveries >= 60) break;
+          ++recoveries;
+          vTaskDelay(pdMS_TO_TICKS(200 * r));
+          reconnected = client->connect(host, port);
+        }
+        if (!reconnected) {
           ok = false;
           break;
         }
@@ -418,9 +460,17 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
       int status = 0;
       int contentLen = -1;
       if (!readLine() || sscanf(line, "HTTP/%*s %d", &status) != 1) {
-        SERIAL_DBG("[GH-OTA] bad status: %.40s\n", line);
-        ok = false;
-        break;
+        // 10.15.2: the CDN drops the keep-alive socket between chunks. That is
+        // recoverable — reconnect and resume from `written` (see top of loop).
+        SERIAL_DBG("[GH-OTA] bad status at %u (conn=%d) — resume\n",
+                      static_cast<unsigned>(written), client->connected() ? 1 : 0);
+        client->stop();
+        if (++recoveries > 60) {
+          ok = false;
+          break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
       }
       while (readLine()) {
         if (line[0] == '\0') break;
@@ -458,11 +508,18 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         }
       }
       if (got != need) {
-        SERIAL_DBG("[GH-OTA] chunk short got=%u need=%u at %u\n",
+        // 10.15.2: treat a short chunk as a dropped socket too — discard the
+        // partial chunk (nothing was written to flash yet) and resume.
+        SERIAL_DBG("[GH-OTA] chunk short got=%u need=%u at %u — resume\n",
                       static_cast<unsigned>(got), static_cast<unsigned>(need),
                       static_cast<unsigned>(written));
-        ok = false;
-        break;
+        client->stop();
+        if (++recoveries > 60) {
+          ok = false;
+          break;
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+        continue;
       }
 
       // Flash write while TLS is idle (not receiving).
