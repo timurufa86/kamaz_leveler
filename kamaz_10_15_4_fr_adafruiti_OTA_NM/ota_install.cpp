@@ -365,7 +365,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
       githubOtaClearUpdate("no-client");
       continue;
     }
-    otaConfigureTls(client);
+    otaConfigureTlsDownload(client);
     client->setHandshakeTimeout(30);
     client->setTimeout(60000);
 
@@ -390,16 +390,23 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
       }
     }
     if (!client->connect(host, port)) {
-      {
-        char errBuf[128];
-        const int elen = client->lastError(errBuf, sizeof(errBuf));
-        SERIAL_DBG("[GH-OTA] DIAG tls lastError(%d)=%s\n", elen, errBuf);
+      char errBuf[128];
+      const int elen = client->lastError(errBuf, sizeof(errBuf));
+      SERIAL_DBG("[GH-OTA] DIAG tls lastError(%d)=%s\n", elen, errBuf);
+      /* 10.15.4: pinned roots can still be rejected on a fragmented heap. Retry
+         without verification — image integrity is enforced by the SHA-256 digest
+         that was obtained over the separately verified API connection. */
+      client->stop();
+      client->setInsecure();
+      otaTlsInsecure = true;
+      SERIAL_DBG("[OTA-TLS] download TLS retry insecure (pinned CA failed)\n");
+      if (!client->connect(host, port)) {
+        SERIAL_DBG("[GH-OTA] TLS connect fail wifi=%d\n", static_cast<int>(WiFi.status()));
+        delete client;
+        githubOtaClearUpdate("tls-fail");
+        vTaskDelay(pdMS_TO_TICKS(400 * attempt));
+        continue;
       }
-      SERIAL_DBG("[GH-OTA] TLS connect fail wifi=%d\n", static_cast<int>(WiFi.status()));
-      delete client;
-      githubOtaClearUpdate("tls-fail");
-      vTaskDelay(pdMS_TO_TICKS(400 * attempt));
-      continue;
     }
 
     size_t written = 0;
@@ -444,6 +451,15 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
           ++recoveries;
           vTaskDelay(pdMS_TO_TICKS(200 * r));
           reconnected = client->connect(host, port);
+          if (!reconnected) {
+            /* 10.15.4: heap after esp_ota_begin/partial writes may be too small
+               for CA-bundle verification — fall back to pinned/insecure retry
+               (image SHA-256 is still verified after download). */
+            client->stop();
+            client->setInsecure();
+            otaTlsInsecure = true;
+            reconnected = client->connect(host, port);
+          }
         }
         if (!reconnected) {
           ok = false;

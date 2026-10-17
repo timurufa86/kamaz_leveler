@@ -1,4 +1,5 @@
 #include "ota_net.h"
+#include "ota_download_ca.h"
 #include "logger.h"
 #include "app_globals.h"
 #include "task_pool.h"
@@ -46,12 +47,25 @@ void otaConfigureTls(WiFiClientSecure *client) {
   SERIAL_DBGLN("[OTA-TLS] ВНИМАНИЕ: CA-бандл недоступен, проверка сертификата ОТКЛЮЧЕНА");
 }
 
+/**
+ * 10.15.4: TLS только для соединения скачивания образа — закреплённые корни
+ * (Sectigo E46 для github.com, ISRG X1 для release-assets.githubusercontent.com).
+ * Полный CA-бандл ESP-IDF после esp_ota_begin() уже не помещается в кучу: проверка
+ * цепочки падала с MBEDTLS X509 fatal, и прерванная загрузка не могла
+ * переподключиться и продолжиться с места обрыва. Закреплённые корни требуют
+ * единиц КБ. Целостность образа по-прежнему гарантирует SHA-256 из digest,
+ * полученного по отдельному проверенному API-соединению.
+ */
+void otaConfigureTlsDownload(WiFiClientSecure *client) {
+  if (!client) return;
+  client->setCACert(OTA_DOWNLOAD_CA_PEM);
+  otaTlsInsecure = false;
+}
+
 /** 10.15.0: прошивка и метаданные загружаются только по https. */
 bool otaUrlIsHttps(const char *url) {
   return url != nullptr && strncmp(url, "https://", 8) == 0;
-}
-
-void githubOtaDefragHeap() {
+}void githubOtaDefragHeap() {
   // Two-pass coalesce: grab every large free block, free LIFO.
   for (int pass = 0; pass < 2; pass++) {
     void *hold[48];

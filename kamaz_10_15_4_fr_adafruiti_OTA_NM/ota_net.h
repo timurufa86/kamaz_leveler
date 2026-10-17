@@ -3,6 +3,14 @@
 #include <WiFiClientSecure.h>
 
 void otaConfigureTls(WiFiClientSecure *client);
+/**
+ * 10.15.4: TLS for the firmware-download connection only. Uses pinned roots
+ * (Sectigo E46 + ISRG X1) instead of the full ESP-IDF CA bundle: after
+ * esp_ota_begin()/partial writes the heap cannot carry bundle-based chain
+ * verification, which broke resuming an interrupted download. Image integrity
+ * stays guarded by the SHA-256 digest obtained over the verified API channel.
+ */
+void otaConfigureTlsDownload(WiFiClientSecure *client);
 /** true, если последнее TLS-подключение шло без проверки сертификата. */
 extern volatile bool otaTlsInsecure;
 /** true только для https-URL — http для OTA запрещён с 10.15.0. */

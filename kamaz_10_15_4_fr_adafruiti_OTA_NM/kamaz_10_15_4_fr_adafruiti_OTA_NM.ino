@@ -2,7 +2,7 @@
  *  Kamaz-Leveler — wiring sketch.
  *  Business logic lives in modules (see MODULES.md). This file keeps includes,
  *  GEM / TFT / SPI / button objects, menu edit mirrors, and setup()/loop().
- *  VERSION: app_version.h ("V 10.15.3 FreeRTOS OTA").
+ *  VERSION: app_version.h ("V 10.15.4 FreeRTOS OTA").
  *****************************************************************************************/
 
 #include <Arduino.h>
