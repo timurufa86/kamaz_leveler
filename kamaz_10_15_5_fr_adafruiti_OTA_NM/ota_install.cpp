@@ -568,8 +568,34 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
   if (!url || !sha) return 0;
 
   char *directUrl = s_otaDirectUrlBuf;
-  static constexpr size_t kChunk = 4 * 1024;
-  uint8_t *s_chunk = s_otaChunkBuf;
+  /* 10.15.5: 16KB chunks on a dynamically allocated buffer. It must NOT be
+     static: the release list and SHA-256 digest are fetched over verified
+     bundle TLS *before* the install and need ~96KB of heap, so the static BSS
+     has to stay small. The 16KB buffer is only needed while downloading, and
+     that connection is unverified (integrity = SHA-256 digest). */
+  static constexpr size_t kChunkMax = 16 * 1024;
+  size_t chunkLen = kChunkMax;
+  uint8_t *s_chunk = static_cast<uint8_t *>(malloc(kChunkMax));
+  if (!s_chunk) {
+    s_chunk = s_otaChunkBuf;
+    chunkLen = sizeof(s_otaChunkBuf);
+    SERIAL_DBG("[GH-OTA] chunk buffer fallback to %u\n", static_cast<unsigned>(chunkLen));
+  }
+
+  /* 10.15.5: ONE WiFiClientSecure for the whole download, deliberately insecure.
+     Image integrity is guaranteed by the SHA-256 digest fetched over the
+     separately verified API TLS session. Dropping chain verification on the
+     download sockets removes the biggest heap consumer exactly when a reconnect
+     after a CDN drop has to fit into the remaining heap — that is what made
+     resume fail. */
+  WiFiClientSecure *client = new (std::nothrow) WiFiClientSecure();
+  if (!client) {
+    free(s_chunk);
+    return 0;
+  }
+  otaConfigureTlsInsecureDownload(client);
+  client->setHandshakeTimeout(30);
+  client->setTimeout(60000);
 
   bool haveDirect = false;
   int probedLen = -1;
@@ -631,15 +657,6 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     setGhOtaActive(true);
     githubOtaDefragHeap();
 
-    WiFiClientSecure *client = new (std::nothrow) WiFiClientSecure();
-    if (!client) {
-      githubOtaClearUpdate("no-client");
-      continue;
-    }
-    otaConfigureTlsDownload(client);
-    client->setHandshakeTimeout(30);
-    client->setTimeout(60000);
-
     SERIAL_DBG("[GH-OTA] TLS connect %s heap=%u maxBlk=%u\n", host,
                   static_cast<unsigned>(ESP.getFreeHeap()),
                   static_cast<unsigned>(ESP.getMaxAllocHeap()));
@@ -660,25 +677,27 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         if (tcpOk) tcpDiag.stop();
       }
     }
-    if (!client->connect(host, port)) {
-      char errBuf[128];
-      const int elen = client->lastError(errBuf, sizeof(errBuf));
-      SERIAL_DBG("[GH-OTA] DIAG tls lastError(%d)=%s\n", elen, errBuf);
-      /* 10.15.4: pinned roots can still be rejected on a fragmented heap. Retry
-         without verification — image integrity is enforced by the SHA-256 digest
-         that was obtained over the separately verified API connection. */
-      client->stop();
-      client->setInsecure();
-      otaTlsInsecure = true;
-      SERIAL_DBG("[OTA-TLS] download TLS retry insecure (pinned CA failed)\n");
-      if (!client->connect(host, port)) {
-        SERIAL_DBG("[GH-OTA] TLS connect fail wifi=%d\n", static_cast<int>(WiFi.status()));
-        delete client;
-        githubOtaClearUpdate("tls-fail");
-        vTaskDelay(pdMS_TO_TICKS(400 * attempt));
-        continue;
+    bool connected = false;
+    for (int r = 1; r <= 3 && !connected; r++) {
+      if (client->connect(host, port)) {
+        connected = true;
+        break;
       }
+      SERIAL_DBG("[GH-OTA] download connect fail #%d wifi=%d heap=%u maxBlk=%u\n", r,
+                    static_cast<int>(WiFi.status()),
+                    static_cast<unsigned>(ESP.getFreeHeap()),
+                    static_cast<unsigned>(ESP.getMaxAllocHeap()));
+      client->stop();
+      vTaskDelay(pdMS_TO_TICKS(300 * r));
     }
+    if (!connected) {
+      SERIAL_DBG("[GH-OTA] TLS connect fail wifi=%d\n", static_cast<int>(WiFi.status()));
+      githubOtaClearUpdate("tls-fail");
+      vTaskDelay(pdMS_TO_TICKS(400 * attempt));
+      continue;
+    }
+    SERIAL_DBG("[GH-OTA] download connected insecure at %u (SHA-256 verified after)\n",
+                  static_cast<unsigned>(0));
 
     size_t written = 0;
     int lastPct = -1;
@@ -718,19 +737,17 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         client->stop();
         githubOtaDefragHeap();
         bool reconnected = false;
-        for (int r = 1; r <= 3 && !reconnected; r++) {
+        for (int r = 1; r <= 4 && !reconnected; r++) {
           if (recoveries >= 60) break;
           ++recoveries;
-          vTaskDelay(pdMS_TO_TICKS(200 * r));
+          vTaskDelay(pdMS_TO_TICKS(250 * r));
           reconnected = client->connect(host, port);
           if (!reconnected) {
-            /* 10.15.4: heap after esp_ota_begin/partial writes may be too small
-               for CA-bundle verification — fall back to pinned/insecure retry
-               (image SHA-256 is still verified after download). */
+            SERIAL_DBG("[GH-OTA] reconnect fail #%d wifi=%d heap=%u maxBlk=%u\n", r,
+                          static_cast<int>(WiFi.status()),
+                          static_cast<unsigned>(ESP.getFreeHeap()),
+                          static_cast<unsigned>(ESP.getMaxAllocHeap()));
             client->stop();
-            client->setInsecure();
-            otaTlsInsecure = true;
-            reconnected = client->connect(host, port);
           }
         }
         if (!reconnected) {
@@ -739,7 +756,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         }
       }
 
-      const size_t end = (written + kChunk - 1 < total) ? (written + kChunk - 1) : (total - 1);
+      const size_t end = (written + chunkLen - 1 < total) ? (written + chunkLen - 1) : (total - 1);
       const size_t need = end - written + 1;
 
       client->print("GET ");
@@ -771,7 +788,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         if (line[0] == '\0') break;
         if (strncasecmp(line, "Content-Length:", 15) == 0) contentLen = atoi(line + 15);
       }
-      if ((written % (kChunk * 8)) == 0) {
+      if ((written % (chunkLen * 8)) == 0) {
         SERIAL_DBG("[GH-OTA] Range %u-%u > %d cl=%d heap=%u\n",
                       static_cast<unsigned>(written), static_cast<unsigned>(end), status,
                       contentLen, static_cast<unsigned>(ESP.getFreeHeap()));
@@ -852,7 +869,6 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     }
 
     client->stop();
-    delete client;
 
     if (!ok || written < total) {
       SERIAL_DBG("[GH-OTA] range incomplete written=%u/%u\n",
@@ -862,8 +878,12 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
       continue;
     }
     Serial.printf("[GH-OTA] range OK %u\n", static_cast<unsigned>(written));
+    delete client;
+    free(s_chunk);
     return written;
   }
+  delete client;
+  free(s_chunk);
   return 0;
 }
 

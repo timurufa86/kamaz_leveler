@@ -11,6 +11,14 @@ void otaConfigureTls(WiFiClientSecure *client);
  * stays guarded by the SHA-256 digest obtained over the verified API channel.
  */
 void otaConfigureTlsDownload(WiFiClientSecure *client);
+/**
+ * 10.15.5: TLS for the image download only, WITHOUT certificate verification.
+ * The image is authenticated by its SHA-256 digest, which is fetched over the
+ * separately verified API connection; skipping chain verification here removes
+ * the largest heap consumer exactly when a resume/reconnect must fit into the
+ * 84-88KB left after a partial flash write.
+ */
+void otaConfigureTlsInsecureDownload(WiFiClientSecure *client);
 /** true, если последнее TLS-подключение шло без проверки сертификата. */
 extern volatile bool otaTlsInsecure;
 /** true только для https-URL — http для OTA запрещён с 10.15.0. */

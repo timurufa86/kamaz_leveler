@@ -62,10 +62,21 @@ void otaConfigureTlsDownload(WiFiClientSecure *client) {
   otaTlsInsecure = false;
 }
 
+/**
+ * 10.15.5: image-download TLS without certificate verification (see header).
+ */
+void otaConfigureTlsInsecureDownload(WiFiClientSecure *client) {
+  if (!client) return;
+  client->setInsecure();
+  otaTlsInsecure = true;
+}
+
 /** 10.15.0: прошивка и метаданные загружаются только по https. */
 bool otaUrlIsHttps(const char *url) {
   return url != nullptr && strncmp(url, "https://", 8) == 0;
-}void githubOtaDefragHeap() {
+}
+
+void githubOtaDefragHeap() {
   // Two-pass coalesce: grab every large free block, free LIFO.
   for (int pass = 0; pass < 2; pass++) {
     void *hold[48];
