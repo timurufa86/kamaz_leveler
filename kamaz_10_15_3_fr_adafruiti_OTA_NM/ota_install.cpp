@@ -274,7 +274,7 @@ static size_t rawHttpsStreamToUpdate(const char *url, int expectLen, mbedtls_sha
 }
 
 /**
- * One TLS session + HTTP/1.1 keep-alive Range into a static 16KB buffer.
+ * One TLS session + HTTP/1.1 keep-alive Range into a static 4KB buffer.
  * esp_ota_write only runs between chunks (socket idle) — flash ops must not
  * run while TLS is receiving, or WiFi drops on this no-PSRAM chip.
  *
@@ -282,16 +282,22 @@ static size_t rawHttpsStreamToUpdate(const char *url, int expectLen, mbedtls_sha
  * sessions mid-download (observed after ~540KB). A dropped socket is now
  * recovered by reconnecting and resuming from the byte offset already written;
  * before this, the whole attempt was aborted and restarted from zero, so a
- * 1.6MB image never completed. Chunks are also 16KB instead of 4KB (4x fewer
- * requests per image), and the resolved CDN URL is reused on the retry attempt
- * instead of asking GitHub for a fresh redirect.
+ * 1.6MB image never completed. The resolved CDN URL is also reused on the retry
+ * attempt instead of asking GitHub for a fresh redirect.
+ *
+ * 10.15.3: the chunk buffer stays 4KB on purpose. A 16KB static buffer (tried in
+ * 10.15.2) shrank the heap/largest free block enough that the ESP-IDF CA bundle
+ * (parsed during chain verification) could no longer verify GitHub's certificate
+ * chain — TLS to api.github.com failed with MBEDTLS "X509 fatal error", which
+ * broke the OTA release list entirely. Measured on the board: 4KB chunk -> ~98KB
+ * free heap / ~61KB max block, TLS OK; 16KB chunk -> ~86KB / ~37KB, TLS fails.
  */
 static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *sha,
                                        uint32_t knownSize) {
   if (!url || !sha) return 0;
 
   static char directUrl[1400];
-  static constexpr size_t kChunk = 16 * 1024;
+  static constexpr size_t kChunk = 4 * 1024;
   static uint8_t s_chunk[kChunk];
 
   bool haveDirect = false;
