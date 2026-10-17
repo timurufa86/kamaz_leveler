@@ -8,7 +8,10 @@
 class EventBus {
 private:
   static QueueHandle_t eventQueue_;
-  static constexpr size_t QUEUE_SIZE = 128;
+  /* 10.15.5: 128 → 32 slots of Event (~76B) frees ~7KB of heap. OTA needs free
+     heap for TLS reconnects after a partial flash write (85-88KB was too little);
+     the bus is advisory UI telemetry and drops events when full. */
+  static constexpr size_t QUEUE_SIZE = 32;
   static SemaphoreHandle_t mutex_;
   static uint32_t droppedEvents_;
   static uint32_t maxDepth_;

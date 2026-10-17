@@ -568,29 +568,19 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
   if (!url || !sha) return 0;
 
   char *directUrl = s_otaDirectUrlBuf;
-  /* 10.15.5: 16KB chunks on a dynamically allocated buffer. It must NOT be
-     static: the release list and SHA-256 digest are fetched over verified
-     bundle TLS *before* the install and need ~96KB of heap, so the static BSS
-     has to stay small. The 16KB buffer is only needed while downloading, and
-     that connection is unverified (integrity = SHA-256 digest). */
-  static constexpr size_t kChunkMax = 16 * 1024;
-  size_t chunkLen = kChunkMax;
-  uint8_t *s_chunk = static_cast<uint8_t *>(malloc(kChunkMax));
-  if (!s_chunk) {
-    s_chunk = s_otaChunkBuf;
-    chunkLen = sizeof(s_otaChunkBuf);
-    SERIAL_DBG("[GH-OTA] chunk buffer fallback to %u\n", static_cast<unsigned>(chunkLen));
-  }
+  /* 10.15.5: 4KB chunks on the shared static buffer. A 16KB buffer (static or
+     malloc'd) costs exactly the heap a TLS reconnect needs after a partial flash
+     write, and measurements show TLS connect fails below ~88KB free. */
+  size_t chunkLen = sizeof(s_otaChunkBuf);
+  uint8_t *s_chunk = s_otaChunkBuf;
 
   /* 10.15.5: ONE WiFiClientSecure for the whole download, deliberately insecure.
      Image integrity is guaranteed by the SHA-256 digest fetched over the
      separately verified API TLS session. Dropping chain verification on the
      download sockets removes the biggest heap consumer exactly when a reconnect
-     after a CDN drop has to fit into the remaining heap — that is what made
-     resume fail. */
+     after a CDN drop has to fit into the remaining heap. */
   WiFiClientSecure *client = new (std::nothrow) WiFiClientSecure();
   if (!client) {
-    free(s_chunk);
     return 0;
   }
   otaConfigureTlsInsecureDownload(client);
@@ -599,10 +589,16 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
 
   bool haveDirect = false;
   int probedLen = -1;
-  for (int attempt = 1; attempt <= 2; attempt++) {
+  for (int attempt = 1; attempt <= 3; attempt++) {
     githubOtaDefragHeap();
     githubOtaHeartbeat();
-    SERIAL_DBG("[GH-OTA] keep-alive range try %d/2\n", attempt);
+    SERIAL_DBG("[GH-OTA] keep-alive range try %d/3\n", attempt);
+
+    /* 10.15.5: every attempt must resolve a FRESH CDN URL. The redirect from
+       github.com carries a short-lived SAS token; reusing the URL from a failed
+       attempt made attempt 2 stall forever at the same offset (observed at 95%,
+       where the CDN kept closing the socket). */
+    if (attempt > 1) haveDirect = false;
 
     if (!haveDirect) {
       if (!githubProbeDirectUrl(url, directUrl, sizeof(s_otaDirectUrlBuf), &probedLen)) {
@@ -777,7 +773,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         SERIAL_DBG("[GH-OTA] bad status at %u (conn=%d) — resume\n",
                       static_cast<unsigned>(written), client->connected() ? 1 : 0);
         client->stop();
-        if (++recoveries > 60) {
+        if (++recoveries > 20) {
           ok = false;
           break;
         }
@@ -827,7 +823,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
                       static_cast<unsigned>(got), static_cast<unsigned>(need),
                       static_cast<unsigned>(written));
         client->stop();
-        if (++recoveries > 60) {
+        if (++recoveries > 20) {
           ok = false;
           break;
         }
@@ -879,11 +875,9 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     }
     Serial.printf("[GH-OTA] range OK %u\n", static_cast<unsigned>(written));
     delete client;
-    free(s_chunk);
     return written;
   }
   delete client;
-  free(s_chunk);
   return 0;
 }
 
