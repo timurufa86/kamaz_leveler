@@ -27,6 +27,60 @@
 
 void emergencyStop();  // defined in .ino
 
+/* ── 10.15.5: OTA link telemetry ──────────────────────────────────────────
+ * The image download used to fail at ~540-660KB with no clue why. These logs
+ * (visible with TEST DEBUG ON) record the radio state at every progress step
+ * and at each drop, plus Wi-Fi STA disconnect events with their ESP-IDF reason
+ * code, so a failing install says whether the link died, the heap ran out, or
+ * the peer closed the socket. */
+static volatile uint32_t s_otaWifiDrops = 0;
+static volatile uint8_t s_otaWifiLastReason = 0;
+static bool s_otaWifiTelemetryOn = false;
+
+static void otaLogLink(const char *where, size_t written) {
+  SERIAL_DBG("[OTA-LINK] %s at=%u wifi=%d rssi=%d drops=%u lastReason=%u heap=%u maxBlk=%u\n",
+                where, static_cast<unsigned>(written), static_cast<int>(WiFi.status()),
+                static_cast<int>(WiFi.RSSI()), static_cast<unsigned>(s_otaWifiDrops),
+                static_cast<unsigned>(s_otaWifiLastReason),
+                static_cast<unsigned>(ESP.getFreeHeap()),
+                static_cast<unsigned>(ESP.getMaxAllocHeap()));
+}
+
+static void otaWifiEventCb(arduino_event_id_t event, arduino_event_info_t info) {
+  (void)event;
+  if (!s_otaWifiTelemetryOn) return;
+  ++s_otaWifiDrops;
+  s_otaWifiLastReason = static_cast<uint8_t>(info.wifi_sta_disconnected.reason);
+  SERIAL_DBG("[OTA-LINK] wifi STA disconnected reason=%u (drop #%u) at=%lums heap=%u\n",
+                static_cast<unsigned>(s_otaWifiLastReason),
+                static_cast<unsigned>(s_otaWifiDrops),
+                static_cast<unsigned long>(millis()),
+                static_cast<unsigned>(ESP.getFreeHeap()));
+}
+
+static void otaLinkTelemetryBegin() {
+  if (s_otaWifiTelemetryOn) return;
+  s_otaWifiTelemetryOn = true;
+  s_otaWifiDrops = 0;
+  s_otaWifiLastReason = 0;
+  WiFi.onEvent(otaWifiEventCb, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  otaLogLink("install-start", 0);
+}
+
+static void otaLinkTelemetryEnd(const char *why) {
+  otaLogLink(why, 0);
+  s_otaWifiTelemetryOn = false;
+}
+
+/* 10.15.5: shared scratch buffers for both downloaders (streaming first, legacy
+ * Range as fallback — they never run at the same time). One set of buffers keeps
+ * the BSS — and therefore the free heap — large enough for CA-bundle TLS
+ * verification during the install. */
+static char s_otaDirectUrlBuf[1400];
+static char s_otaPathBuf[1400];
+static uint8_t s_otaChunkBuf[4096];
+
+
 /** Resolve github.com/releases/download → CDN Location; also probe Content-Length. */
 static bool githubProbeDirectUrl(const char *url, char *finalUrl, size_t finalUrlLen,
                                  int *contentLen) {
@@ -131,9 +185,9 @@ static bool parseHttpsUrl(const char *url, char *host, size_t hostLen, char *pat
 static size_t rawHttpsStreamToUpdate(const char *url, int expectLen, mbedtls_sha256_context *sha) {
   if (!url || !sha) return 0;
   char host[128];
-  static char path[1400];
+  char *path = s_otaPathBuf;
   uint16_t port = 443;
-  if (!parseHttpsUrl(url, host, sizeof(host), path, sizeof(path), &port)) {
+  if (!parseHttpsUrl(url, host, sizeof(host), path, sizeof(s_otaPathBuf), &port)) {
     SERIAL_DBGLN("[GH-OTA] bad HTTPS url");
     return 0;
   }
@@ -246,6 +300,7 @@ static size_t rawHttpsStreamToUpdate(const char *url, int expectLen, mbedtls_sha
       if (otaProgress != lastPct && ((otaProgress % 5) == 0 || otaProgress >= 99)) {
         lastPct = otaProgress;
         displayDirty = true;
+        otaLogLink("raw-dl", written);
         SERIAL_DBG("[GH-OTA] download %d%% (%u) heap=%u\n", otaProgress,
                       static_cast<unsigned>(written),
                       static_cast<unsigned>(ESP.getFreeHeap()));
@@ -274,6 +329,222 @@ static size_t rawHttpsStreamToUpdate(const char *url, int expectLen, mbedtls_sha
 }
 
 /**
+ * 10.15.5: primary image download — ONE streaming GET per attempt.
+ *
+ * Telemetry (10.15.4) proved the drops are not Wi-Fi: the STA stayed associated
+ * (drops=0, RSSI -58..-62dBm), while the CDN closed the socket after ~500-750KB
+ * and started rejecting reconnects. The cause was the download pattern itself:
+ * ~390 tiny 4KB Range requests on one keep-alive connection look like abuse to
+ * GitHub's Azure blob endpoint and get throttled/closed.
+ *
+ * The CDN happily serves the whole asset in one response (206, Content-Length =
+ * full size, verified from a PC), so: one TLS handshake (done while the heap is
+ * still ~98KB, so the CA bundle verifies normally), read the body 4KB at a time,
+ * accumulate short reads (never discard image bytes) and write flash between
+ * reads. If the stream does end early, reconnect once per resume with
+ * "Range: bytes=written-..." instead of re-issuing hundreds of requests.
+ */
+static size_t streamDownloadToUpdate(const char *url, mbedtls_sha256_context *sha,
+                                     uint32_t knownSize) {
+  if (!url || !sha) return 0;
+
+  char *directUrl = s_otaDirectUrlBuf;
+  int probedLen = -1;
+  if (!githubProbeDirectUrl(url, directUrl, sizeof(s_otaDirectUrlBuf), &probedLen)) {
+    SERIAL_DBGLN("[GH-OTA] stream: no direct url");
+    return 0;
+  }
+
+  size_t total = 0;
+  if (knownSize > 100000u) total = knownSize;
+  else if (probedLen > 100000) total = static_cast<size_t>(probedLen);
+  if (total < 100000u) {
+    SERIAL_DBGLN("[GH-OTA] stream: no known size");
+    return 0;
+  }
+
+  char host[128];
+  char *path = s_otaPathBuf;
+  uint16_t port = 443;
+  if (!parseHttpsUrl(directUrl, host, sizeof(host), path, sizeof(s_otaPathBuf), &port)) {
+    SERIAL_DBGLN("[GH-OTA] stream: bad url");
+    return 0;
+  }
+
+  githubOtaClearUpdate("pre-stream-begin");
+  if (Update.isRunning()) Update.abort();
+  Update.clearError();
+  githubOtaDefragHeap();
+
+  const esp_partition_t *part = esp_ota_get_next_update_partition(nullptr);
+  if (!part || total > part->size) {
+    SERIAL_DBGLN("[GH-OTA] stream: bad partition/size");
+    return 0;
+  }
+
+  esp_ota_handle_t handle = 0;
+  const uint32_t eraseT0 = millis();
+  const esp_err_t be = esp_ota_begin(part, total, &handle);
+  SERIAL_DBG("[GH-OTA] stream esp_ota_begin > %s in %lums heap=%u maxBlk=%u\n",
+                esp_err_to_name(be), static_cast<unsigned long>(millis() - eraseT0),
+                static_cast<unsigned>(ESP.getFreeHeap()),
+                static_cast<unsigned>(ESP.getMaxAllocHeap()));
+  if (be != ESP_OK) return 0;
+  setGhOtaPart(part);
+  setGhOtaHandle(handle);
+  setGhOtaActive(true);
+
+  uint8_t *s_buf = s_otaChunkBuf;
+  size_t written = 0;
+  bool ok = false;
+  int streamTry = 0;
+  const uint32_t t0 = millis();
+
+  while (written < total && streamTry < 8 && (millis() - t0) < 600000UL) {
+    ++streamTry;
+    WiFiClientSecure *client = new (std::nothrow) WiFiClientSecure();
+    if (!client) break;
+    client->setHandshakeTimeout(30);
+    client->setTimeout(60000);
+
+    otaConfigureTls(client);
+    const char *tlsMode = "bundle";
+    if (!client->connect(host, port)) {
+      SERIAL_DBG("[GH-OTA] stream TLS bundle failed at %u — pinned retry\n",
+                    static_cast<unsigned>(written));
+      client->stop();
+      otaConfigureTlsDownload(client);
+      tlsMode = "pinned";
+      if (!client->connect(host, port)) {
+        SERIAL_DBG("[GH-OTA] stream TLS pinned failed — insecure retry\n");
+        client->stop();
+        client->setInsecure();
+        otaTlsInsecure = true;
+        tlsMode = "insecure";
+        if (!client->connect(host, port)) {
+          SERIAL_DBG("[GH-OTA] stream connect fail wifi=%d\n",
+                        static_cast<int>(WiFi.status()));
+          delete client;
+          break;
+        }
+      }
+    }
+    SERIAL_DBG("[GH-OTA] stream try %d tls=%s from=%u heap=%u\n", streamTry, tlsMode,
+                  static_cast<unsigned>(written),
+                  static_cast<unsigned>(ESP.getFreeHeap()));
+
+    client->printf("GET %s HTTP/1.1\r\nHost: %s\r\nRange: bytes=%u-%u\r\n"
+                   "User-Agent: kamaz-leveler/10.15.5\r\nAccept: */*\r\n"
+                   "Accept-Encoding: identity\r\nConnection: close\r\n\r\n",
+                   path, host, static_cast<unsigned>(written),
+                   static_cast<unsigned>(total - 1));
+
+    char line[192];
+    auto readLine = [&]() -> bool {
+      size_t li = 0;
+      const uint32_t lineT0 = millis();
+      while ((millis() - lineT0) < 30000UL && li + 1 < sizeof(line)) {
+        githubOtaHeartbeat();
+        if (!client->available()) {
+          if (!client->connected()) break;
+          delay(2);
+          continue;
+        }
+        const int ch = client->read();
+        if (ch < 0) break;
+        if (ch == '\n') {
+          line[li] = '\0';
+          if (li > 0 && line[li - 1] == '\r') line[--li] = '\0';
+          return true;
+        }
+        line[li++] = static_cast<char>(ch);
+      }
+      line[li] = '\0';
+      return li > 0;
+    };
+
+    int status = 0;
+    size_t contentLen = 0;
+    if (!readLine() || sscanf(line, "HTTP/%*s %d", &status) != 1) {
+      otaLogLink("stream-nostatus", written);
+      client->stop();
+      delete client;
+      vTaskDelay(pdMS_TO_TICKS(150));
+      continue;
+    }
+    while (readLine()) {
+      if (line[0] == '\0') break;
+      if (strncasecmp(line, "Content-Length:", 15) == 0) {
+        contentLen = static_cast<size_t>(atoi(line + 15));
+      }
+    }
+    if ((status != HTTP_CODE_OK && status != HTTP_CODE_PARTIAL_CONTENT) ||
+        (contentLen > 0 && contentLen < (total - written))) {
+      SERIAL_DBG("[GH-OTA] stream HTTP %d cl=%u at=%u\n", status,
+                    static_cast<unsigned>(contentLen), static_cast<unsigned>(written));
+      client->stop();
+      delete client;
+      vTaskDelay(pdMS_TO_TICKS(300));
+      continue;
+    }
+
+    size_t fill = 0;
+    int lastStreamPct = -1;
+    const size_t before = written;
+    while (written < total) {
+      githubOtaHeartbeat();
+      size_t want = total - written - fill;
+      if (want > sizeof(s_otaChunkBuf) - fill) want = sizeof(s_otaChunkBuf) - fill;
+      const int n = client->readBytes(s_buf + fill, want);
+      if (n <= 0) break;  // stream ended / timeout
+      fill += static_cast<size_t>(n);
+      if (fill == sizeof(s_otaChunkBuf) || (written + fill) == total) {
+        const esp_err_t we = esp_ota_write(handle, s_buf, fill);
+        if (we != ESP_OK) {
+          SERIAL_DBG("[GH-OTA] stream esp_ota_write fail: %s\n", esp_err_to_name(we));
+          fill = 0;
+          ok = false;
+          break;
+        }
+        mbedtls_sha256_update(sha, s_buf, fill);
+        written += fill;
+        fill = 0;
+        extern int otaProgress;
+        const int pct = static_cast<int>((written * 100u) / total);
+        otaProgress = (pct > 99) ? 99 : pct;
+        displayDirty = true;
+        if (otaProgress >= lastStreamPct + 5) {
+          lastStreamPct = otaProgress;
+          otaLogLink("stream-dl", written);
+        }
+      }
+      if (written >= total) break;
+    }
+    client->stop();
+    delete client;
+
+    if (written == total) {
+      ok = true;
+      break;
+    }
+    otaLogLink("stream-drop", written);
+    SERIAL_DBG("[GH-OTA] stream try %d ended written=%u/%u (fill=%u)\n", streamTry,
+                  static_cast<unsigned>(written), static_cast<unsigned>(total),
+                  static_cast<unsigned>(fill));
+    if (written == before) {
+      vTaskDelay(pdMS_TO_TICKS(400));  // no progress — short backoff
+    }
+  }
+
+  if (ok && written == total) {
+    Serial.printf("[GH-OTA] stream OK %u\n", static_cast<unsigned>(written));
+    return written;
+  }
+  githubOtaClearUpdate("stream-fail");
+  return 0;
+}
+
+/**
  * One TLS session + HTTP/1.1 keep-alive Range into a static 4KB buffer.
  * esp_ota_write only runs between chunks (socket idle) — flash ops must not
  * run while TLS is receiving, or WiFi drops on this no-PSRAM chip.
@@ -296,9 +567,9 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
                                        uint32_t knownSize) {
   if (!url || !sha) return 0;
 
-  static char directUrl[1400];
+  char *directUrl = s_otaDirectUrlBuf;
   static constexpr size_t kChunk = 4 * 1024;
-  static uint8_t s_chunk[kChunk];
+  uint8_t *s_chunk = s_otaChunkBuf;
 
   bool haveDirect = false;
   int probedLen = -1;
@@ -308,7 +579,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     SERIAL_DBG("[GH-OTA] keep-alive range try %d/2\n", attempt);
 
     if (!haveDirect) {
-      if (!githubProbeDirectUrl(url, directUrl, sizeof(directUrl), &probedLen)) {
+      if (!githubProbeDirectUrl(url, directUrl, sizeof(s_otaDirectUrlBuf), &probedLen)) {
         vTaskDelay(pdMS_TO_TICKS(300 * attempt));
         continue;
       }
@@ -324,9 +595,9 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     }
 
     char host[128];
-    static char path[1400];
+    char *path = s_otaPathBuf;
     uint16_t port = 443;
-    if (!parseHttpsUrl(directUrl, host, sizeof(host), path, sizeof(path), &port)) {
+    if (!parseHttpsUrl(directUrl, host, sizeof(host), path, sizeof(s_otaPathBuf), &port)) {
       SERIAL_DBGLN("[GH-OTA] bad CDN url");
       continue;
     }
@@ -413,6 +684,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
     int lastPct = -1;
     bool ok = true;
     int recoveries = 0;
+    size_t rotateMark = 0;
     const uint32_t t0 = millis();
     char line[192];
 
@@ -484,6 +756,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
       if (!readLine() || sscanf(line, "HTTP/%*s %d", &status) != 1) {
         // 10.15.2: the CDN drops the keep-alive socket between chunks. That is
         // recoverable — reconnect and resume from `written` (see top of loop).
+        otaLogLink("drop-status", written);
         SERIAL_DBG("[GH-OTA] bad status at %u (conn=%d) — resume\n",
                       static_cast<unsigned>(written), client->connected() ? 1 : 0);
         client->stop();
@@ -532,6 +805,7 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
       if (got != need) {
         // 10.15.2: treat a short chunk as a dropped socket too — discard the
         // partial chunk (nothing was written to flash yet) and resume.
+        otaLogLink("drop-chunk", written);
         SERIAL_DBG("[GH-OTA] chunk short got=%u need=%u at %u — resume\n",
                       static_cast<unsigned>(got), static_cast<unsigned>(need),
                       static_cast<unsigned>(written));
@@ -560,8 +834,20 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
       if (otaProgress != lastPct && ((otaProgress % 5) == 0 || otaProgress >= 99)) {
         lastPct = otaProgress;
         displayDirty = true;
+        otaLogLink("dl", written);
         SERIAL_DBG("[GH-OTA] download %d%% (%u)\n", otaProgress,
                       static_cast<unsigned>(written));
+      }
+
+      /* 10.15.5: rotate the keep-alive socket proactively. The CDN closes it on
+         its own after ~500-750KB (observed), and every reconnect has to redo TLS;
+         closing at 300KB keeps each connection on the working side of that limit
+         and resumes on a fresh socket from the written offset. */
+      if ((written - rotateMark) >= 300u * 1024u) {
+        SERIAL_DBG("[GH-OTA] rotate socket at %u\n", static_cast<unsigned>(written));
+        rotateMark = written;
+        client->stop();
+        continue;
       }
     }
 
@@ -594,12 +880,15 @@ bool installGitHubReleaseIndex(int8_t idx) {
   SERIAL_DBG("[GH-OTA] Install release %s\n", r.tag);
   otaValveLock = true;
   emergencyStop();
+  otaLinkTelemetryBegin();
   if (!downloadGitHubFirmware(r.binUrl, r.shaUrl[0] ? r.shaUrl : nullptr, r.tag,
                               r.sha256[0] ? r.sha256 : nullptr, r.size)) {
+    otaLinkTelemetryEnd("install-fail");
     otaValveLock = false;
     resetEmergencyLatch(); // защёлку поднял сам OTA-путь — снимаем при неудаче
     return false;
   }
+  otaLinkTelemetryEnd("install-ok");
   ESP.restart();
   return true;
 }
@@ -688,9 +977,19 @@ bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
   mbedtls_sha256_init(&sha);
   mbedtls_sha256_starts(&sha, 0);
 
-  // Primary: esp32FOTA-style HTTPClient redirect follow (browser_download_url).
+  // Primary (10.15.5): 4KB Range chunks on a keep-alive socket, rotated every
+  // 300KB (the CDN kills longer connections). Streaming GET is the fallback.
   SERIAL_DBG("[GH-OTA] knownSize=%u\n", static_cast<unsigned>(knownSize));
   size_t written = httpFollowStreamToUpdate(firmwareUrl, &sha, knownSize);
+
+  if (written < 100000u) {
+    SERIAL_DBGLN("[GH-OTA] range failed — stream fallback");
+    githubOtaClearUpdate("range-retry-stream");
+    mbedtls_sha256_free(&sha);
+    mbedtls_sha256_init(&sha);
+    mbedtls_sha256_starts(&sha, 0);
+    written = streamDownloadToUpdate(firmwareUrl, &sha, knownSize);
+  }
 
   // If caller still has API asset URL, try resolve+raw CDN once.
   if (written < 100000u && strstr(firmwareUrl, "api.github.com") &&
