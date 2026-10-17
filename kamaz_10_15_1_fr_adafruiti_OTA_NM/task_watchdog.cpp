@@ -35,7 +35,17 @@ void initWatchdog() {
   };
   esp_err_t result = esp_task_wdt_init(&config);
   if (result == ESP_ERR_INVALID_STATE) {
-    SERIAL_DBGLN("[WDT] TWDT уже инициализирован ядром, используем текущую конфигурацию");
+    /* 10.15.1: Arduino-ядро уже создало TWDT, поэтому esp_task_wdt_init()
+       возвращает ESP_ERR_INVALID_STATE и IDF печатает "E task_wdt: TWDT already
+       initialized". Вместо повторной инициализации штатно перенастраиваем таймаут;
+       если ядро не даёт — работаем на его конфигурации (как в 10.15.0). */
+    const esp_err_t reconf = esp_task_wdt_reconfigure(&config);
+    if (reconf == ESP_OK) {
+      SERIAL_DBG("[WDT] TWDT создан ядром — перенастроен на %u ms\n", TASK_WDT_TIMEOUT_MS);
+    } else {
+      SERIAL_DBG("[WDT] TWDT создан ядром, reconfigure failed: %d — конфигурация ядра\n",
+                    reconf);
+    }
   } else if (result != ESP_OK) {
     SERIAL_DBG("[WDT] init failed: %d\n", result);
     return;

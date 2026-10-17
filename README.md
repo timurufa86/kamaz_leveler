@@ -3,7 +3,7 @@
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
 - Базовая ветка разработки: **`refactor/modular-firmware`**
-- Скетч: `kamaz_10_15_0_fr_adafruiti_OTA_NM/`
+- Скетч: `kamaz_10_15_1_fr_adafruiti_OTA_NM/`
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Toolchain
@@ -32,7 +32,7 @@
 arduino-cli compile --config-file arduino-cli.yaml `
   -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M" --warnings none --export-binaries `
   --build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition `
-  kamaz_10_15_0_fr_adafruiti_OTA_NM
+  kamaz_10_15_1_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
@@ -52,8 +52,8 @@ arduino-cli compile --config-file arduino-cli.yaml `
 ## Карта флеша (4 МБ, своя таблица разделов)
 
 Плата оснащена **4 МБ** флеш-памяти. Штатные OTA-слоты ядра (1.25 МБ) малы
-для скетча (~1.42 МБ), поэтому используется **своя схема разделов**
-(`kamaz_10_15_0_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
+для скетча (~1.6 МБ), поэтому используется **своя схема разделов**
+(`kamaz_10_15_1_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
 |---|---|---|---|
@@ -64,7 +64,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 | `spiffs` | 0x390000 | 384 КБ | LittleFS (`/config.txt`) |
 | `coredump` | 0x3F0000 | 64 КБ | дамп при сбое |
 
-Скетч ~1.42 МБ занимает ~81% слота; запас роста ~320 КБ на слот.
+Скетч ~1.6 МБ занимает ~87% слота; запас роста ~230 КБ на слот.
 
 > ⚠️ **Смена карты флеша требует разовой прошивки по USB** (bootloader +
 > partitions + app). OTA с прежней 16-мегабайтной схемы разделы НЕ переносит.
