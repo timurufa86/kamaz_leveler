@@ -220,3 +220,20 @@ bool TaskPool::recreateSlot(uint8_t index) {
   xSemaphoreGive(poolMutex_);
   return ok;
 }
+
+/* 10.15.6: reverse lookup so a task blocked in a long wait can update its own
+   heartbeat (fixes the false WATCHDOG from the 15s blocking Wi-Fi connect). */
+uint8_t TaskPool::getIndexByHandle(TaskHandle_t handle) {
+  if (poolMutex_ == nullptr || handle == nullptr) return 0xFF;
+  uint8_t found = 0xFF;
+  if (xSemaphoreTake(poolMutex_, pdMS_TO_TICKS(10)) == pdTRUE) {
+    for (uint8_t i = 0; i < taskCount_; i++) {
+      if (tasks_[i].handle == handle) {
+        found = i;
+        break;
+      }
+    }
+    xSemaphoreGive(poolMutex_);
+  }
+  return found;
+}

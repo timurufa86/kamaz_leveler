@@ -466,13 +466,13 @@ void imuTask(void *pvParameters) {
 
             // MOVEMENT: only two axles — paired selects + one INFL/DEFL.
             float diffFront = targetPressureFront - avgPressureFront;
-            if (abs(diffFront) > cfg_getMovementTolerance()) {
+            if (fabsf(diffFront) > cfg_getMovementTolerance()) {
               pulseAxlePair(true, diffFront > 0, diffFront > 0 ? inflMs : deflMs);
             }
             cfg_taskMonitorUpdate(TASK_IMU_IDX);
 
             float diffRear = targetPressureRear - avgPressureRear;
-            if (abs(diffRear) > cfg_getMovementTolerance()) {
+            if (fabsf(diffRear) > cfg_getMovementTolerance()) {
               pulseAxlePair(false, diffRear > 0, diffRear > 0 ? inflMs : deflMs);
             }
             cfg_taskMonitorUpdate(TASK_IMU_IDX);

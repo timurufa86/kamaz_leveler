@@ -150,9 +150,15 @@ void pressureTask(void *pvParameters) {
 #else
     if (cfg_errorIsActive(ERR_VALVE) || otaValveLock) {
       vTaskDelay(pdMS_TO_TICKS(100));
+      // 10.15.6: do not publish/copy `pd` here — it holds the last measured
+      // values and would overwrite the fresh ones valve_ctrl just stored.
+      continue;
     } else if (valveWork) {
       // Canon A/C own the sensor; do not write mid-pulse supply/atmosphere to pads.
       vTaskDelay(pdMS_TO_TICKS(200));
+      // 10.15.6: no fresh measurement this cycle → keep the globals as valve_ctrl
+      // left them (this stale copy caused a false "valve not reacting" → ERR_VALVE).
+      continue;
     } else {
       float p = 0.0f;
       if (measurePad(Pad(curPad), &p)) {
@@ -165,6 +171,7 @@ void pressureTask(void *pvParameters) {
         const uint32_t nowMs = millis();
         const bool masterFresh = firstMeasurementDone && masterValid &&
                                  (nowMs - masterStampMs) < halfIdleMs;
+        bool masterReady = false;
 
         if (masterFresh) {
           {
@@ -173,15 +180,20 @@ void pressureTask(void *pvParameters) {
               pd.masterPressure = masterPressure;
             }
           }
+          masterReady = true;
           SERIAL_DBGLN("[PRESS] skip master (fresh Mag sample)");
         } else {
           float master = 0.0f;
           if (measureMaster(&master)) {
             pd.masterPressure = master;
+            masterReady = true;
           }
         }
 
-        if (!firstMeasurementDone && pd.masterPressure >= 0.0f) {
+        // 10.15.6: only a REAL master reading may complete the first measurement.
+        // The old `>= 0.0f` check was always true (pd starts at 0) and raised a
+        // false LOW_PRESSURE when the very first measureMaster() failed.
+        if (!firstMeasurementDone && masterReady) {
           firstMeasurementDone = true;
           firstPressureMeasurementDone = true;
           SERIAL_DBG("[PRESS] Первый замер выполнен! Давление: %.2f бар\n", pd.masterPressure);
@@ -202,12 +214,12 @@ void pressureTask(void *pvParameters) {
       MutexGuard guard(xStateMutex);
       if (guard) {
         for (int i = 0; i < PAD_COUNT; i++) {
-          if (abs(pressure[i] - pd.pressure[i]) > cfg_getRedrawPressureThr()) {
+          if (fabsf(pressure[i] - pd.pressure[i]) > cfg_getRedrawPressureThr()) {
             pressureChanged = true;
             break;
           }
         }
-        if (abs(masterPressure - pd.masterPressure) > cfg_getRedrawPressureThr()) {
+        if (fabsf(masterPressure - pd.masterPressure) > cfg_getRedrawPressureThr()) {
           pressureChanged = true;
         }
         memcpy(pressure, pd.pressure, sizeof(pressure));

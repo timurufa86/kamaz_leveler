@@ -46,11 +46,25 @@ public:
     // 10.15.0: задачи действительно остановлены на время OTA-сессии — метки
     // больше не подделываются (раньше монитор считал их живыми), но и
     // зависанием это не считается: проверка просто пропускается.
+    static uint32_t hangFirstMs[TASK_COUNT] = {0};
+    static bool pausedSinceLastCheck = false;
     if (otaInProgress || s_otaWorkersPaused) {
+      pausedSinceLastCheck = true;
       static uint32_t lastPauseLog = 0;
       if (currentTime - lastPauseLog > 60000UL) {
         lastPauseLog = currentTime;
         SERIAL_DBGLN("[WDT] мониторинг задач приостановлен (OTA-сессия)");
+      }
+      return;
+    }
+    /* 10.15.6: после паузы OTA метки задач устарели на всю длительность сессии
+       (> 10 с) → ложное «зависание»: closeAllValves + ошибка WATCHDOG + риск
+       ESP.restart(). Один раз перебазируем метки и выходим. */
+    if (pausedSinceLastCheck) {
+      pausedSinceLastCheck = false;
+      for (int i = 0; i < TASK_COUNT; i++) {
+        if (tasks[i].lastRunTime != 0) tasks[i].lastRunTime = currentTime;
+        hangFirstMs[i] = 0;
       }
       return;
     }
@@ -61,7 +75,6 @@ public:
 
     // 10.15.0: зависание задачи — не только экран. Клапаны закрываются сразу,
     // а если задача не ожила за два периода монитора — устройство перезапускается.
-    static uint32_t hangFirstMs[TASK_COUNT] = {0};
     for (int i = 0; i < TASK_COUNT; i++) {
       if (tasks[i].lastRunTime == 0) continue;  // ещё не стартовала
       const uint32_t age = currentTime - tasks[i].lastRunTime;

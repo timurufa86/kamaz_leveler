@@ -1,6 +1,8 @@
 #include "wifi_setup.h"
 #include "ota_net.h"
 #include "app_globals.h"
+#include "task_pool.h"
+#include "task_monitor.h"
 #include "ui_theme.h"
 #include "ui_text.h"
 #include "ui_fonts.h"
@@ -302,6 +304,11 @@ void connectConfiguredWiFi() {
   SERIAL_DBG("[WiFi] Подключение к \"%s\"\n", sta_ssid);
   uint32_t started = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - started < 15000) {
+    /* 10.15.6: this wait can block ButtonTask for >10s (TaskMonitor timeout),
+       which caused a false WATCHDOG + closeAllValves. Keep the heartbeat of the
+       task that is doing the wait, so a legitimate blocking wait is not a hang. */
+    const uint8_t selfIdx = TaskPool::getIndexByHandle(xTaskGetCurrentTaskHandle());
+    if (selfIdx != 0xFF) cfg_taskMonitorUpdate(selfIdx);
     delay(250);
     SERIAL_DBG_PRINT('.');
   }

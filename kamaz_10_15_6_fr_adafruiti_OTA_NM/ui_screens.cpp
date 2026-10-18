@@ -1538,15 +1538,15 @@ void displayMainScreen() {
     lastSystemMode = (SystemMode)255;
   }
 
-  if (abs(localAngleX - lastState.angleX) > cfg_getRedrawAngleThr() || abs(localAngleY - lastState.angleY) > cfg_getRedrawAngleThr() ||
-      abs(localTemp - lastState.temp) > 0.5f || abs(localMasterPressure - lastState.masterPressure) > cfg_getRedrawPressureThr() ||
+  if (fabsf(localAngleX - lastState.angleX) > cfg_getRedrawAngleThr() || fabsf(localAngleY - lastState.angleY) > cfg_getRedrawAngleThr() ||
+      fabsf(localTemp - lastState.temp) > 0.5f || fabsf(localMasterPressure - lastState.masterPressure) > cfg_getRedrawPressureThr() ||
       localIsMoving != lastState.isMoving || currentSystemMode != lastSystemMode) {
     needRedraw = true;
   }
 
   if (!needRedraw) {
     for (int i = 0; i < PAD_COUNT; i++) {
-      if (abs(localPressure[i] - lastState.pressure[i]) > cfg_getRedrawPressureThr()) {
+      if (fabsf(localPressure[i] - lastState.pressure[i]) > cfg_getRedrawPressureThr()) {
         needRedraw = true;
         break;
       }

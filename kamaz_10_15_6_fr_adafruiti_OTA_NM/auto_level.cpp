@@ -74,6 +74,9 @@ static void resetCycleFlags() {
   fineLowCorner = 0;
   finePrevHeightDiff = 0.0f;
   coarseSign = 0;
+  /* 10.15.6: счётчик точных итераций принадлежит циклу и сбрасывается здесь,
+     а не при каждом повторном входе в FINE_TUNING (иначе лимит был мёртв). */
+  fineTuningIterations = 0;
 }
 
 static void noteSuccessfulPulse() { cycleHadSuccessfulPulse = true; }
@@ -130,10 +133,10 @@ static void decideAfterStability() {
     currentY = angleY;
   }
 
-  if (abs(currentX) <= thX && abs(currentY) <= thY) {
+  if (fabsf(currentX) <= thX && fabsf(currentY) <= thY) {
     SERIAL_DBG("[AUTO] Стабилизация: X=%.2f°, Y=%.2f° - ОТЛИЧНО!\n", currentX, currentY);
     currentStage = LevelingStage::COMPLETED;
-  } else if (abs(currentX) > coarseX || abs(currentY) > coarseY) {
+  } else if (fabsf(currentX) > coarseX || fabsf(currentY) > coarseY) {
     SERIAL_DBG("[AUTO] Стабилизация: X=%.2f°, Y=%.2f° - грубая зона\n", currentX, currentY);
     currentStage = LevelingStage::COARSE_ROLL;
     coarseStep = 0;
@@ -142,7 +145,6 @@ static void decideAfterStability() {
     /* th … th×coarse → FINE, never treat as success */
     SERIAL_DBG("[AUTO] Стабилизация: X=%.2f°, Y=%.2f° - зона точной\n", currentX, currentY);
     currentStage = LevelingStage::FINE_TUNING;
-    fineTuningIterations = 0;
     fineLowLocked = false;
   }
   stageStartTime = millis();
@@ -181,7 +183,7 @@ static bool tickStabilityWait() {
     currentY = angleY;
   }
 
-  if (abs(currentX) <= thrX && abs(currentY) <= thrY) {
+  if (fabsf(currentX) <= thrX && fabsf(currentY) <= thrY) {
     if (stabHoldStartMs == 0) {
       stabHoldStartMs = now;
     } else if (now - stabHoldStartMs >= holdMs) {
@@ -212,7 +214,7 @@ static bool executeValveCommand(Pad pad, bool inflate, uint32_t durationMs) {
   }
 
   float pressureDelta = pressureAfter - pressureBefore;
-  if (abs(pressureDelta) < PRESSURE_DELTA_EPS) {
+  if (fabsf(pressureDelta) < PRESSURE_DELTA_EPS) {
     SERIAL_DBG("[AUTO] ΔP мал (%.3f), импульс принят (pulsePad=ok)\n", pressureDelta);
   }
   noteSuccessfulPulse();
@@ -343,7 +345,7 @@ void AutoLevelingController::process() {
     currentY = angleY;
   }
 
-  bool needLeveling = (abs(currentX) > thX) || (abs(currentY) > thY);
+  bool needLeveling = (fabsf(currentX) > thX) || (fabsf(currentY) > thY);
 
   switch (currentStage) {
     case LevelingStage::IDLE:
@@ -378,7 +380,7 @@ void AutoLevelingController::process() {
       break;
 
     case LevelingStage::COARSE_ROLL:
-      if (abs(currentX) > coarseX) {
+      if (fabsf(currentX) > coarseX) {
         if (coarseStep == 0) {
           /* Lock sign on first step; keep it for inflate even if angle flips briefly. */
           coarseSign = (currentX >= 0.0f) ? 1 : -1;
@@ -421,7 +423,7 @@ void AutoLevelingController::process() {
           }
           stageStartTime = now;
         }
-      } else if (abs(currentX) > thX) {
+      } else if (fabsf(currentX) > thX) {
         /* Outside th but inside coarse zone → fine (via pitch handoff or direct). */
         SERIAL_DBGLN("[AUTO] Крен в зоне th…coarse → тангаж/точная");
         currentStage = LevelingStage::COARSE_PITCH;
@@ -438,7 +440,7 @@ void AutoLevelingController::process() {
       break;
 
     case LevelingStage::COARSE_PITCH:
-      if (abs(currentY) > coarseY) {
+      if (fabsf(currentY) > coarseY) {
         if (coarseStep == 0) {
           coarseSign = (currentY >= 0.0f) ? 1 : -1;
           if (coarseSign > 0) {
@@ -480,14 +482,13 @@ void AutoLevelingController::process() {
           }
           stageStartTime = now;
         }
-      } else if (abs(currentX) <= thX && abs(currentY) <= thY) {
+      } else if (fabsf(currentX) <= thX && fabsf(currentY) <= thY) {
         SERIAL_DBGLN("[AUTO] Выравнивание завершено успешно");
         currentStage = LevelingStage::COMPLETED;
       } else {
         /* Pitch in/near coarse band but still outside th (or roll residual) → FINE */
         SERIAL_DBGLN("[AUTO] Тангаж/крен в зоне th…coarse → точная настройка");
         currentStage = LevelingStage::FINE_TUNING;
-        fineTuningIterations = 0;
         fineLowLocked = false;
         stageStartTime = now;
       }
@@ -571,17 +572,33 @@ void AutoLevelingController::process() {
           }
           float afterDiff = aMax - aMin;
 
-          if (afterDiff < finePrevHeightDiff * 0.98f || afterDiff < fineThreshold) {
-            fineTuningIterations++;
-            SERIAL_DBG("[AUTO] Точная: улучшение %.2f → %.2f (итер %d)\n",
-                          finePrevHeightDiff, afterDiff, fineTuningIterations);
+          /* 10.15.6: "порог хуже" из меню теперь реально влияет на решение, а
+             итерация засчитывается ВСЕГДА. Раньше счётчик увеличивался только
+             при улучшении и обнулялся при повторном входе в FINE_TUNING, поэтому
+             лимит не достигался и клапаны могли пульсовать бесконечно. */
+          const float worsening = fmaxf(1.0f, cfg_getWorseningRatio());
+          const bool improved = afterDiff < finePrevHeightDiff * 0.98f;
+          const bool worsened = afterDiff > finePrevHeightDiff * worsening;
+          fineTuningIterations++;
+          if (improved) {
+            SERIAL_DBG("[AUTO] Точная: улучшение %.2f → %.2f (итер %d/%d)\n",
+                          finePrevHeightDiff, afterDiff, fineTuningIterations,
+                          MAX_FINE_TUNING_ITERATIONS);
+          } else if (worsened) {
+            SERIAL_DBG("[AUTO] Точная: стало хуже %.2f → %.2f (порог ×%.2f) — стоп\n",
+                          finePrevHeightDiff, afterDiff, worsening);
           } else {
-            SERIAL_DBG("[AUTO] Точная: нет улучшения %.2f → %.2f — итерация не засчитана\n",
-                          finePrevHeightDiff, afterDiff);
+            SERIAL_DBG("[AUTO] Точная: без улучшения %.2f → %.2f (итер %d/%d)\n",
+                          finePrevHeightDiff, afterDiff, fineTuningIterations,
+                          MAX_FINE_TUNING_ITERATIONS);
           }
           fineLowLocked = false;
           finePrevHeightDiff = afterDiff;
-          enterWaitingStable();
+          if (worsened) {
+            currentStage = LevelingStage::COMPLETED;
+          } else {
+            enterWaitingStable();
+          }
         } else {
           SERIAL_DBG("[AUTO] Точная настройка завершена (разница %.2f < %.2f)\n",
                         heightDifference, fineThreshold);
@@ -600,7 +617,7 @@ void AutoLevelingController::process() {
         if (guard) {
           float finalX = angleX;
           float finalY = angleY;
-          if (abs(finalX) > thX || abs(finalY) > thY) {
+          if (fabsf(finalX) > thX || fabsf(finalY) > thY) {
             SERIAL_DBG("[AUTO] Не в норме после цикла: X=%.2f, Y=%.2f — IDLE (ждём интервал)\n",
                           finalX, finalY);
           } else {

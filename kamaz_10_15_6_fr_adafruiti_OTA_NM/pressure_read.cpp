@@ -544,7 +544,7 @@ void maintainMovementPressure() {
     }
   }
 
-  if (canAdjustFront && abs(diffFront) > cfg_getMovementTolerance() && (currentTime - lastAdjustmentTimeFront >= ADJUSTMENT_COOLDOWN_MS)) {
+  if (canAdjustFront && fabsf(diffFront) > cfg_getMovementTolerance() && (currentTime - lastAdjustmentTimeFront >= ADJUSTMENT_COOLDOWN_MS)) {
     const uint32_t inflMs = (uint32_t)cfg_getInflateDelay() * 1000UL;
     const uint32_t deflMs = (uint32_t)cfg_getReleaseDelay() * 1000UL;
 
@@ -576,7 +576,7 @@ void maintainMovementPressure() {
     }
   }
 
-  if (canAdjustRear && abs(diffRear) > cfg_getMovementTolerance() && (currentTime - lastAdjustmentTimeRear >= ADJUSTMENT_COOLDOWN_MS)) {
+  if (canAdjustRear && fabsf(diffRear) > cfg_getMovementTolerance() && (currentTime - lastAdjustmentTimeRear >= ADJUSTMENT_COOLDOWN_MS)) {
     const uint32_t inflMs = (uint32_t)cfg_getInflateDelay() * 1000UL;
     const uint32_t deflMs = (uint32_t)cfg_getReleaseDelay() * 1000UL;
 

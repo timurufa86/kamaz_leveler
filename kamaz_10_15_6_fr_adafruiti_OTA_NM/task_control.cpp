@@ -124,13 +124,10 @@ void controlTask(void *pvParameters) {
           temperature = imu.temperature;
         }
       }
-      if (xQueueReceive(xPressureQueue, &press, pdMS_TO_TICKS(10)) == pdTRUE) {
-        MutexGuard guard(xStateMutex);
-        if (guard) {
-          memcpy(pressure, press.pressure, sizeof(pressure));
-          masterPressure = press.masterPressure;
-        }
-      }
+      // 10.15.6: drain the queue only. pressure[]/masterPressure are already
+      // written by pressureTask/valve_ctrl under xStateMutex; copying this older
+      // snapshot here clobbered the fresh mid-pulse readings (false ERR_VALVE).
+      (void)xQueueReceive(xPressureQueue, &press, pdMS_TO_TICKS(10));
       runValveTestLogic();
       vTaskDelayUntil(&last, pdMS_TO_TICKS(100));
       continue;
@@ -144,13 +141,8 @@ void controlTask(void *pvParameters) {
         temperature = imu.temperature;
       }
     }
-    if (xQueueReceive(xPressureQueue, &press, pdMS_TO_TICKS(10)) == pdTRUE) {
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        memcpy(pressure, press.pressure, sizeof(pressure));
-        masterPressure = press.masterPressure;
-      }
-    }
+    // 10.15.6: drain only — see the test-mode block above.
+    (void)xQueueReceive(xPressureQueue, &press, pdMS_TO_TICKS(10));
 
 #if !ENABLE_SIMULATION
     if (currentSystemMode == SystemMode::MOVEMENT) {
@@ -242,7 +234,7 @@ void controlTask(void *pvParameters) {
         MutexGuard guard(xStateMutex);
         if (guard) {
           float currentPressure = pressure[lastCmd.pad];
-          float pressureDelta = abs(currentPressure - lastCmd.pressureBefore);
+          float pressureDelta = fabsf(currentPressure - lastCmd.pressureBefore);
 
           if (pressureDelta > 0.3f) {
             pressureChanged = true;

@@ -52,4 +52,7 @@ public:
   static bool destroyKeepSlot(uint8_t index);
   /** 10.15.5: recreate a task previously removed with destroyKeepSlot(). */
   static bool recreateSlot(uint8_t index);
+  /** 10.15.6: reverse lookup (0xFF = not found) — lets whichever task is stuck
+      in a long blocking wait keep its own TaskMonitor heartbeat fresh. */
+  static uint8_t getIndexByHandle(TaskHandle_t handle);
 };

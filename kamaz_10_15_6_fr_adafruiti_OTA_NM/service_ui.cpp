@@ -323,6 +323,14 @@ void startValveTest() {
     return;
   }
 
+  /* 10.15.6: аварийная защёлка — не ошибка, но инвариант тот же: до сброса
+     (повторное удержание КН1+КН4) пневматика не трогается. Иначе тест открывал
+     INFL/DEFL в обход emergencyIsLatched(). */
+  if (emergencyIsLatched()) {
+    Logger::log(Logger::WARNING, "TEST", "Тест заблокирован: аварийная защёлка (сброс КН1+КН4)");
+    return;
+  }
+
   if (manualControlActive) {
     stopManualOperation();
   }
@@ -363,6 +371,11 @@ void valveTestAbort() {
 }
 
 void runValveTestLogic() {
+  // 10.15.6: защёлка могла взвестись уже во время теста — полностью выходим.
+  if (emergencyIsLatched()) {
+    valveTestAbort();
+    return;
+  }
   // ========== ЗАХВАТ МЬЮТЕКСА ==========
   MutexGuard guard(xTestMutex, pdMS_TO_TICKS(100));
   if (!guard) {
