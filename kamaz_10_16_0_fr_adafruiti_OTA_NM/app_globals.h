@@ -52,6 +52,8 @@ extern volatile bool menuVisible;
 extern volatile bool mpuOk;
 extern volatile bool otaInProgress;
 extern volatile bool otaValveLock;
+/* 10.16.0: включение HTTP-API для Home Assistant (зеркало настройки). */
+extern volatile bool haEnabled;
 extern volatile bool calibrationCompleted;
 extern volatile bool calibrationValid;
 
@@ -202,3 +204,4 @@ extern uint8_t taskIndex_Watchdog;
 extern uint8_t taskIndex_OTA;
 extern uint8_t taskIndex_ErrRec;
 extern uint8_t taskIndex_Valve;
+extern uint8_t taskIndex_HA;

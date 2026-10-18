@@ -7,7 +7,7 @@
 #include "error_handler.h"
 #include "app_globals.h"
 
-constexpr uint8_t TASK_COUNT = 11;  // Event..Valve + ErrorRecovery (index 0..10)
+constexpr uint8_t TASK_COUNT = 12;  // Event..ErrorRecovery + HA (index 0..11)
 constexpr uint32_t TASK_WDT_TIMEOUT_MS = 10000;
 
 extern volatile bool s_otaWorkersPaused;
@@ -33,7 +33,9 @@ public:
     TASK_WATCHDOG,
     TASK_OTA,
     TASK_VALVE,
-    TASK_ERROR_RECOVERY
+    TASK_ERROR_RECOVERY,
+    /* 10.16.0: HTTP API для Home Assistant. */
+    TASK_HA
   };
 
   static void updateTaskStatus(TaskIndex index) {

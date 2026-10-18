@@ -307,6 +307,11 @@ void handleServiceInput() {
    его нужно сбрасывать (иначе первый шаг не переинициализируется). */
 static bool stepInitialized = false;
 
+/* 10.16.0: доступ для HTTP-API (HA) — запрет ручных команд во время теста. */
+bool valveTestActive() {
+  return currentTestStep != TestStep::IDLE && currentTestStep != TestStep::COMPLETED;
+}
+
 void startValveTest() {
   if (currentTestStep != TestStep::IDLE && currentTestStep != TestStep::COMPLETED) {
     Logger::log(Logger::WARNING, "TEST", "Тест уже выполняется!");

@@ -11,6 +11,7 @@
 #include "task_pool.h"
 #include "valve_ctrl.h"
 #include "pressure_read.h"
+#include "mode_ctrl.h"
 #include "wifi_setup.h"
 #include "logger.h"
 #include "event_bus.h"
@@ -76,37 +77,11 @@ bool emergencyPairPressedNow() {
 /** Переключение АВТО - РУЧНОЕ (не трогает MOVEMENT). */
 static void toggleAutoManualMode(const char *via) {
   if (currentSystemMode == SystemMode::MOVEMENT) return;
-
-  if (currentSystemMode == SystemMode::AUTO) {
-    {
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        currentSystemMode = SystemMode::MANUAL;
-        currentMode = Mode::MANUAL;
-      }
-    }
-    setAllManualTargetsFromCurrent();
-    requestPressureMeasurement();
-    Logger::log(Logger::INFO, "MODE", "Переключено в РУЧНОЙ режим");
-  } else {
-    /* 10.15.6: писали currentSystemMode без мьютекса (в отличие от ветки выше). */
-    {
-      MutexGuard guard(xStateMutex);
-      if (guard) {
-        currentSystemMode = SystemMode::AUTO;
-        currentMode = Mode::AUTO;
-      }
-    }
-    lastLevelingCheckTime = millis();
-    lastLevelingAttemptTime = millis();
-    levelingAttemptsThisHour = 0;
-    lastHourResetTime = millis();
-    Logger::log(Logger::INFO, "MODE", "Переключено в АВТО режим");
-  }
-  forceDisplayReset(true);
-  setDisplayDirty();
-  SERIAL_DBG("[MODE] toggle via %s > %s\n", via ? via : "?",
-                currentSystemMode == SystemMode::AUTO ? "AUTO" : "MANUAL");
+  /* 10.16.0: общая реализация — та же, что у HTTP-API (Home Assistant). */
+  const SystemMode target = (currentSystemMode == SystemMode::AUTO)
+                                ? SystemMode::MANUAL
+                                : SystemMode::AUTO;
+  switchSystemMode(target, via ? via : "buttons");
 }
 
 void buttonTask(void *pvParameters) {

@@ -1,0 +1,67 @@
+# Kamaz Leveler — пример Lovelace-дашборда (YAML-режим)
+# Требует пакет ha/kamaz_leveler_package.yaml (сущности sensor.kamaz_*).
+title: Kamaz Leveler
+views:
+  - title: Уровень
+    path: kamaz
+    icon: mdi:car
+    cards:
+      - type: entities
+        title: Режим и состояние
+        entities:
+          - sensor.kamaz_mode
+          - sensor.kamaz_state
+          - sensor.kamaz_leveling_stage
+          - sensor.kamaz_errors
+          - binary_sensor.kamaz_moving
+          - binary_sensor.kamaz_mpu_ok
+      - type: gauge
+        name: Угол X
+        entity: sensor.kamaz_angle_x
+        min: -5
+        max: 5
+        severity:
+          green: 0.5
+          yellow: 1.0
+          red: 2.0
+      - type: gauge
+        name: Угол Y
+        entity: sensor.kamaz_angle_y
+        min: -5
+        max: 5
+        severity:
+          green: 0.5
+          yellow: 1.0
+          red: 2.0
+      - type: entities
+        title: Давления, бар
+        entities:
+          - sensor.kamaz_pressure_fl
+          - sensor.kamaz_pressure_fr
+          - sensor.kamaz_pressure_rl
+          - sensor.kamaz_pressure_rr
+          - sensor.kamaz_pressure_master
+      - type: horizontal-stack
+        cards:
+          - type: button
+            name: АВТО
+            tap_action:
+              action: perform-action
+              perform_action: script.kamaz_auto
+          - type: button
+            name: РУЧНОЙ
+            tap_action:
+              action: perform-action
+              perform_action: script.kamaz_manual
+          - type: button
+            name: СТОП
+            tap_action:
+              action: perform-action
+              perform_action: script.kamaz_all_stop
+      - type: entities
+        title: Диагностика
+        entities:
+          - sensor.kamaz_heap_free
+          - sensor.kamaz_wifi_rssi
+          - sensor.kamaz_uptime
+          - sensor.kamaz_test_state

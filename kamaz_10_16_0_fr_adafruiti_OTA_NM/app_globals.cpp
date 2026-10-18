@@ -31,6 +31,8 @@ volatile bool menuVisible          = false;
 volatile bool mpuOk                = false;
 volatile bool otaInProgress        = false;
 volatile bool otaValveLock         = false;
+/* 10.16.0: HTTP-API для Home Assistant */
+volatile bool haEnabled            = false;
 volatile bool calibrationCompleted = false;
 volatile bool calibrationValid     = false;
 
@@ -154,6 +156,7 @@ uint8_t taskIndex_Watchdog = 0xFF;
 uint8_t taskIndex_OTA      = 0xFF;
 uint8_t taskIndex_ErrRec   = 0xFF;
 uint8_t taskIndex_Valve    = 0xFF;
+uint8_t taskIndex_HA       = 0xFF;
 
 /* ========== БЕЗОПАСНЫЕ ФУНКЦИИ ДЛЯ РАБОТЫ С СОСТОЯНИЕМ ========== */
 bool setSystemState(SystemState newState) {

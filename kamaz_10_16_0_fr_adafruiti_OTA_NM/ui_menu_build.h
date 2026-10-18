@@ -49,6 +49,8 @@ extern float editStableThr;
 extern int   editStableHoldMs;
 extern int   editStableTimeoutSec;
 extern bool  editMovementEnabled;
+/* 10.16.0: интеграция с Home Assistant */
+extern bool  editHaEnabled;
 extern int   editMoveDuration;
 extern int   editMoveSettle;
 extern int   editMoveCheck;
@@ -95,3 +97,4 @@ extern GEMPage infoPage;
 extern GEMPage imuPage;
 extern GEMPage imuAdvPage;
 extern GEMPage settingsViewPage;
+extern GEMPage haPage;   // 10.16.0: «Дом (HA)»

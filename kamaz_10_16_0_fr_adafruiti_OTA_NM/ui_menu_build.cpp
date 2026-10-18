@@ -12,6 +12,7 @@
 #include "valve_ctrl.h"
 #include "task_display.h"
 #include "app_pins.h"
+#include "config_manager.h"
 #include "error_handler.h"
 #include "logger.h"
 #include "FontsRus/CourierCyr7.h"
@@ -29,6 +30,7 @@ void resetSystemErrors();
 void requestWiFiSetup();
 void saveMenuSettings();
 extern void cfg_setMasterLowBar(float v);
+#include "ha_api.h"   // 10.16.0: статус/токен на странице «Дом (HA)»
 extern void cfg_setBacklightOffMin(int v);
 
 enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
@@ -216,8 +218,37 @@ static GEMItem itemInfoWiFi("Wi-Fi: …");
 static GEMItem itemInfoSystem("Аптайм: …");
 static GEMItem itemInfoErrors("Ошибки: …");
 
+/* ── 10.16.0: страница «Дом (HA)» ── */
+static GEMItem itemHaEnabled("Интеграция", editHaEnabled, [](GEMCallbackData data) {
+  void *ptr = data.pMenuItem->getLinkedVariablePointer();
+  if (ptr) {
+    editHaEnabled = *(bool *)ptr;
+    settingsChanged = true;
+    displayDirty = true;
+  }
+});
+static GEMItem itemHaStatus("Статус: …");
+static GEMItem itemHaToken("Токен: …");
+static GEMItem itemHaTokenReset("Сбросить токен", []() {
+  cfg_setHaToken("");
+  ConfigManager::save();
+  displayDirty = true;
+  SERIAL_DBGLN("[HA] token cleared (menu)");
+});
+
+/** Живые строки страницы «Дом (HA)» — перед отрисовкой меню. */
+static void refreshHaPage() {
+  static char st[72];
+  static char tok[40];
+  snprintf(st, sizeof(st), "Статус: %s", haStatusText());
+  itemHaStatus.setTitle(st);
+  snprintf(tok, sizeof(tok), "Токен: %s", cfg_getHaToken()[0] ? "задан" : "не задан");
+  itemHaToken.setTitle(tok);
+}
+
 static void refreshInfoPage();   // определена ниже
 static void refreshSettingsView(); // определена ниже
+static void refreshHaPage();       // 10.16.0
 
 /** Живые строки динамических страниц меню — вызывается перед отрисовкой. */
 void refreshDynamicMenu() {
@@ -232,6 +263,8 @@ void refreshDynamicMenu() {
     refreshOtaCard();
   } else if (page == &settingsViewPage) {
     refreshSettingsView();  // 8.8.0: просмотр всех значений конфига
+  } else if (page == &haPage) {
+    refreshHaPage();        // 10.16.0: статус HTTP-API
   }
 }
 
@@ -452,14 +485,22 @@ void initGEM() {
     // --- Страница "Система" ---
     static GEMItem itemReset("Сброс ошибок", []() { resetSystemErrors(); });
     static GEMItem itemWiFi("Настроить WiFi", []() { requestWiFiSetup(); });
+    static GEMItem linkHa("Дом (HA)", &haPage);   // 10.16.0
     static GEMItem linkOta("Обновления", &otaPage);
     static GEMItem linkDisplay("Дисплей", &displayPage);
     static GEMItem linkInfo("Информация", &infoPage);
     systemPage.addMenuItem(itemReset);
     systemPage.addMenuItem(itemWiFi);
+    systemPage.addMenuItem(linkHa);
     systemPage.addMenuItem(linkOta);
     systemPage.addMenuItem(linkDisplay);
     systemPage.addMenuItem(linkInfo);
+
+    // --- Страница «Дом (HA)» ---
+    haPage.addMenuItem(itemHaEnabled);
+    haPage.addMenuItem(itemHaStatus);
+    haPage.addMenuItem(itemHaToken);
+    haPage.addMenuItem(itemHaTokenReset);
 
     // --- Страница «Клапанный блок» ---
     static GEMItem linkPressure("Давление", &pressurePage);

@@ -7,6 +7,7 @@
 #include "valve_ctrl.h"
 #include "event_bus.h"
 #include "error_handler.h"
+#include "ha_api.h"
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -120,6 +121,8 @@ void githubOtaPauseWorkers(bool pause) {
       // 10.15.0: сначала закрыть пневматику, и только потом морозить задачи —
       // раньше vTaskSuspend заставал открытые клапаны на всю TLS-сессию.
       otaQuiesceForNetwork();
+      // 10.16.0: остановить HTTP-сервер HA — освободить сокеты и ~5 КБ кучи под TLS.
+      haOtaBegin();
     }
     s_otaPauseDepth++;
   } else {
@@ -127,6 +130,7 @@ void githubOtaPauseWorkers(bool pause) {
     s_otaPauseDepth--;
     if (s_otaPauseDepth > 0) return;        // вложенная пауза ещё активна
     otaValveLock = s_otaPauseHadValveLock;  // вернуть прежнее состояние
+    haOtaEnd();
   }
   s_otaWorkersPaused = pause;
 

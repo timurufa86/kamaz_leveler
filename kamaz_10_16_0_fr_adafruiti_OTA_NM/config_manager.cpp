@@ -81,6 +81,7 @@ int cfg_getTimeInterval() { return ConfigManager::getTimeInterval(); }
 
 /** Применение настроек к железу сразу после сохранения (без перезагрузки). */
 void applyRuntimeSettings() {
+  haEnabled = ConfigManager::getHaEnabled();  // 10.16.0: зеркало для HaTask
   backlightDimmed = false;
   applyBacklightPwm(constrain(ConfigManager::getContrast(), CONTRAST_MIN, CONTRAST_MAX));
 
@@ -230,6 +231,7 @@ void saveMenuSettings() {
   ConfigManager::setImuEmaSpikeAlpha(editImuEmaSpikeAlpha);
   ConfigManager::setImuEmaSpikeThr(editImuEmaSpikeThr);
   ConfigManager::setImuSlewDps(editImuSlewDps);
+  ConfigManager::setHaEnabled(editHaEnabled);  // 10.16.0
 
   const bool saved = saveConfig();
   if (!saved) {
@@ -346,4 +348,10 @@ bool saveWiFiConfig() {
   Logger::log(Logger::INFO, "WiFi", "Сохранено");
   return true;
 }
+
+/* ===== 10.16.0: Home Assistant (HTTP REST) ===== */
+bool cfg_getHaEnabled() { return ConfigManager::getHaEnabled(); }
+void cfg_setHaEnabled(bool v) { ConfigManager::setHaEnabled(v); }
+const char *cfg_getHaToken() { return ConfigManager::getHaToken(); }
+void cfg_setHaToken(const char *t) { ConfigManager::setHaToken(t); }
 

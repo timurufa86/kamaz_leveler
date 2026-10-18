@@ -1,0 +1,152 @@
+# Kamaz Leveler — пакет для Home Assistant (HTTP REST, прошивка 10.16.0+)
+#
+# 1. Скопируйте файл в /config/packages/kamaz_leveler.yaml
+# 2. Добавьте в configuration.yaml (если ещё нет):  homeassistant: packages: !include_dir_named packages
+# 3. Пропишите IP устройства (меню «Система → Информация» или «Дом (HA)»).
+# 4. Если на устройстве задан токен (Serial: HA TOKEN <str>), добавьте его в secrets.yaml
+#    как kamaz_token и раскомментируйте заголовки X-Api-Key.
+#
+# Топики/адреса: http://<IP>/api/state, /api/config, /api/mode, /api/manual, /api/action.
+
+rest:
+  - resource: "http://192.168.1.50/api/state"
+    scan_interval: 5
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    sensor:
+      - name: "Kamaz mode"
+        value_template: "{{ value_json.mode }}"
+        icon: mdi:car-cruise-control
+      - name: "Kamaz state"
+        value_template: "{{ value_json.state }}"
+      - name: "Kamaz angle X"
+        unit_of_measurement: "°"
+        value_template: "{{ value_json.angles.x | round(2) }}"
+      - name: "Kamaz angle Y"
+        unit_of_measurement: "°"
+        value_template: "{{ value_json.angles.y | round(2) }}"
+      - name: "Kamaz temperature"
+        unit_of_measurement: "°C"
+        value_template: "{{ value_json.temperature_c | round(1) }}"
+        device_class: temperature
+      - name: "Kamaz pressure FL"
+        unit_of_measurement: "bar"
+        value_template: "{{ value_json.pressure.fl | round(2) }}"
+      - name: "Kamaz pressure FR"
+        unit_of_measurement: "bar"
+        value_template: "{{ value_json.pressure.fr | round(2) }}"
+      - name: "Kamaz pressure RL"
+        unit_of_measurement: "bar"
+        value_template: "{{ value_json.pressure.rl | round(2) }}"
+      - name: "Kamaz pressure RR"
+        unit_of_measurement: "bar"
+        value_template: "{{ value_json.pressure.rr | round(2) }}"
+      - name: "Kamaz pressure master"
+        unit_of_measurement: "bar"
+        value_template: "{{ value_json.pressure.master | round(2) }}"
+      - name: "Kamaz leveling stage"
+        value_template: "{{ value_json.leveling.stage }}"
+      - name: "Kamaz errors"
+        value_template: "{{ value_json.errors.count }}"
+      - name: "Kamaz heap free"
+        unit_of_measurement: "B"
+        value_template: "{{ value_json.system.heap_free }}"
+      - name: "Kamaz WiFi RSSI"
+        unit_of_measurement: "dBm"
+        value_template: "{{ value_json.wifi.rssi }}"
+        device_class: signal_strength
+      - name: "Kamaz uptime"
+        unit_of_measurement: "s"
+        value_template: "{{ value_json.uptime_s }}"
+      - name: "Kamaz test state"
+        value_template: "{{ value_json.test_state }}"
+    binary_sensor:
+      - name: "Kamaz moving"
+        value_template: "{{ value_json.moving }}"
+      - name: "Kamaz MPU ok"
+        value_template: "{{ value_json.mpu_ok }}"
+        device_class: connectivity
+      - name: "Kamaz OTA in progress"
+        value_template: "{{ value_json.ota.in_progress }}"
+        device_class: running
+
+# ── Команды ──
+rest_command:
+  kamaz_set_auto:
+    url: "http://192.168.1.50/api/mode"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"mode":"auto"}'
+
+  kamaz_set_manual:
+    url: "http://192.168.1.50/api/mode"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"mode":"manual"}'
+
+  kamaz_manual_start:
+    url: "http://192.168.1.50/api/manual"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"action":"start","pad":"{{ pad }}","inflate":{{ inflate }}}'
+
+  kamaz_manual_stop:
+    url: "http://192.168.1.50/api/manual"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"action":"stop"}'
+
+  kamaz_pulse:
+    url: "http://192.168.1.50/api/manual"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"action":"pulse","pad":"{{ pad }}","inflate":{{ inflate }},"seconds":{{ seconds | default(2) }}}'
+
+  kamaz_stop_all:
+    url: "http://192.168.1.50/api/action"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"action":"stop_all"}'
+
+  kamaz_reset_errors:
+    url: "http://192.168.1.50/api/action"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"action":"reset_errors"}'
+
+  kamaz_save_config:
+    url: "http://192.168.1.50/api/action"
+    method: POST
+    # headers:
+    #   X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: '{"action":"save"}'
+
+# ── Удобные кнопки ──
+script:
+  kamaz_auto:
+    alias: "Kamaz: АВТО"
+    sequence:
+      - action: rest_command.kamaz_set_auto
+  kamaz_manual:
+    alias: "Kamaz: РУЧНОЙ"
+    sequence:
+      - action: rest_command.kamaz_set_manual
+  kamaz_all_stop:
+    alias: "Kamaz: стоп всё"
+    sequence:
+      - action: rest_command.kamaz_stop_all

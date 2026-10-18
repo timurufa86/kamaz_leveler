@@ -2,7 +2,7 @@
  *  Kamaz-Leveler — wiring sketch.
  *  Business logic lives in modules (see MODULES.md). This file keeps includes,
  *  GEM / TFT / SPI / button objects, menu edit mirrors, and setup()/loop().
- *  VERSION: app_version.h ("V 10.15.8 FreeRTOS OTA").
+ *  VERSION: app_version.h ("V 10.16.0 FreeRTOS OTA").
  *****************************************************************************************/
 
 #include <Arduino.h>
@@ -52,6 +52,8 @@
 #include "test_harness.h"
 #include "service_ui.h"
 #include "arduino_ota.h"
+#include "ha_api.h"
+#include "mode_ctrl.h"
 #include "icon.h"
 #include "ui_theme.h"    // палитра и сетка UI
 #include "ui_fonts.h"    // шрифтовая сетка U8g2
@@ -124,6 +126,8 @@ float editStableThr;          // waitForStability: допуск угла, °
 int   editStableHoldMs;       // waitForStability: удержание, мс
 int   editStableTimeoutSec;   // waitForStability: таймаут, с
 bool  editMovementEnabled;    // разрешить режим MOVEMENT
+/* 10.16.0: тумблер «Дом (HA)» */
+bool  editHaEnabled;
 int   editMoveDuration;       // длительность ожидания движения, с
 int   editMoveSettle;         // время успокоения после движения, с
 int   editMoveCheck;          // период проверки давления после движения, с
@@ -175,6 +179,7 @@ GEMPage autoPage("Автовыравнивание", mainPage);
 GEMPage autoAdvPage("Расширенные", autoPage);
 GEMPage displayPage("Дисплей", systemPage);
 GEMPage dispAdvPage("Расширенные", displayPage);
+GEMPage haPage("Дом (HA)", systemPage);   // 10.16.0
 GEMPage movementPage("Движение", mainPage);
 GEMPage movDetectPage("Распознавание", movementPage);
 GEMPage movHoldPage("Поддержание P", movementPage);
@@ -359,6 +364,8 @@ void setup() {
     ConfigManager::load();   // < Теперь загружает config.txt
     loadWiFiConfig();
   }
+  // 10.16.0: зеркало настройки Home Assistant (сервер поднимется в HaTask).
+  haEnabled = cfg_getHaEnabled();
 
   // ========== 8b. MPU6050 (до WiFi — меньше шума на I2C при первом probe) ==========
   initializeDMP();
@@ -396,6 +403,7 @@ void setup() {
   editStableHoldMs = constrain(ConfigManager::getStableHoldMs(), 500, 3000);
   editStableTimeoutSec = constrain(ConfigManager::getStableTimeoutSec(), 2, 15);
   editMovementEnabled = ConfigManager::getMovementEnabled();
+  editHaEnabled = ConfigManager::getHaEnabled();
   editMoveDuration = constrain(ConfigManager::getMovementDurationSec(), 20, 300);
   editMoveSettle = constrain(ConfigManager::getMovementSettleSec(), 20, 300);
   editMoveCheck = constrain(ConfigManager::getMovementCheckSec(), 20, 600);
@@ -526,7 +534,9 @@ void setup() {
     // TLS crypto + Json на стеке OTA; 10K → canary, 16K съедал maxBlk.
     { "OTATask", otaTask, 14336, 2, 1, 100, nullptr },
     { "ErrRecTask", errorRecoveryTask, 3072, 2, 1, 500, nullptr },
-    { "ValveTask", valveTask, 3072, 4, 0, 10, nullptr }
+    { "ValveTask", valveTask, 3072, 4, 0, 10, nullptr },
+    // 10.16.0: HTTP REST для Home Assistant (сервер включается из меню; стек в DRAM).
+    { "HaTask", haTask, 6144, 2, 1, 0, nullptr }
   };
 
   taskIndex_Event = TaskPool::addTask(taskConfigs[0]);
@@ -540,6 +550,7 @@ void setup() {
   taskIndex_OTA = TaskPool::addTask(taskConfigs[8]);
   taskIndex_ErrRec = TaskPool::addTask(taskConfigs[9]);
   taskIndex_Valve = TaskPool::addTask(taskConfigs[10]);
+  taskIndex_HA = TaskPool::addTask(taskConfigs[11]);
 
   vTaskDelay(pdMS_TO_TICKS(100));
 
@@ -549,6 +560,11 @@ void setup() {
       taskIndex_ErrRec == 0xFF || taskIndex_Valve == 0xFF) {
     Serial.println("[ERROR] Failed to create some tasks!");
     ESP.restart();
+  }
+  if (taskIndex_HA == 0xFF) {
+    // Не фатально: устройство работает без Home Assistant.
+    Serial.println("[HA] WARN: HaTask not created — integration disabled");
+    haEnabled = false;
   }
 
   SERIAL_DBGLN("[SETUP] All tasks created successfully");

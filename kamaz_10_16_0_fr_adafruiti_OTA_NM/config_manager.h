@@ -12,7 +12,7 @@
 #include "event_bus.h"
 #include "ui_menu_build.h"
 
-constexpr uint32_t CONFIG_FORMAT_VERSION = 10;
+constexpr uint32_t CONFIG_FORMAT_VERSION = 11;
 
 class ConfigManager {
 private:
@@ -90,6 +90,10 @@ private:
     float imuEmaSpikeAlpha = 0.10f;  // EMA при выбросе
     float imuEmaSpikeThr = 1.8f;     // порог выброса, °
     float imuSlewDps = 70.0f;        // макс. °/с (шум режет EMA; catch-up догоняет рывки)
+
+    // ===== 10.16.0: интеграция с Home Assistant (HTTP REST) =====
+    bool haEnabled = false;          // тумблер в меню «Дом (HA)»
+    char haToken[33] = "";           // опциональный X-Api-Key; пусто = без авторизации
   };
 
   static Config currentConfig;
@@ -271,6 +275,12 @@ public:
     currentConfig.imuEmaSpikeThr = constrain(val, 0.5f, 5.0f);
     val = doc["imuSlewDps"] | 70.0f;
     currentConfig.imuSlewDps = constrain(val, 5.0f, 120.0f);
+    // ===== 10.16.0: интеграция с Home Assistant =====
+    currentConfig.haEnabled = (bool)(doc["haEnabled"] | false);
+    {
+      const char *haTok = doc["haToken"] | "";
+      strlcpy(currentConfig.haToken, haTok, sizeof(currentConfig.haToken));
+    }
     // Миграция старых заводских пресетов > ослабленный баланс 10.1.28
     const bool oldFactoryBal =
         (fabsf(currentConfig.imuKalmanMea - 7.0f) < 0.05f &&
@@ -332,65 +342,7 @@ public:
     }
 
     StaticJsonDocument<2048> doc;  // 8.8.0: увеличено под новые параметры
-    doc["pressureMin"] = currentConfig.pressureMin;
-    doc["formatVersion"] = CONFIG_FORMAT_VERSION;
-    doc["pressureMax"] = currentConfig.pressureMax;
-    doc["masterLowBar"] = currentConfig.masterLowBar;
-    doc["tiltThresholdX"] = currentConfig.tiltThresholdX;
-    doc["tiltThresholdY"] = currentConfig.tiltThresholdY;
-    doc["contrast"] = currentConfig.contrast;
-    doc["nivCount"] = currentConfig.nivCount;
-    doc["timeInterval"] = currentConfig.timeInterval;
-    doc["inflateDelay"] = currentConfig.inflateDelay;
-    doc["releaseDelay"] = currentConfig.releaseDelay;
-    doc["movementPressureFront"] = currentConfig.movementPressureFront;
-    doc["movementPressureRear"] = currentConfig.movementPressureRear;
-    doc["parkingPressureBar"] = currentConfig.parkingPressureBar;
-
-    // ===== 8.8.0 =====
-    doc["masterCheckSec"] = currentConfig.masterCheckSec;
-    doc["manualMaxTimeSec"] = currentConfig.manualMaxTimeSec;
-    doc["pressureDeadband"] = currentConfig.pressureDeadband;
-    doc["pressureStabilizeMs"] = currentConfig.pressureStabilizeMs;
-    doc["pressureIdleMin"] = currentConfig.pressureIdleMin;
-    doc["coarseZoneRatio"] = currentConfig.coarseZoneRatio;
-    doc["fineZoneRatio"] = currentConfig.fineZoneRatio;
-    doc["worseningRatio"] = currentConfig.worseningRatio;
-    doc["stableThresholdDeg"] = currentConfig.stableThresholdDeg;
-    doc["stableHoldMs"] = currentConfig.stableHoldMs;
-    doc["stableTimeoutSec"] = currentConfig.stableTimeoutSec;
-    doc["movementEnabled"] = currentConfig.movementEnabled;
-    doc["movementDurationSec"] = currentConfig.movementDurationSec;
-    doc["movementSettleSec"] = currentConfig.movementSettleSec;
-    doc["movementCheckSec"] = currentConfig.movementCheckSec;
-    doc["movementTolerance"] = currentConfig.movementTolerance;
-    doc["gyroThreshold"] = currentConfig.gyroThreshold;
-    doc["gyroBumpThreshold"] = currentConfig.gyroBumpThreshold;
-    doc["accelThreshold"] = currentConfig.accelThreshold;
-    doc["backlightOffMin"] = currentConfig.backlightOffMin;
-    doc["frameMs"] = currentConfig.frameMs;
-    doc["redrawAngleThr"] = currentConfig.redrawAngleThr;
-    doc["redrawPressureThr"] = currentConfig.redrawPressureThr;
-    doc["imuMotionDet"] = currentConfig.imuMotionDet;
-    doc["imuDlpfMode"] = currentConfig.imuDlpfMode;
-    doc["imuAccelFs"] = currentConfig.imuAccelFs;
-    doc["imuGyroOffX"] = currentConfig.imuGyroOffX;
-    doc["imuGyroOffY"] = currentConfig.imuGyroOffY;
-    doc["imuGyroOffZ"] = currentConfig.imuGyroOffZ;
-    doc["imuAccelOffX"] = currentConfig.imuAccelOffX;
-    doc["imuAccelOffY"] = currentConfig.imuAccelOffY;
-    doc["imuAccelOffZ"] = currentConfig.imuAccelOffZ;
-    doc["zeroAngleX"] = currentConfig.zeroAngleX;
-    doc["zeroAngleY"] = currentConfig.zeroAngleY;
-    doc["imuKalmanMea"] = currentConfig.imuKalmanMea;
-    doc["imuKalmanEst"] = currentConfig.imuKalmanEst;
-    doc["imuKalmanQ"] = currentConfig.imuKalmanQ;
-    doc["imuPollMs"] = currentConfig.imuPollMs;
-    doc["imuFifoAvg"] = currentConfig.imuFifoAvg;
-    doc["imuEmaAlpha"] = currentConfig.imuEmaAlpha;
-    doc["imuEmaSpikeAlpha"] = currentConfig.imuEmaSpikeAlpha;
-    doc["imuEmaSpikeThr"] = currentConfig.imuEmaSpikeThr;
-    doc["imuSlewDps"] = currentConfig.imuSlewDps;
+    toJson(doc.to<JsonObject>(), true);
 
     File file = LittleFS.open("/config.tmp", "w");
     if (!file) {
@@ -448,6 +400,190 @@ public:
       SERIAL_DBGLN("[CFG] Ошибка переименования файла");
       LittleFS.remove("/config.tmp");
       return false;
+    }
+  }
+
+  /** 10.16.0: единая сериализация всех полей — используется file save() и HTTP-API.
+   *  includeSecrets=false: токен не отдаётся, вместо него haTokenSet. */
+  static void toJson(JsonObject dst, bool includeSecrets) {
+    dst["formatVersion"] = CONFIG_FORMAT_VERSION;
+    dst["pressureMin"] = currentConfig.pressureMin;
+    dst["pressureMax"] = currentConfig.pressureMax;
+    dst["masterLowBar"] = currentConfig.masterLowBar;
+    dst["tiltThresholdX"] = currentConfig.tiltThresholdX;
+    dst["tiltThresholdY"] = currentConfig.tiltThresholdY;
+    dst["contrast"] = currentConfig.contrast;
+    dst["nivCount"] = currentConfig.nivCount;
+    dst["timeInterval"] = currentConfig.timeInterval;
+    dst["inflateDelay"] = currentConfig.inflateDelay;
+    dst["releaseDelay"] = currentConfig.releaseDelay;
+    dst["movementPressureFront"] = currentConfig.movementPressureFront;
+    dst["movementPressureRear"] = currentConfig.movementPressureRear;
+    dst["parkingPressureBar"] = currentConfig.parkingPressureBar;
+    dst["masterCheckSec"] = currentConfig.masterCheckSec;
+    dst["manualMaxTimeSec"] = currentConfig.manualMaxTimeSec;
+    dst["pressureDeadband"] = currentConfig.pressureDeadband;
+    dst["pressureStabilizeMs"] = currentConfig.pressureStabilizeMs;
+    dst["pressureIdleMin"] = currentConfig.pressureIdleMin;
+    dst["coarseZoneRatio"] = currentConfig.coarseZoneRatio;
+    dst["fineZoneRatio"] = currentConfig.fineZoneRatio;
+    dst["worseningRatio"] = currentConfig.worseningRatio;
+    dst["stableThresholdDeg"] = currentConfig.stableThresholdDeg;
+    dst["stableHoldMs"] = currentConfig.stableHoldMs;
+    dst["stableTimeoutSec"] = currentConfig.stableTimeoutSec;
+    dst["movementEnabled"] = currentConfig.movementEnabled;
+    dst["movementDurationSec"] = currentConfig.movementDurationSec;
+    dst["movementSettleSec"] = currentConfig.movementSettleSec;
+    dst["movementCheckSec"] = currentConfig.movementCheckSec;
+    dst["movementTolerance"] = currentConfig.movementTolerance;
+    dst["gyroThreshold"] = currentConfig.gyroThreshold;
+    dst["gyroBumpThreshold"] = currentConfig.gyroBumpThreshold;
+    dst["accelThreshold"] = currentConfig.accelThreshold;
+    dst["backlightOffMin"] = currentConfig.backlightOffMin;
+    dst["frameMs"] = currentConfig.frameMs;
+    dst["redrawAngleThr"] = currentConfig.redrawAngleThr;
+    dst["redrawPressureThr"] = currentConfig.redrawPressureThr;
+    dst["imuMotionDet"] = currentConfig.imuMotionDet;
+    dst["imuDlpfMode"] = currentConfig.imuDlpfMode;
+    dst["imuAccelFs"] = currentConfig.imuAccelFs;
+    dst["imuGyroOffX"] = currentConfig.imuGyroOffX;
+    dst["imuGyroOffY"] = currentConfig.imuGyroOffY;
+    dst["imuGyroOffZ"] = currentConfig.imuGyroOffZ;
+    dst["imuAccelOffX"] = currentConfig.imuAccelOffX;
+    dst["imuAccelOffY"] = currentConfig.imuAccelOffY;
+    dst["imuAccelOffZ"] = currentConfig.imuAccelOffZ;
+    dst["zeroAngleX"] = currentConfig.zeroAngleX;
+    dst["zeroAngleY"] = currentConfig.zeroAngleY;
+    dst["imuKalmanMea"] = currentConfig.imuKalmanMea;
+    dst["imuKalmanEst"] = currentConfig.imuKalmanEst;
+    dst["imuKalmanQ"] = currentConfig.imuKalmanQ;
+    dst["imuPollMs"] = currentConfig.imuPollMs;
+    dst["imuFifoAvg"] = currentConfig.imuFifoAvg;
+    dst["imuEmaAlpha"] = currentConfig.imuEmaAlpha;
+    dst["imuEmaSpikeAlpha"] = currentConfig.imuEmaSpikeAlpha;
+    dst["imuEmaSpikeThr"] = currentConfig.imuEmaSpikeThr;
+    dst["imuSlewDps"] = currentConfig.imuSlewDps;
+    dst["haEnabled"] = currentConfig.haEnabled;
+    if (includeSecrets) {
+      dst["haToken"] = currentConfig.haToken;
+    } else {
+      dst["haTokenSet"] = currentConfig.haToken[0] != '\0';
+    }
+  }
+
+  /** 10.16.0: поля, разрешённые к записи из HTTP-API (безопасное подмножество). */
+  static bool isSafeConfigKey(const char *key) {
+    static const char *keys[] = {
+        "pressureMin", "pressureMax", "masterLowBar", "pressureDeadband",
+        "pressureStabilizeMs", "pressureIdleMin", "inflateDelay", "releaseDelay",
+        "manualMaxTimeSec", "masterCheckSec", "tiltThresholdX", "tiltThresholdY",
+        "nivCount", "timeInterval", "coarseZoneRatio", "fineZoneRatio",
+        "worseningRatio", "stableThresholdDeg", "stableHoldMs", "stableTimeoutSec",
+        "movementEnabled", "movementPressureFront", "movementPressureRear",
+        "movementDurationSec", "movementSettleSec", "movementCheckSec",
+        "movementTolerance", "parkingPressureBar", "gyroThreshold",
+        "gyroBumpThreshold", "accelThreshold", "imuMotionDet", "backlightOffMin",
+        "frameMs", "redrawAngleThr", "redrawPressureThr", "haEnabled"};
+    for (const char *k : keys) {
+      if (strcmp(k, key) == 0) return true;
+    }
+    return false;
+  }
+
+  /** 10.16.0: применить поля из JSON с теми же ограничениями, что и load().
+   *  safeOnly=true — только whitelist (иначе поле уходит в rejected).
+   *  На флеш не сохраняет; caller решает, когда вызвать save(). */
+  static void applyJsonObject(JsonObjectConst src, bool safeOnly, String *applied,
+                              String *rejected, String *err) {
+    MutexGuard guard(xConfigMutex, pdMS_TO_TICKS(300));
+    if (!guard) {
+      if (err) *err = "config busy";
+      return;
+    }
+    if (applied) applied->remove(0);
+    if (rejected) rejected->remove(0);
+    auto ok = [&](const char *k) {
+      if (applied) {
+        if (applied->length()) *applied += ",";
+        *applied += k;
+      }
+    };
+    auto reject = [&](const char *k) {
+      if (rejected) {
+        if (rejected->length()) *rejected += ",";
+        *rejected += k;
+      }
+    };
+    auto takeF = [&](const char *k, float &dst, float lo, float hi) {
+      if (!src.containsKey(k)) return;
+      if (safeOnly && !isSafeConfigKey(k)) { reject(k); return; }
+      dst = constrain(static_cast<float>(src[k]), lo, hi);
+      ok(k);
+    };
+    auto takeI = [&](const char *k, int &dst, int lo, int hi) {
+      if (!src.containsKey(k)) return;
+      if (safeOnly && !isSafeConfigKey(k)) { reject(k); return; }
+      dst = constrain(static_cast<int>(src[k]), lo, hi);
+      ok(k);
+    };
+    auto takeB = [&](const char *k, bool &dst) {
+      if (!src.containsKey(k)) return;
+      if (safeOnly && !isSafeConfigKey(k)) { reject(k); return; }
+      dst = static_cast<bool>(src[k]);
+      ok(k);
+    };
+
+    takeF("pressureMin", currentConfig.pressureMin, 0.1f, 5.0f);
+    takeF("pressureMax", currentConfig.pressureMax, 1.0f, 8.0f);
+    takeF("masterLowBar", currentConfig.masterLowBar, 0.0f, 4.0f);
+    takeF("pressureDeadband", currentConfig.pressureDeadband, 0.05f, 0.5f);
+    takeI("pressureStabilizeMs", currentConfig.pressureStabilizeMs, 100, 2000);
+    takeI("pressureIdleMin", currentConfig.pressureIdleMin, 2, 30);
+    takeI("inflateDelay", currentConfig.inflateDelay, 1, 10);
+    takeI("releaseDelay", currentConfig.releaseDelay, 1, 10);
+    takeI("manualMaxTimeSec", currentConfig.manualMaxTimeSec, 1, 30);
+    takeI("masterCheckSec", currentConfig.masterCheckSec, 30, 600);
+    takeF("tiltThresholdX", currentConfig.tiltThresholdX, 0.0f, 5.0f);
+    takeF("tiltThresholdY", currentConfig.tiltThresholdY, 0.0f, 5.0f);
+    takeI("nivCount", currentConfig.nivCount, 1, 20);
+    takeI("timeInterval", currentConfig.timeInterval, 1, 60);
+    takeF("coarseZoneRatio", currentConfig.coarseZoneRatio, 0.2f, 0.9f);
+    takeF("fineZoneRatio", currentConfig.fineZoneRatio, 0.05f, 0.3f);
+    takeF("worseningRatio", currentConfig.worseningRatio, 1.05f, 2.0f);
+    takeF("stableThresholdDeg", currentConfig.stableThresholdDeg, 0.01f, 0.50f);
+    takeI("stableHoldMs", currentConfig.stableHoldMs, 500, 3000);
+    takeI("stableTimeoutSec", currentConfig.stableTimeoutSec, 2, 15);
+    takeB("movementEnabled", currentConfig.movementEnabled);
+    takeF("movementPressureFront", currentConfig.movementPressureFront, 1.0f, 6.0f);
+    takeF("movementPressureRear", currentConfig.movementPressureRear, 1.0f, 6.0f);
+    takeI("movementDurationSec", currentConfig.movementDurationSec, 20, 300);
+    takeI("movementSettleSec", currentConfig.movementSettleSec, 20, 300);
+    takeI("movementCheckSec", currentConfig.movementCheckSec, 20, 600);
+    takeF("movementTolerance", currentConfig.movementTolerance, 0.1f, 0.5f);
+    takeF("parkingPressureBar", currentConfig.parkingPressureBar, 0.0f, 6.0f);
+    takeI("gyroThreshold", currentConfig.gyroThreshold, 1, 25);
+    takeI("gyroBumpThreshold", currentConfig.gyroBumpThreshold, 1, 25);
+    takeI("accelThreshold", currentConfig.accelThreshold, 100, 3000);
+    takeI("imuMotionDet", currentConfig.imuMotionDet, 20, 255);
+    takeI("backlightOffMin", currentConfig.backlightOffMin, 0, 30);
+    takeI("frameMs", currentConfig.frameMs, 20, 200);
+    takeF("redrawAngleThr", currentConfig.redrawAngleThr, 0.01f, 0.5f);
+    takeF("redrawPressureThr", currentConfig.redrawPressureThr, 0.01f, 0.5f);
+    takeB("haEnabled", currentConfig.haEnabled);
+
+    // Cross-field (как в load()): min < max, цели движения в пределах, fine < coarse.
+    if (currentConfig.pressureMin >= currentConfig.pressureMax) {
+      currentConfig.pressureMin = 1.0f;
+      currentConfig.pressureMax = 7.0f;
+    }
+    currentConfig.movementPressureFront =
+        constrain(currentConfig.movementPressureFront, currentConfig.pressureMin,
+                  currentConfig.pressureMax);
+    currentConfig.movementPressureRear =
+        constrain(currentConfig.movementPressureRear, currentConfig.pressureMin,
+                  currentConfig.pressureMax);
+    if (currentConfig.fineZoneRatio >= currentConfig.coarseZoneRatio) {
+      currentConfig.fineZoneRatio = currentConfig.coarseZoneRatio * 0.4f;
     }
   }
 
@@ -636,6 +772,13 @@ public:
                   currentConfig.imuEmaAlpha, currentConfig.imuEmaSpikeAlpha,
                   currentConfig.imuEmaSpikeThr, currentConfig.imuSlewDps);
   }
+  /** 10.16.0: Home Assistant — включение и токен API. */
+  static bool getHaEnabled() { return currentConfig.haEnabled; }
+  static void setHaEnabled(bool v) { currentConfig.haEnabled = v; }
+  static const char *getHaToken() { return currentConfig.haToken; }
+  static void setHaToken(const char *t) {
+    strlcpy(currentConfig.haToken, t ? t : "", sizeof(currentConfig.haToken));
+  }
 };
 
 
@@ -705,3 +848,8 @@ int cfg_getContrast();
 int cfg_getFrameMs();
 float cfg_getRedrawAngleThr();
 int cfg_getTimeInterval();
+/* 10.16.0: Home Assistant */
+bool  cfg_getHaEnabled();
+void  cfg_setHaEnabled(bool v);
+const char *cfg_getHaToken();
+void  cfg_setHaToken(const char *t);

@@ -17,6 +17,7 @@
 #include "arduino_ota.h"
 #include "ui_menu_build.h"
 #include "test_harness.h"
+#include "ha_api.h"
 
 #include <GEM_adafruit_gfx.h>
 
@@ -109,6 +110,13 @@ void otaTask(void *pvParameters) {
 
         if (strncmp(serialLine, "TEST", 4) == 0 || strncmp(serialLine, "test", 4) == 0) {
           processTestCommandLine(serialLine);
+          continue;
+        }
+
+        /* 10.16.0: интеграция с Home Assistant — HA ON|OFF|STATUS|TOKEN|STATE|CONFIG */
+        if ((strncmp(serialLine, "HA", 2) == 0 || strncmp(serialLine, "ha", 2) == 0) &&
+            (serialLine[2] == ' ' || serialLine[2] == '\0')) {
+          haHandleSerialCommand(serialLine);
           continue;
         }
 
