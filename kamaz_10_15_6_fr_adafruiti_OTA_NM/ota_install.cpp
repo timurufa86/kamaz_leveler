@@ -93,7 +93,11 @@ static bool githubProbeDirectUrl(const char *url, char *finalUrl, size_t finalUr
     githubOtaHeartbeat();
     WiFiClientSecure *probe = new (std::nothrow) WiFiClientSecure();
     if (!probe) return false;
-    otaConfigureTls(probe);
+    /* 10.15.5: the redirect is used only to obtain the CDN URL; the image is
+       authenticated by its SHA-256 digest, so this probe can run without
+       certificate verification. That matters when the URL is refreshed in the
+       middle of an install, where the heap cannot afford bundle verification. */
+    probe->setInsecure();
     probe->setHandshakeTimeout(30);
     probe->setTimeout(30000);
     HTTPClient http;
@@ -777,6 +781,20 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
           ok = false;
           break;
         }
+        /* 10.15.5: a repeated close at the same offset usually means the SAS
+           token of the resolved URL is stale for that range. Refresh the redirect
+           (insecure probe; image is SHA-256 checked) and KEEP the OTA session so
+           already downloaded megabytes are not thrown away — that full retry was
+           what later failed with "tls-fail" on the 86KB heap. */
+        if ((recoveries % 4) == 0) {
+          int refreshLen = -1;
+          if (githubProbeDirectUrl(url, directUrl, sizeof(s_otaDirectUrlBuf), &refreshLen) &&
+              parseHttpsUrl(directUrl, host, sizeof(host), path, sizeof(s_otaPathBuf), &port)) {
+            SERIAL_DBG("[GH-OTA] CDN url refreshed at %u heap=%u\n",
+                          static_cast<unsigned>(written),
+                          static_cast<unsigned>(ESP.getFreeHeap()));
+          }
+        }
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
       }
@@ -826,6 +844,20 @@ static size_t httpFollowStreamToUpdate(const char *url, mbedtls_sha256_context *
         if (++recoveries > 20) {
           ok = false;
           break;
+        }
+        /* 10.15.5: a repeated close at the same offset usually means the SAS
+           token of the resolved URL is stale for that range. Refresh the redirect
+           (insecure probe; image is SHA-256 checked) and KEEP the OTA session so
+           already downloaded megabytes are not thrown away — that full retry was
+           what later failed with "tls-fail" on the 86KB heap. */
+        if ((recoveries % 4) == 0) {
+          int refreshLen = -1;
+          if (githubProbeDirectUrl(url, directUrl, sizeof(s_otaDirectUrlBuf), &refreshLen) &&
+              parseHttpsUrl(directUrl, host, sizeof(host), path, sizeof(s_otaPathBuf), &port)) {
+            SERIAL_DBG("[GH-OTA] CDN url refreshed at %u heap=%u\n",
+                          static_cast<unsigned>(written),
+                          static_cast<unsigned>(ESP.getFreeHeap()));
+          }
         }
         vTaskDelay(pdMS_TO_TICKS(100));
         continue;
@@ -895,13 +927,22 @@ bool installGitHubReleaseIndex(int8_t idx) {
   otaValveLock = true;
   emergencyStop();
   otaLinkTelemetryBegin();
+  /* 10.15.5: the device is now only updating — suspend the workers, then delete
+     the ones that are not needed (Event/Button/Valve/ErrRec/Calib) so their
+     stacks become heap for TLS reconnects. Display and Watchdog stay alive. */
+  githubOtaPauseWorkers(true);
+  githubOtaFreeWorkerTasks();
   if (!downloadGitHubFirmware(r.binUrl, r.shaUrl[0] ? r.shaUrl : nullptr, r.tag,
                               r.sha256[0] ? r.sha256 : nullptr, r.size)) {
+    githubOtaRestoreWorkerTasks();
+    githubOtaPauseWorkers(false);
     otaLinkTelemetryEnd("install-fail");
     otaValveLock = false;
     resetEmergencyLatch(); // защёлку поднял сам OTA-путь — снимаем при неудаче
     return false;
   }
+  githubOtaRestoreWorkerTasks();
+  githubOtaPauseWorkers(false);
   otaLinkTelemetryEnd("install-ok");
   ESP.restart();
   return true;

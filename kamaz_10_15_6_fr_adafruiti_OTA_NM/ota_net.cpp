@@ -956,3 +956,63 @@ void githubOtaPingDiag() {
     SERIAL_DBG("[OTA-PING] HTTPS GET zen > HTTP %d FAIL\n", code);
   }
 }
+
+/* ── 10.15.5: worker-task memory reclaim for the install ─────────────────────
+ * A TLS reconnect after a partial flash write fails when free heap is below
+ * ~88KB. The worker task stacks (Event/Button/Valve/ErrRec/Calib) are not needed
+ * while the device is only updating, so they are deleted for the session and
+ * recreated verbatim if the install fails. Display/Watchdog/OTA tasks stay: the
+ * display shows progress and the watchdog keeps TWDT alive. */
+extern SemaphoreHandle_t xI2CMutex;
+extern SemaphoreHandle_t xValveMutex;
+extern SemaphoreHandle_t xDisplayMutex;
+extern SemaphoreHandle_t xConfigMutex;
+extern SemaphoreHandle_t xStateMutex;
+extern SemaphoreHandle_t xCommandMutex;
+extern SemaphoreHandle_t xTestMutex;
+extern SemaphoreHandle_t xCalibMutex;
+extern uint8_t taskIndex_Event, taskIndex_Button, taskIndex_Valve, taskIndex_ErrRec,
+    taskIndex_Calib;
+
+static uint8_t s_otaFreedTasks[8];
+static uint8_t s_otaFreedCount = 0;
+
+void githubOtaFreeWorkerTasks() {
+  if (s_otaFreedCount > 0) return;
+  SemaphoreHandle_t guards[] = {xI2CMutex,      xValveMutex,   xDisplayMutex,
+                                xConfigMutex,   xStateMutex,   xCommandMutex,
+                                xTestMutex,     xCalibMutex};
+  for (SemaphoreHandle_t m : guards) {
+    if (m && xSemaphoreTake(m, pdMS_TO_TICKS(250)) != pdTRUE) {
+      // A paused worker still holds a shared mutex: deleting it would deadlock
+      // the recreated task later, so keep the tasks and run as before.
+      SERIAL_DBG("[OTA-MEM] worker holds mutex — task freeing skipped\n");
+      return;
+    }
+  }
+  for (SemaphoreHandle_t m : guards) {
+    if (m) xSemaphoreGive(m);
+  }
+  const uint8_t idxs[] = {taskIndex_Event, taskIndex_Button, taskIndex_Valve,
+                          taskIndex_ErrRec, taskIndex_Calib};
+  for (uint8_t idx : idxs) {
+    if (idx == 0xFF) continue;
+    if (TaskPool::destroyKeepSlot(idx) && s_otaFreedCount < sizeof(s_otaFreedTasks)) {
+      s_otaFreedTasks[s_otaFreedCount++] = idx;
+    }
+  }
+  SERIAL_DBG("[OTA-MEM] freed %u worker tasks, heap=%u maxBlk=%u\n",
+                static_cast<unsigned>(s_otaFreedCount),
+                static_cast<unsigned>(ESP.getFreeHeap()),
+                static_cast<unsigned>(ESP.getMaxAllocHeap()));
+}
+
+void githubOtaRestoreWorkerTasks() {
+  if (s_otaFreedCount == 0) return;
+  for (uint8_t i = 0; i < s_otaFreedCount; i++) {
+    TaskPool::recreateSlot(s_otaFreedTasks[i]);
+  }
+  s_otaFreedCount = 0;
+  SERIAL_DBG("[OTA-MEM] restored worker tasks, heap=%u\n",
+                static_cast<unsigned>(ESP.getFreeHeap()));
+}

@@ -41,6 +41,7 @@ uint8_t TaskPool::addTask(const TaskConfig &config) {
   tasks_[taskCount_].lastRun = 0;
   tasks_[taskCount_].enabled = true;
   tasks_[taskCount_].minStackFree = uxTaskGetStackHighWaterMark(handle);
+  tasks_[taskCount_].config = config;
 
   uint8_t index = taskCount_++;
   xSemaphoreGive(poolMutex_);
@@ -179,4 +180,42 @@ void TaskPool::suspendTask(uint8_t index) {
 void TaskPool::resumeTask(uint8_t index) {
   TaskHandle_t h = getHandle(index);
   if (h) vTaskResume(h);
+}
+
+/* 10.15.5: delete a task while keeping its slot and configuration. The OTA
+   session uses this to hand the freed stack memory to the TLS handshake; if the
+   install fails, recreateSlot() brings the task back exactly as it was. */
+bool TaskPool::destroyKeepSlot(uint8_t index) {
+  if (poolMutex_ == nullptr) return false;
+  if (xSemaphoreTake(poolMutex_, pdMS_TO_TICKS(100)) != pdTRUE) return false;
+  bool ok = false;
+  if (index < taskCount_ && tasks_[index].handle != nullptr) {
+    vTaskDelete(tasks_[index].handle);
+    tasks_[index].handle = nullptr;
+    tasks_[index].enabled = false;
+    ok = true;
+  }
+  xSemaphoreGive(poolMutex_);
+  if (ok) vTaskDelay(pdMS_TO_TICKS(20));
+  return ok;
+}
+
+bool TaskPool::recreateSlot(uint8_t index) {
+  if (poolMutex_ == nullptr) return false;
+  if (xSemaphoreTake(poolMutex_, pdMS_TO_TICKS(200)) != pdTRUE) return false;
+  bool ok = false;
+  if (index < taskCount_ && tasks_[index].handle == nullptr) {
+    TaskHandle_t handle = nullptr;
+    const TaskConfig &c = tasks_[index].config;
+    BaseType_t result = xTaskCreatePinnedToCore(c.function, c.name, c.stackSize,
+                                                c.parameters, c.priority, &handle, c.coreId);
+    if (result == pdPASS) {
+      tasks_[index].handle = handle;
+      tasks_[index].enabled = true;
+      tasks_[index].lastRun = millis();
+      ok = true;
+    }
+  }
+  xSemaphoreGive(poolMutex_);
+  return ok;
 }

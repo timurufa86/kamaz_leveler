@@ -24,6 +24,9 @@ private:
     uint32_t lastRun;
     bool enabled;
     UBaseType_t minStackFree;
+    /* 10.15.5: kept so an OTA session can delete a worker task (freeing its
+       stack for TLS reconnects) and recreate it if the install fails. */
+    TaskConfig config;
   };
 
   static TaskHandle tasks_[16];
@@ -45,4 +48,8 @@ public:
   static TaskHandle_t getHandle(uint8_t index);
   static void suspendTask(uint8_t index);
   static void resumeTask(uint8_t index);
+  /** 10.15.5: delete the task but keep its pool slot/config for recreateSlot(). */
+  static bool destroyKeepSlot(uint8_t index);
+  /** 10.15.5: recreate a task previously removed with destroyKeepSlot(). */
+  static bool recreateSlot(uint8_t index);
 };

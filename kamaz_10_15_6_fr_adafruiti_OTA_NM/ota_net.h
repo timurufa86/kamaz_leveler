@@ -44,6 +44,16 @@ int githubHttpsDownloadToFile(const char *url, const char *outPath,
 bool githubResolveDownloadUrl(const char *url, char *out, size_t outLen,
                               const char *acceptHdr = "application/octet-stream");
 
+/**
+ * 10.15.5: free heap for the install by deleting worker tasks whose stacks are
+ * not needed during OTA (display/watchdog/OTA task are kept). Must be called
+ * after githubOtaPauseWorkers(true), and paired with githubOtaRestoreWorkerTasks()
+ * when the install fails. Measured need: a TLS reconnect after a partial flash
+ * write fails below ~88KB free heap.
+ */
+void githubOtaFreeWorkerTasks();
+void githubOtaRestoreWorkerTasks();
+
 #include <esp_ota_ops.h>
 esp_ota_handle_t       getGhOtaHandle();
 bool                   getGhOtaActive();
