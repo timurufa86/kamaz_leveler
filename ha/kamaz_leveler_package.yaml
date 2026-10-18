@@ -136,17 +136,8 @@ rest_command:
     content_type: "application/json"
     payload: '{"action":"save"}'
 
-# ── Удобные кнопки ──
-script:
-  kamaz_auto:
-    alias: "Kamaz: АВТО"
-    sequence:
-      - action: rest_command.kamaz_set_auto
-  kamaz_manual:
-    alias: "Kamaz: РУЧНОЙ"
-    sequence:
-      - action: rest_command.kamaz_set_manual
-  kamaz_all_stop:
-    alias: "Kamaz: стоп всё"
-    sequence:
-      - action: rest_command.kamaz_stop_all
+# ── Кнопки ──
+# Скрипты намеренно НЕ определены здесь: в configuration.yaml уже есть
+#   script: !include scripts.yaml
+# и пакет с собственным `script:` даёт конфликт домена. Вызывайте rest_command
+# напрямую (кнопка/автоматизация) — пример в dashboard.yaml.

@@ -47,17 +47,17 @@ views:
             name: АВТО
             tap_action:
               action: perform-action
-              perform_action: script.kamaz_auto
+              perform_action: rest_command.kamaz_set_auto
           - type: button
             name: РУЧНОЙ
             tap_action:
               action: perform-action
-              perform_action: script.kamaz_manual
+              perform_action: rest_command.kamaz_set_manual
           - type: button
             name: СТОП
             tap_action:
               action: perform-action
-              perform_action: script.kamaz_all_stop
+              perform_action: rest_command.kamaz_stop_all
       - type: entities
         title: Диагностика
         entities:
