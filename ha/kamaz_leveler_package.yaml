@@ -9,7 +9,7 @@
 # Топики/адреса: http://<IP>/api/state, /api/config, /api/mode, /api/manual, /api/action.
 
 rest:
-  - resource: "http://192.168.1.50/api/state"
+  - resource: "http://192.168.0.204/api/state"
     scan_interval: 5
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -73,7 +73,7 @@ rest:
 # ── Команды ──
 rest_command:
   kamaz_set_auto:
-    url: "http://192.168.1.50/api/mode"
+    url: "http://192.168.0.204/api/mode"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -81,7 +81,7 @@ rest_command:
     payload: '{"mode":"auto"}'
 
   kamaz_set_manual:
-    url: "http://192.168.1.50/api/mode"
+    url: "http://192.168.0.204/api/mode"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -89,7 +89,7 @@ rest_command:
     payload: '{"mode":"manual"}'
 
   kamaz_manual_start:
-    url: "http://192.168.1.50/api/manual"
+    url: "http://192.168.0.204/api/manual"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -97,7 +97,7 @@ rest_command:
     payload: '{"action":"start","pad":"{{ pad }}","inflate":{{ inflate }}}'
 
   kamaz_manual_stop:
-    url: "http://192.168.1.50/api/manual"
+    url: "http://192.168.0.204/api/manual"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -105,7 +105,7 @@ rest_command:
     payload: '{"action":"stop"}'
 
   kamaz_pulse:
-    url: "http://192.168.1.50/api/manual"
+    url: "http://192.168.0.204/api/manual"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -113,7 +113,7 @@ rest_command:
     payload: '{"action":"pulse","pad":"{{ pad }}","inflate":{{ inflate }},"seconds":{{ seconds | default(2) }}}'
 
   kamaz_stop_all:
-    url: "http://192.168.1.50/api/action"
+    url: "http://192.168.0.204/api/action"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -121,7 +121,7 @@ rest_command:
     payload: '{"action":"stop_all"}'
 
   kamaz_reset_errors:
-    url: "http://192.168.1.50/api/action"
+    url: "http://192.168.0.204/api/action"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token
@@ -129,7 +129,7 @@ rest_command:
     payload: '{"action":"reset_errors"}'
 
   kamaz_save_config:
-    url: "http://192.168.1.50/api/action"
+    url: "http://192.168.0.204/api/action"
     method: POST
     # headers:
     #   X-Api-Key: !secret kamaz_token

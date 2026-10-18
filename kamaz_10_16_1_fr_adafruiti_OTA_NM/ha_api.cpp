@@ -251,7 +251,20 @@ static void handleConfigPost() {
   String applied, rejected, err;
   ConfigManager::applyJsonObject(doc.as<JsonObjectConst>(), true, &applied,
                                  &rejected, &err);
-  if (err.length()) { sendError(409, err.c_str()); return; }
+  if (err.length()) {
+    // 10.16.1: запрещённые/неизвестные поля — явный отказ со списком.
+    if (err == "rejected_fields") {
+      DynamicJsonDocument res(512);
+      res["error"] = "rejected_fields";
+      res["rejected"] = rejected.c_str();
+      String out;
+      serializeJson(res, out);
+      sendJson(403, out);
+    } else {
+      sendError(409, err.c_str());
+    }
+    return;
+  }
 
   haConfigDirty = true;
   haConfigDirtyMs = millis();

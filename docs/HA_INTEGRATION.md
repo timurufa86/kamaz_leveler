@@ -8,7 +8,7 @@
 1. Меню → **Система** → **Дом (HA)** → **Интеграция** → включить.
 2. Выйти из меню (Кн4/Кн5) — настройка сохранится, сервер поднимется в течение
    пары секунд (нужен подключённый Wi-Fi STA).
-3. Там же в строке **Статус** будет адрес вида `http://192.168.1.50/api/state`.
+3. Там же в строке **Статус** будет адрес вида `http://192.168.0.204/api/state`.
    IP также виден в меню «Информация» и по Serial-команде `HA STATUS`.
 
 Без меню (Serial 115200):
@@ -55,15 +55,15 @@
 ### Примеры
 
 ```bash
-curl http://192.168.1.50/api/state
-curl http://192.168.1.50/api/config
-curl -X POST http://192.168.1.50/api/mode \
+curl http://192.168.0.204/api/state
+curl http://192.168.0.204/api/config
+curl -X POST http://192.168.0.204/api/mode \
      -H 'Content-Type: application/json' -d '{"mode":"manual"}'
-curl -X POST http://192.168.1.50/api/manual \
+curl -X POST http://192.168.0.204/api/manual \
      -H 'Content-Type: application/json' -d '{"action":"start","pad":"fl","inflate":true}'
-curl -X POST http://192.168.1.50/api/manual \
+curl -X POST http://192.168.0.204/api/manual \
      -H 'Content-Type: application/json' -d '{"action":"pulse","pad":"rr","inflate":false,"seconds":2}'
-curl -X POST http://192.168.1.50/api/config \
+curl -X POST http://192.168.0.204/api/config \
      -H 'Content-Type: application/json' -d '{"pressureMin":1.2,"pressureMax":6.5}'
 ```
 
@@ -102,7 +102,7 @@ redrawPressureThr, haEnabled`.
    homeassistant:
      packages: !include_dir_named packages
    ```
-3. Замените `192.168.1.50` на IP устройства.
+3. Замените `192.168.0.204` на IP устройства.
 4. Если задан токен — раскомментируйте `headers` и положите токен в `secrets.yaml`:
    ```yaml
    kamaz_token: "ваш-токен"

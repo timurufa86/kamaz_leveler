@@ -533,6 +533,17 @@ public:
       ok(k);
     };
 
+    /* 10.16.1: сначала проверить ВСЕ ключи. Неизвестные/запрещённые поля раньше
+       молча игнорировались (ответ 200 без applied/rejected) — теперь отказ. */
+    for (JsonPairConst kv : src) {
+      const char *k = kv.key().c_str();
+      if (safeOnly && !isSafeConfigKey(k)) reject(k);
+    }
+    if (rejected && rejected->length()) {
+      if (err) *err = "rejected_fields";
+      return;
+    }
+
     takeF("pressureMin", currentConfig.pressureMin, 0.1f, 5.0f);
     takeF("pressureMax", currentConfig.pressureMax, 1.0f, 8.0f);
     takeF("masterLowBar", currentConfig.masterLowBar, 0.0f, 4.0f);
