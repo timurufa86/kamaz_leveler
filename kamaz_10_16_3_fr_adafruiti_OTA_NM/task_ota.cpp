@@ -120,6 +120,13 @@ void otaTask(void *pvParameters) {
           continue;
         }
 
+        /* 10.16.3: закрепление IP — WIFI STATUS | WIFI IP <ip> <gw> <mask> [dns] | WIFI IP DHCP */
+        if ((strncmp(serialLine, "WIFI", 4) == 0 || strncmp(serialLine, "wifi", 4) == 0) &&
+            (serialLine[4] == ' ' || serialLine[4] == '\0')) {
+          wifiHandleSerialCommand(serialLine);
+          continue;
+        }
+
         char upper[96];
         size_t i = 0;
         for (; serialLine[i] && i + 1 < sizeof(upper); ++i) {

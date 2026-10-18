@@ -1,18 +1,15 @@
 # Kamaz Leveler — пакет для Home Assistant (HTTP REST, прошивка 10.16.0+)
 #
-# 1. Скопируйте файл в /config/packages/kamaz_leveler.yaml
-# 2. Добавьте в configuration.yaml (если ещё нет):  homeassistant: packages: !include_dir_named packages
-# 3. Пропишите IP устройства (меню «Система → Информация» или «Дом (HA)»).
-# 4. Если на устройстве задан токен (Serial: HA TOKEN <str>), добавьте его в secrets.yaml
-#    как kamaz_token и раскомментируйте заголовки X-Api-Key.
-#
-# Топики/адреса: http://<IP>/api/state, /api/config, /api/mode, /api/manual, /api/action.
+# 1. /config/packages/kamaz_leveler.yaml
+# 2. configuration.yaml:  homeassistant: packages: !include_dir_named packages
+# 3. IP устройства: 192.168.0.204 (статический, прошивка 10.16.3+)
+# 4. Токен: в secrets.yaml  kamaz_token: "<токен>"  (задаётся на устройстве: HA TOKEN <стр>)
 
 rest:
   - resource: "http://192.168.0.204/api/state"
     scan_interval: 5
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     sensor:
       - name: "Kamaz mode"
         value_template: "{{ value_json.mode }}"
@@ -70,74 +67,213 @@ rest:
         value_template: "{{ value_json.ota.in_progress }}"
         device_class: running
 
+  - resource: "http://192.168.0.204/api/config"
+    scan_interval: 60
+    headers:
+      X-Api-Key: !secret kamaz_token
+    sensor:
+      - name: "Kamaz config"
+        value_template: "v{{ value_json.formatVersion }}"
+        json_attributes:
+          - pressureMin
+          - pressureMax
+          - masterLowBar
+          - tiltThresholdX
+          - tiltThresholdY
+          - nivCount
+          - timeInterval
+          - inflateDelay
+          - releaseDelay
+          - manualMaxTimeSec
+          - masterCheckSec
+          - pressureDeadband
+          - pressureStabilizeMs
+          - pressureIdleMin
+          - coarseZoneRatio
+          - fineZoneRatio
+          - worseningRatio
+          - stableThresholdDeg
+          - movementEnabled
+          - movementPressureFront
+          - movementPressureRear
+          - movementDurationSec
+          - movementSettleSec
+          - movementCheckSec
+          - movementTolerance
+          - parkingPressureBar
+          - gyroThreshold
+          - gyroBumpThreshold
+          - accelThreshold
+          - imuMotionDet
+          - backlightOffMin
+          - frameMs
+          - redrawAngleThr
+          - redrawPressureThr
+          - haEnabled
+          - staStatic
+          - staIp
+          - staGw
+          - staMask
+          - staDns
+
+# ── Хелперы для всплывающей панели настроек ──
+input_boolean:
+  kamaz_settings_open:
+    name: "Kamaz: настройки открыты"
+    icon: mdi:cog
+
+input_number:
+  kamaz_pressure_min:
+    name: "Kamaz P min, бар"
+    min: 0.1
+    max: 5
+    step: 0.1
+    initial: 1.0
+  kamaz_pressure_max:
+    name: "Kamaz P max, бар"
+    min: 1
+    max: 8
+    step: 0.1
+    initial: 7.0
+  kamaz_tilt_x:
+    name: "Kamaz наклон X, °"
+    min: 0
+    max: 5
+    step: 0.1
+    initial: 0.5
+  kamaz_tilt_y:
+    name: "Kamaz наклон Y, °"
+    min: 0
+    max: 5
+    step: 0.1
+    initial: 0.5
+  kamaz_niv_count:
+    name: "Kamaz попыток/час"
+    min: 1
+    max: 20
+    step: 1
+    initial: 5
+  kamaz_interval_min:
+    name: "Kamaz интервал, мин"
+    min: 1
+    max: 60
+    step: 1
+    initial: 5
+  kamaz_inflate_sec:
+    name: "Kamaz накачка, с"
+    min: 1
+    max: 10
+    step: 1
+    initial: 4
+  kamaz_release_sec:
+    name: "Kamaz сброс, с"
+    min: 1
+    max: 10
+    step: 1
+    initial: 7
+  kamaz_manual_max_sec:
+    name: "Kamaz ручное макс, с"
+    min: 1
+    max: 30
+    step: 1
+    initial: 10
+  kamaz_deadband:
+    name: "Kamaz мёртвая зона, бар"
+    min: 0.05
+    max: 0.5
+    step: 0.05
+    initial: 0.2
+  kamaz_pulse_sec:
+    name: "Kamaz импульс, с"
+    min: 0.2
+    max: 10
+    step: 0.2
+    initial: 2.0
+
 # ── Команды ──
 rest_command:
   kamaz_set_auto:
     url: "http://192.168.0.204/api/mode"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"mode":"auto"}'
 
   kamaz_set_manual:
     url: "http://192.168.0.204/api/mode"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"mode":"manual"}'
 
   kamaz_manual_start:
     url: "http://192.168.0.204/api/manual"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"action":"start","pad":"{{ pad }}","inflate":{{ inflate }}}'
 
   kamaz_manual_stop:
     url: "http://192.168.0.204/api/manual"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"action":"stop"}'
 
   kamaz_pulse:
     url: "http://192.168.0.204/api/manual"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"action":"pulse","pad":"{{ pad }}","inflate":{{ inflate }},"seconds":{{ seconds | default(2) }}}'
 
   kamaz_stop_all:
     url: "http://192.168.0.204/api/action"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"action":"stop_all"}'
 
   kamaz_reset_errors:
     url: "http://192.168.0.204/api/action"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"action":"reset_errors"}'
 
   kamaz_save_config:
     url: "http://192.168.0.204/api/action"
     method: POST
-    # headers:
-    #   X-Api-Key: !secret kamaz_token
+    headers:
+      X-Api-Key: !secret kamaz_token
     content_type: "application/json"
     payload: '{"action":"save"}'
 
-# ── Кнопки ──
+  kamaz_apply_settings:
+    url: "http://192.168.0.204/api/config"
+    method: POST
+    headers:
+      X-Api-Key: !secret kamaz_token
+    content_type: "application/json"
+    payload: >-
+      {"pressureMin": {{ states('input_number.kamaz_pressure_min') | float }},
+      "pressureMax": {{ states('input_number.kamaz_pressure_max') | float }},
+      "tiltThresholdX": {{ states('input_number.kamaz_tilt_x') | float }},
+      "tiltThresholdY": {{ states('input_number.kamaz_tilt_y') | float }},
+      "nivCount": {{ states('input_number.kamaz_niv_count') | int }},
+      "timeInterval": {{ states('input_number.kamaz_interval_min') | int }},
+      "inflateDelay": {{ states('input_number.kamaz_inflate_sec') | int }},
+      "releaseDelay": {{ states('input_number.kamaz_release_sec') | int }},
+      "manualMaxTimeSec": {{ states('input_number.kamaz_manual_max_sec') | int }},
+      "pressureDeadband": {{ states('input_number.kamaz_deadband') | float }}}
+
 # Скрипты намеренно НЕ определены здесь: в configuration.yaml уже есть
 #   script: !include scripts.yaml
-# и пакет с собственным `script:` даёт конфликт домена. Вызывайте rest_command
-# напрямую (кнопка/автоматизация) — пример в dashboard.yaml.
+# и пакет с собственным `script:` даёт конфликт домена.

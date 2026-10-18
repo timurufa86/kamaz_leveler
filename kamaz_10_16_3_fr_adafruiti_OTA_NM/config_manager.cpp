@@ -355,3 +355,13 @@ void cfg_setHaEnabled(bool v) { ConfigManager::setHaEnabled(v); }
 const char *cfg_getHaToken() { return ConfigManager::getHaToken(); }
 void cfg_setHaToken(const char *t) { ConfigManager::setHaToken(t); }
 
+/* ===== 10.16.3: статический IP STA ===== */
+bool cfg_getStaStatic() { return ConfigManager::getStaStatic(); }
+const char *cfg_getStaIp() { return ConfigManager::getStaIp(); }
+const char *cfg_getStaGw() { return ConfigManager::getStaGw(); }
+const char *cfg_getStaMask() { return ConfigManager::getStaMask(); }
+const char *cfg_getStaDns() { return ConfigManager::getStaDns(); }
+void cfg_setStaNetwork(const char *ip, const char *gw, const char *mask, const char *dns) {
+  ConfigManager::setStaNetwork(ip, gw, mask, dns);
+}
+

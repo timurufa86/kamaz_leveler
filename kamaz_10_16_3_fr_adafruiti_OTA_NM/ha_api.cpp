@@ -450,6 +450,10 @@ static void handleNotFound() {
 /* ── Управление сервером ── */
 static void startServer() {
   if (haServerRunning) return;
+  /* 10.16.3: ESP32 WebServer по умолчанию хранит только Authorization/ETag —
+     без collectHeaders() server.header("X-Api-Key") всегда пустой (401). */
+  static const char *kHaHeaders[] = {"X-Api-Key"};
+  haServer.collectHeaders(kHaHeaders, 1);
   haServer.on("/", HTTP_GET, handleRoot);
   haServer.on("/api/health", HTTP_GET, handleHealth);
   haServer.on("/api/state", HTTP_GET, handleState);

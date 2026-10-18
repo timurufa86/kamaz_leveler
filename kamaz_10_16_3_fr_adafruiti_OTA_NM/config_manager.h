@@ -12,7 +12,7 @@
 #include "event_bus.h"
 #include "ui_menu_build.h"
 
-constexpr uint32_t CONFIG_FORMAT_VERSION = 11;
+constexpr uint32_t CONFIG_FORMAT_VERSION = 12;
 
 class ConfigManager {
 private:
@@ -94,6 +94,13 @@ private:
     // ===== 10.16.0: интеграция с Home Assistant (HTTP REST) =====
     bool haEnabled = false;          // тумблер в меню «Дом (HA)»
     char haToken[33] = "";           // опциональный X-Api-Key; пусто = без авторизации
+
+    // ===== 10.16.3: статический IP для STA (false = DHCP) =====
+    bool staStatic = false;
+    char staIp[16] = "";
+    char staGw[16] = "";
+    char staMask[16] = "";
+    char staDns[16] = "";
   };
 
   static Config currentConfig;
@@ -281,6 +288,12 @@ public:
       const char *haTok = doc["haToken"] | "";
       strlcpy(currentConfig.haToken, haTok, sizeof(currentConfig.haToken));
     }
+    // ===== 10.16.3: статический IP для STA =====
+    currentConfig.staStatic = (bool)(doc["staStatic"] | false);
+    strlcpy(currentConfig.staIp, doc["staIp"] | "", sizeof(currentConfig.staIp));
+    strlcpy(currentConfig.staGw, doc["staGw"] | "", sizeof(currentConfig.staGw));
+    strlcpy(currentConfig.staMask, doc["staMask"] | "", sizeof(currentConfig.staMask));
+    strlcpy(currentConfig.staDns, doc["staDns"] | "", sizeof(currentConfig.staDns));
     // Миграция старых заводских пресетов > ослабленный баланс 10.1.28
     const bool oldFactoryBal =
         (fabsf(currentConfig.imuKalmanMea - 7.0f) < 0.05f &&
@@ -469,6 +482,11 @@ public:
     } else {
       dst["haTokenSet"] = currentConfig.haToken[0] != '\0';
     }
+    dst["staStatic"] = currentConfig.staStatic;
+    dst["staIp"] = currentConfig.staIp;
+    dst["staGw"] = currentConfig.staGw;
+    dst["staMask"] = currentConfig.staMask;
+    dst["staDns"] = currentConfig.staDns;
   }
 
   /** 10.16.0: поля, разрешённые к записи из HTTP-API (безопасное подмножество). */
@@ -790,6 +808,21 @@ public:
   static void setHaToken(const char *t) {
     strlcpy(currentConfig.haToken, t ? t : "", sizeof(currentConfig.haToken));
   }
+  /* 10.16.3: статический IP STA (пусто/DHCP = false). */
+  static bool getStaStatic() { return currentConfig.staStatic; }
+  static void setStaStatic(bool v) { currentConfig.staStatic = v; }
+  static const char *getStaIp() { return currentConfig.staIp; }
+  static const char *getStaGw() { return currentConfig.staGw; }
+  static const char *getStaMask() { return currentConfig.staMask; }
+  static const char *getStaDns() { return currentConfig.staDns; }
+  static void setStaNetwork(const char *ip, const char *gw, const char *mask,
+                            const char *dns) {
+    strlcpy(currentConfig.staIp, ip ? ip : "", sizeof(currentConfig.staIp));
+    strlcpy(currentConfig.staGw, gw ? gw : "", sizeof(currentConfig.staGw));
+    strlcpy(currentConfig.staMask, mask ? mask : "", sizeof(currentConfig.staMask));
+    strlcpy(currentConfig.staDns, dns ? dns : "", sizeof(currentConfig.staDns));
+    currentConfig.staStatic = (currentConfig.staIp[0] != '\0');
+  }
 };
 
 
@@ -864,3 +897,10 @@ bool  cfg_getHaEnabled();
 void  cfg_setHaEnabled(bool v);
 const char *cfg_getHaToken();
 void  cfg_setHaToken(const char *t);
+/* 10.16.3: статический IP STA */
+bool cfg_getStaStatic();
+const char *cfg_getStaIp();
+const char *cfg_getStaGw();
+const char *cfg_getStaMask();
+const char *cfg_getStaDns();
+void cfg_setStaNetwork(const char *ip, const char *gw, const char *mask, const char *dns);

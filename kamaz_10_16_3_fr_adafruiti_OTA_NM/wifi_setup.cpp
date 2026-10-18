@@ -1,6 +1,7 @@
 #include "wifi_setup.h"
 #include "ota_net.h"
 #include "app_globals.h"
+#include "config_manager.h"
 #include "task_pool.h"
 #include "task_monitor.h"
 #include "ui_theme.h"
@@ -300,6 +301,21 @@ void connectConfiguredWiFi() {
   }
 
   WiFi.mode(WIFI_STA);
+  /* 10.16.3: статический IP из конфига (закрепление адреса без DHCP-резерва). */
+  if (cfg_getStaStatic() && cfg_getStaIp()[0] != '\0') {
+    IPAddress ip, gw, mask, dns;
+    if (ip.fromString(cfg_getStaIp()) && gw.fromString(cfg_getStaGw()) &&
+        mask.fromString(cfg_getStaMask())) {
+      if (!dns.fromString(cfg_getStaDns())) dns = gw;
+      WiFi.config(ip, gw, mask, dns);
+      SERIAL_DBG("[WiFi] static IP %s gw %s mask %s\n", cfg_getStaIp(),
+                 cfg_getStaGw(), cfg_getStaMask());
+    } else {
+      SERIAL_DBGLN("[WiFi] static IP: неверный формат — остаюсь на DHCP");
+    }
+  } else {
+    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);  // DHCP
+  }
   WiFi.begin(sta_ssid, WIFI_STA_PASSWORD);
   SERIAL_DBG("[WiFi] Подключение к \"%s\"\n", sta_ssid);
   uint32_t started = millis();
@@ -323,6 +339,52 @@ void connectConfiguredWiFi() {
     wifiConnected = false;
     WiFi.mode(WIFI_STA);
   }
+}
+
+/* 10.16.3: Serial-команды закрепления адреса.
+   WIFI STATUS | WIFI IP <ip> <gw> <mask> [dns] | WIFI IP DHCP */
+bool wifiHandleSerialCommand(const char *line) {
+  if (line == nullptr) return false;
+  if (strncmp(line, "WIFI", 4) != 0 && strncmp(line, "wifi", 4) != 0) return false;
+  if (line[4] != ' ' && line[4] != '\0') return false;
+  const char *rest = line + 4;
+  while (*rest == ' ') rest++;
+
+  if (*rest == '\0' || strcasecmp(rest, "STATUS") == 0) {
+    Serial.printf("[WIFI] ssid=%s ip=%s static=%d cfg=%s gw=%s mask=%s dns=%s\n",
+                  sta_ssid, WiFi.localIP().toString().c_str(),
+                  cfg_getStaStatic() ? 1 : 0, cfg_getStaIp(), cfg_getStaGw(),
+                  cfg_getStaMask(), cfg_getStaDns());
+    return true;
+  }
+
+  if (strncasecmp(rest, "IP", 2) == 0 && (rest[2] == ' ' || rest[2] == '\0')) {
+    const char *a = rest + 2;
+    while (*a == ' ') a++;
+    if (*a == '\0' || strcasecmp(a, "DHCP") == 0) {
+      cfg_setStaNetwork("", "", "", "");
+      ConfigManager::save();
+      Serial.println("[WIFI] DHCP");
+      connectConfiguredWiFi();
+      return true;
+    }
+    char ip[16] = {0}, gw[16] = {0}, mask[16] = {0}, dns[16] = {0};
+    const int n = sscanf(a, "%15s %15s %15s %15s", ip, gw, mask, dns);
+    IPAddress t;
+    if (n < 3 || !t.fromString(ip) || !t.fromString(gw) || !t.fromString(mask)) {
+      Serial.println("[WIFI] usage: WIFI IP <ip> <gw> <mask> [dns] | WIFI IP DHCP | WIFI STATUS");
+      return true;
+    }
+    cfg_setStaNetwork(ip, gw, mask, dns);
+    ConfigManager::save();
+    Serial.printf("[WIFI] static %s mask %s gw %s dns %s\n", ip, mask, gw,
+                  dns[0] ? dns : "(gw)");
+    connectConfiguredWiFi();
+    return true;
+  }
+
+  Serial.println("[WIFI] usage: WIFI IP <ip> <gw> <mask> [dns] | WIFI IP DHCP | WIFI STATUS");
+  return true;
 }
 
 void initializeDefaultCredentials() {

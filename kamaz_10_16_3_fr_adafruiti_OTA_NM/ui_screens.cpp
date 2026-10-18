@@ -1554,6 +1554,16 @@ void displayMainScreen() {
     }
   }
 
+  /* 10.16.3: статус-строка (в т.ч. бейдж HA) рисуется только при полном redraw,
+     а HA поднимается позже первого кадра — принудительно перерисовываем при
+     смене состояния связи с HA, иначе индикатор «не появляется». */
+  static bool lastHaOnline = false;
+  const bool haNow = haIsOnline();
+  if (haNow != lastHaOnline) {
+    lastHaOnline = haNow;
+    needRedraw = true;
+  }
+
   if (!needRedraw) {
     // Секунды инфо-строки тикают и без перерисовки давлений/углов
     updateMainInfoLine(localIsMoving);
