@@ -56,11 +56,14 @@ void errorRecoveryTask(void *pvParameters) {
     }
 
     bool anyCleared = false;
-    int count = ErrorHandler::getActiveErrorCount();
     static int goodReads = 0;
 
-    for (int i = 0; i < count; i++) {
-      ErrorHandler::Error err = ErrorHandler::getActiveErrorAt(i);
+    /* 10.15.6: итерируем по enum, а не по индексам снимка списка: внутри цикла
+       вызываются removeError()/checkPressureLimits(), которые сдвигают
+       activeErrors[] — обход по count приводил к пропуску или чужой ошибке. */
+    for (uint8_t e = 0; e < static_cast<uint8_t>(ErrorHandler::Error::COUNT); e++) {
+      ErrorHandler::Error err = static_cast<ErrorHandler::Error>(e);
+      if (!ErrorHandler::isErrorActive(err)) continue;
       bool cleared = false;
 
       switch (err) {
