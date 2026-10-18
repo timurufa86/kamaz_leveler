@@ -589,8 +589,9 @@ bool haHandleSerialCommand(const char *line) {
   while (*rest == ' ') rest++;
 
   if (strcasecmp(rest, "STATUS") == 0 || *rest == '\0') {
-    Serial.printf("[HA] enabled=%d server=%d token=%s ip=%s\n", haEnabled ? 1 : 0,
-                  haServerRunning ? 1 : 0, cfg_getHaToken()[0] ? "set" : "none",
+    Serial.printf("[HA] enabled=%d server=%d online=%d token=%s ip=%s\n",
+                  haEnabled ? 1 : 0, haServerRunning ? 1 : 0, haIsOnline() ? 1 : 0,
+                  cfg_getHaToken()[0] ? "set" : "none",
                   WiFi.localIP().toString().c_str());
     return true;
   }

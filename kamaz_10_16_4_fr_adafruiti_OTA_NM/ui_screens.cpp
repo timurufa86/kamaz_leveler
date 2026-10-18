@@ -1664,11 +1664,14 @@ void displayMainScreen() {
       wifiCol = theme::WARN;
     }
   }
-  uiRedrawLabel(122, 0, 42, theme::STATUS_H, stWifi, sizeof(stWifi), wifiStr, wifiCol, theme::BG,
+  /* 10.16.4: WiFi сжат до 120..150, чтобы освободить 150..168 под бейдж HA.
+     Раньше бейдж стоял в 94..120 — это область «СТАТ», которую
+     updateMainStatBadge() перерисовывает миганием (бейдж стирался). */
+  uiRedrawLabel(120, 0, 30, theme::STATUS_H, stWifi, sizeof(stWifi), wifiStr, wifiCol, theme::BG,
                 UiFont::Small, UiHAlign::Center);
 
-  /* 10.16.2: логотип-бейдж Home Assistant рядом с WiFi — только при живой связи. */
-  uiRedrawLabel(94, 0, 26, theme::STATUS_H, stHa, sizeof(stHa), haIsOnline() ? "HA" : "",
+  /* 10.16.2: бейдж Home Assistant рядом с WiFi — только при живой связи. */
+  uiRedrawLabel(150, 0, 18, theme::STATUS_H, stHa, sizeof(stHa), haIsOnline() ? "HA" : "",
                 theme::OK, theme::BG, UiFont::SmallB, UiHAlign::Center);
 
   // Mode: icon + label (right side). iconManualL / iconAutoL / iconMovingL.

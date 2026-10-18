@@ -103,4 +103,4 @@
 
 ## Роль .ino
 
-`kamaz_10_16_3_fr_adafruiti_OTA_NM.ino` — только проводка: includes, объекты GEM/TFT/SPI/кнопок, зеркала пунктов меню, `setup()` / `loop()`. Бизнес-логика в модулях выше.
+`kamaz_10_16_4_fr_adafruiti_OTA_NM.ino` — только проводка: includes, объекты GEM/TFT/SPI/кнопок, зеркала пунктов меню, `setup()` / `loop()`. Бизнес-логика в модулях выше.
