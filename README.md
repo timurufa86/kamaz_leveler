@@ -160,6 +160,19 @@ arduino-cli compile --config-file arduino-cli.yaml `
 - Страница «Информация» в меню — живая: версия, режим, MPU, давление в магистрали,
   Wi-Fi (SSID/RSSI), аптайм и свободная RAM, число активных ошибок.
 
+## Home Assistant (10.16.0)
+
+Интеграция по **HTTP REST**, включается в меню **Система → Дом (HA)**. Брокер не
+нужен: устройство поднимает сервер на порту 80.
+
+- `GET /api/state` — вся телеметрия; `GET /api/config` — все настройки;
+  `POST /api/config` — безопасное подмножество; `POST /api/mode` — АВТО/РУЧНОЙ;
+  `POST /api/manual` — start/stop/pulse; `POST /api/action` — reset/save/stop/restart.
+- Необязательный токен `X-Api-Key` (Serial: `HA TOKEN <стр>`).
+- Готовые файлы: `ha/kamaz_leveler_package.yaml`, `ha/kamaz_leveler_dashboard.yaml`,
+  инструкция — `docs/HA_INTEGRATION.md`.
+- На время OTA сервер останавливается (освобождает сокеты/кучу) и поднимается после.
+
 ## Версионирование и релиз
 
 - SemVer: см. `.cursor/rules/semantic-versioning.mdc` (стиль папок/веток `9.0.0`).

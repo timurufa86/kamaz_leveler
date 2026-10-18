@@ -48,6 +48,15 @@
 | wifi_setup | wifi_setup.h, wifi_setup.cpp | ✅ extracted |
 | task_ota | task_ota.h, task_ota.cpp | ✅ extracted |
 
+## 10.16.0 — Home Assistant (HTTP REST)
+
+| Модуль | Файлы | Статус |
+|---|---|---|
+| ha_api | ha_api.h, ha_api.cpp | ✅ новый (сервер :80, `/api/*`, safety gate, Serial `HA …`) |
+| mode_ctrl | mode_ctrl.h, mode_ctrl.cpp | ✅ новый (общее переключение АВТО/РУЧНОЙ) |
+| HA-пакет | `ha/kamaz_leveler_package.yaml`, `ha/kamaz_leveler_dashboard.yaml` | ✅ для импорта в HA |
+| Документация | `docs/HA_INTEGRATION.md` | ✅
+
 ## Извлечённые модули (Phase 2 — IMU)
 
 | Модуль | Файлы | Статус |
