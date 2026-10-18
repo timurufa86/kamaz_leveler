@@ -21,7 +21,7 @@ extern int   cfg_getImuAccelFs();
 
 /* ── ErrorHandler bridge function (defined in the .ino) ── */
 extern void cfg_errorRemove(uint8_t err);
-static constexpr uint8_t EH_MPU = 2; // ErrorHandler::Error::MPU
+static constexpr uint8_t EH_MPU = ERR_MPU_CODE; // single source: app_types.h
 
 /* Soft WDT: long DMP init must refresh worker heartbeats. */
 extern void cfg_taskMonitorUpdate(uint8_t idx);

@@ -35,9 +35,15 @@ bool EventBus::publish(const Event &event, TickType_t timeout) {
 
   Event eventCopy = event;
   BaseType_t result = xQueueSend(eventQueue_, &eventCopy, timeout);
-  size_t depth = uxQueueMessagesWaiting(eventQueue_);
-  if (depth > maxDepth_) maxDepth_ = depth;
-  if (result != pdTRUE) droppedEvents_++;
+  // 10.15.6: counters were updated outside the mutex (lost increments / torn maxDepth).
+  if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(10)) == pdTRUE) {
+    const size_t depth = uxQueueMessagesWaiting(eventQueue_);
+    if (depth > maxDepth_) maxDepth_ = depth;
+    if (result != pdTRUE) droppedEvents_++;
+    xSemaphoreGive(mutex_);
+  } else if (result != pdTRUE) {
+    droppedEvents_++;  // mutex busy: count anyway (rare, harmless race)
+  }
   return result == pdTRUE;
 }
 
@@ -54,7 +60,11 @@ size_t EventBus::available() {
 void EventBus::flush() {
   if (eventQueue_ == nullptr) return;
   xQueueReset(eventQueue_);
-  droppedEvents_ = 0;
+  // 10.15.6: reset the counters under the same mutex publishers use.
+  if (xSemaphoreTake(mutex_, pdMS_TO_TICKS(10)) == pdTRUE) {
+    droppedEvents_ = 0;
+    xSemaphoreGive(mutex_);
+  }
 }
 
 uint32_t EventBus::getDroppedCount() {

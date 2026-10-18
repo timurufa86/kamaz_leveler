@@ -82,15 +82,21 @@ static void toggleAutoManualMode(const char *via) {
       MutexGuard guard(xStateMutex);
       if (guard) {
         currentSystemMode = SystemMode::MANUAL;
+        currentMode = Mode::MANUAL;
       }
     }
-    currentMode = Mode::MANUAL;
     setAllManualTargetsFromCurrent();
     requestPressureMeasurement();
     Logger::log(Logger::INFO, "MODE", "Переключено в РУЧНОЙ режим");
   } else {
-    currentSystemMode = SystemMode::AUTO;
-    currentMode = Mode::AUTO;
+    /* 10.15.6: писали currentSystemMode без мьютекса (в отличие от ветки выше). */
+    {
+      MutexGuard guard(xStateMutex);
+      if (guard) {
+        currentSystemMode = SystemMode::AUTO;
+        currentMode = Mode::AUTO;
+      }
+    }
     lastLevelingCheckTime = millis();
     lastLevelingAttemptTime = millis();
     levelingAttemptsThisHour = 0;

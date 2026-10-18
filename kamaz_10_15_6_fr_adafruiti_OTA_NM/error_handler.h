@@ -83,6 +83,8 @@ public:
     event.timestamp = millis();
     event.data.error.errorCode = static_cast<uint8_t>(error);
     strncpy(event.data.error.message, message, sizeof(event.data.error.message) - 1);
+    // 10.15.6: strncpy не гарантирует '\0' при длинном сообщении.
+    event.data.error.message[sizeof(event.data.error.message) - 1] = '\0';
     EventBus::publish(event);
   }
 

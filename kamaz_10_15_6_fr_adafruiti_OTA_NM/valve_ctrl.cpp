@@ -110,8 +110,13 @@ void emergencyStop() {
   closeAllValves();
   manualControlActive = false;
   manifoldBusy = false;
-  for (int i = 0; i < PAD_COUNT; i++) {
-    manualTargetSet[i] = false;
+  {
+    /* 10.15.6: manualTargetSet принадлежит xStateMutex во всех остальных местах;
+       сброс под xValveMutex был гонкой write/write с maintainManualPressure(). */
+    MutexGuard st(xStateMutex, pdMS_TO_TICKS(50));
+    if (st) {
+      for (int i = 0; i < PAD_COUNT; i++) manualTargetSet[i] = false;
+    }
   }
   valveStopRequested = true;
   valveEmergencyStopCount++;
@@ -127,6 +132,11 @@ void sendValveCommand(Pad pad, bool inflate, uint32_t durationMs) {
   }
   if (otaMode || otaInProgress || otaValveLock) {
     SERIAL_DBGLN("[VALVE] Command rejected while OTA mode is active");
+    return;
+  }
+  /* 10.15.6: аварийная защёлка блокирует любые команды клапанов. */
+  if (emergencyIsLatched()) {
+    SERIAL_DBGLN("[VALVE] Command rejected (emergency latch)");
     return;
   }
 

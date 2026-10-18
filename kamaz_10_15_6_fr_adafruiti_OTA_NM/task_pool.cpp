@@ -149,7 +149,13 @@ uint32_t TaskPool::getTimeUntilNextRun(uint8_t index) {
 }
 
 uint8_t TaskPool::getTaskCount() {
-  return taskCount_;
+  if (poolMutex_ == nullptr) return taskCount_;
+  uint8_t n = taskCount_;
+  if (xSemaphoreTake(poolMutex_, pdMS_TO_TICKS(10)) == pdTRUE) {
+    n = taskCount_;
+    xSemaphoreGive(poolMutex_);
+  }
+  return n;
 }
 
 UBaseType_t TaskPool::getTaskMinStack(uint8_t index) {

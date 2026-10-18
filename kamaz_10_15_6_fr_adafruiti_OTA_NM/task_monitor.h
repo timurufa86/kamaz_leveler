@@ -37,6 +37,8 @@ public:
   };
 
   static void updateTaskStatus(TaskIndex index) {
+    // 10.15.6: bound check — cfg_taskMonitorUpdate() accepts a raw uint8_t.
+    if (static_cast<uint8_t>(index) >= TASK_COUNT) return;
     tasks[index].lastRunTime = millis();
     tasks[index].isRunning = true;
   }

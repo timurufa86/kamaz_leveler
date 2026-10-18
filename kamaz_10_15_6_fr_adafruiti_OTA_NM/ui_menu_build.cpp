@@ -381,12 +381,14 @@ static const char *imuMotSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMIt
   return buf;
 }
 
-/** 1…25: порог в коде = N×8 (°/с DMP). Меньше = чувствительнее. */
+/** 1…25: порог в коде = N×8 LSB гироскопа (FS ±250°/с → 131 LSB на °/с).
+ *  10.15.6: раньше подпись показывала «°/с», хотя сравнивались сырые LSB —
+ *  расхождение ~131×. Показываем LSB и пересчитанные °/с. */
 static const char *imuSensSpinnerLabel(GEMSpinner * /*spinner*/, int index, GEMItem * /*item*/) {
-  static char buf[20];
+  static char buf[40];
   const int v = 1 + constrain(index, 0, 24);
   const char *lvl = (v <= 8) ? "слаб" : ((v <= 16) ? "норм" : "жёстк");
-  snprintf(buf, sizeof(buf), "%d ~%d°/с %s", v, v * 8, lvl);
+  snprintf(buf, sizeof(buf), "%d = %dLSB ~%.2f°/с %s", v, v * 8, (v * 8) / 131.0f, lvl);
   return buf;
 }
 

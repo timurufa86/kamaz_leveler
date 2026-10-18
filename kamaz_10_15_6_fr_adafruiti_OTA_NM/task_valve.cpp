@@ -62,7 +62,9 @@ void valveTask(void *pvParameters) {
       valveStopRequested = false;
     }
 
-    if (otaValveLock) {
+    /* 10.15.6: аварийная защёлка — не выполняем команды из очереди до сброса
+       (раньше valveTask проверял только valveStopRequested/otaValveLock). */
+    if (otaValveLock || emergencyIsLatched()) {
       if (cmdActive) {
         if (takeMutexWithRetry(xValveMutex, pdMS_TO_TICKS(100), 3, "valve/ota-lock")) {
           closeAllValves();

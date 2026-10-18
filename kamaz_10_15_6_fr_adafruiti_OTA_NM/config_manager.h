@@ -416,7 +416,10 @@ public:
     // 8.8.0: сохраняем предыдущую версию как резервную копию
     if (LittleFS.exists("/config.txt")) {
       LittleFS.remove("/config.bak");
-      LittleFS.rename("/config.txt", "/config.bak");
+      if (!LittleFS.rename("/config.txt", "/config.bak")) {
+        // 10.15.6: не игнорируем сбой резервного копирования.
+        SERIAL_DBGLN("[CFG] ВНИМАНИЕ: не удалось создать /config.bak");
+      }
     }
     if (LittleFS.rename("/config.tmp", "/config.txt")) {
       // 8.8.0: проверяем, что записанный файл читается и содержит нужную версию формата
@@ -431,7 +434,9 @@ public:
       SERIAL_DBG("[CFG] Конфигурация сохранена (%u Б, проверка чтением: %s)\n",
                     (unsigned)bytesWritten, verified ? "OK" : "ОШИБКА");
       if (!verified) {
-        SERIAL_DBGLN("[CFG] ВНИМАНИЕ: файл конфигурации не прошёл проверку — оставлена копия /config.bak");
+        // 10.15.6: раньше возвращали true даже при непройденной проверке.
+        SERIAL_DBGLN("[CFG] ОШИБКА: файл конфигурации не прошёл проверку (копия /config.bak)");
+        return false;
       }
 
       Event event;
