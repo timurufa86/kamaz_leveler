@@ -927,22 +927,16 @@ bool installGitHubReleaseIndex(int8_t idx) {
   otaValveLock = true;
   emergencyStop();
   otaLinkTelemetryBegin();
-  /* 10.15.5: the device is now only updating — suspend the workers, then delete
-     the ones that are not needed (Event/Button/Valve/ErrRec/Calib) so their
-     stacks become heap for TLS reconnects. Display and Watchdog stay alive. */
-  githubOtaPauseWorkers(true);
-  githubOtaFreeWorkerTasks();
+  /* 10.15.6: worker pause + freeing now happen inside downloadGitHubFirmware()/
+     githubOtaEndInstallSession(), so the menu "install latest" path gets the same
+     heap headroom as this serial path. */
   if (!downloadGitHubFirmware(r.binUrl, r.shaUrl[0] ? r.shaUrl : nullptr, r.tag,
                               r.sha256[0] ? r.sha256 : nullptr, r.size)) {
-    githubOtaRestoreWorkerTasks();
-    githubOtaPauseWorkers(false);
     otaLinkTelemetryEnd("install-fail");
     otaValveLock = false;
     resetEmergencyLatch(); // защёлку поднял сам OTA-путь — снимаем при неудаче
     return false;
   }
-  githubOtaRestoreWorkerTasks();
-  githubOtaPauseWorkers(false);
   otaLinkTelemetryEnd("install-ok");
   ESP.restart();
   return true;
@@ -970,6 +964,7 @@ bool downloadGitHubFirmware(const char *firmwareUrl, const char *sha256Url,
   displayDirty = true;
   githubOtaReleaseTlsHeap("install-begin");
   githubOtaPauseWorkers(true);
+  githubOtaFreeWorkerTasks();
   githubOtaClearUpdate("before-start");
   githubOtaHeartbeat();
   githubOtaPrintHeap("start");

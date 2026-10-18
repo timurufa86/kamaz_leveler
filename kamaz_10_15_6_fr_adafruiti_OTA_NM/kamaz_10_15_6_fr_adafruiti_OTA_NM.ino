@@ -68,9 +68,9 @@
 #include <esp_partition.h>
 #if __has_include("esp_crt_bundle.h")
 #include "esp_crt_bundle.h"
-#define KAMAZ_OTA_CERT_BUNDLE 0
-/** TLS для GitHub OTA. CA-bundle отключён: на фрагментированной куче (maxBlk~34K)
- *  mbedtls падает с «SSL - Memory allocation failed»; целостность bin — SHA-256. */
+/* CA-bundle включён для API/TLS-метаданных (otaConfigureTls в ota_net.cpp).
+   Для скачивания самого образа сертификат не проверяется: целостность
+   гарантирует SHA-256 из digest, полученного по проверенному API-TLS. */
 #endif
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps612.h"  // MotionApps v6.12 (FIFO 28B)

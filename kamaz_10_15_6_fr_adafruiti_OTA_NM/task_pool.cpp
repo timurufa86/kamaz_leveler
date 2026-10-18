@@ -213,6 +213,7 @@ bool TaskPool::recreateSlot(uint8_t index) {
       tasks_[index].handle = handle;
       tasks_[index].enabled = true;
       tasks_[index].lastRun = millis();
+      tasks_[index].minStackFree = uxTaskGetStackHighWaterMark(handle);
       ok = true;
     }
   }

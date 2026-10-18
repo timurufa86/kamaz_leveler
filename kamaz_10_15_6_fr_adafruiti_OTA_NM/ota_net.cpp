@@ -5,6 +5,8 @@
 #include "task_pool.h"
 #include "task_monitor.h"
 #include "valve_ctrl.h"
+#include "event_bus.h"
+#include "error_handler.h"
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -188,6 +190,10 @@ void githubOtaEndInstallSession(const char *why) {
   otaInProgress = false;
   githubOtaReserveTlsHeap(why ? why : "ota-end");
   githubOtaPauseWorkers(false);
+  /* 10.15.6: every download exit restores the tasks freed at install start, so
+     the menu "install latest" path gets the same heap headroom as the serial
+     path. Idempotent (no-op when nothing was freed). */
+  githubOtaRestoreWorkerTasks();
 }
 
 bool githubResolveDownloadUrl(const char *url, char *out, size_t outLen,
@@ -979,19 +985,27 @@ static uint8_t s_otaFreedCount = 0;
 
 void githubOtaFreeWorkerTasks() {
   if (s_otaFreedCount > 0) return;
-  SemaphoreHandle_t guards[] = {xI2CMutex,      xValveMutex,   xDisplayMutex,
-                                xConfigMutex,   xStateMutex,   xCommandMutex,
-                                xTestMutex,     xCalibMutex};
-  for (SemaphoreHandle_t m : guards) {
-    if (m && xSemaphoreTake(m, pdMS_TO_TICKS(250)) != pdTRUE) {
+  SemaphoreHandle_t guards[] = {xI2CMutex,       xValveMutex,   xDisplayMutex,
+                                xConfigMutex,    xStateMutex,   xCommandMutex,
+                                xTestMutex,      xCalibMutex,   ErrorHandler::mutex_,
+                                EventBus::mutex()};
+  constexpr uint8_t kGuards = sizeof(guards) / sizeof(guards[0]);
+  for (uint8_t i = 0; i < kGuards; i++) {
+    if (!guards[i]) continue;
+    if (xSemaphoreTake(guards[i], pdMS_TO_TICKS(250)) != pdTRUE) {
       // A paused worker still holds a shared mutex: deleting it would deadlock
       // the recreated task later, so keep the tasks and run as before.
+      // 10.15.6 fix: release everything already taken — the old code returned
+      // here without giving them back, which permanently deadlocked callers.
+      for (uint8_t j = 0; j < i; j++) {
+        if (guards[j]) xSemaphoreGive(guards[j]);
+      }
       SERIAL_DBG("[OTA-MEM] worker holds mutex — task freeing skipped\n");
       return;
     }
   }
-  for (SemaphoreHandle_t m : guards) {
-    if (m) xSemaphoreGive(m);
+  for (uint8_t i = 0; i < kGuards; i++) {
+    if (guards[i]) xSemaphoreGive(guards[i]);
   }
   const uint8_t idxs[] = {taskIndex_Event, taskIndex_Button, taskIndex_Valve,
                           taskIndex_ErrRec, taskIndex_Calib};

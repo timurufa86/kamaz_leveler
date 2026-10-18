@@ -18,6 +18,8 @@ private:
 
 public:
   static bool init();
+  /** 10.15.6: accessor so the OTA worker-task freeing can guard this mutex too. */
+  static SemaphoreHandle_t mutex() { return mutex_; }
   static bool publish(const Event &event, TickType_t timeout = pdMS_TO_TICKS(100));
   static bool receive(Event &event, TickType_t timeout = portMAX_DELAY);
   static size_t available();
