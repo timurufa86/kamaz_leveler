@@ -477,6 +477,12 @@ static void stopServer() {
 /* ── Публичный API ── */
 bool haIsEnabled() { return haEnabled; }
 
+/* 10.16.2: индикатор в статус-баре — только когда сервер реально доступен HA. */
+bool haIsOnline() {
+  return haEnabled && haServerRunning && !haSuspended &&
+         WiFi.status() == WL_CONNECTED;
+}
+
 const char *haStatusText() {
   static char buf[64];
   if (!haEnabled) return "Выкл";

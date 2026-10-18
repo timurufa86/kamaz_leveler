@@ -14,6 +14,7 @@
 #include "event_bus.h"
 #include "test_harness.h"
 #include "pressure_read.h"
+#include "ha_api.h"   // 10.16.2: индикатор связи с Home Assistant
 #include <Adafruit_ST7789.h>
 #include <WiFi.h>
 #include <cstring>
@@ -1622,10 +1623,11 @@ void displayMainScreen() {
   static char stTemp[12] = "";
   static char stMode[16] = "";
   static char stWifi[10] = "";
+  static char stHa[8] = "";   // 10.16.2: бейдж «HA» слева от WiFi
   static float stTempDrawn = 999.0f;
   static uint16_t stEpoch = 0;
   if (stEpoch != g_displayEpoch) {
-    stTemp[0] = stMode[0] = stWifi[0] = '\0';
+    stTemp[0] = stMode[0] = stWifi[0] = stHa[0] = '\0';
     stTempDrawn = 999.0f;
     stEpoch = g_displayEpoch;
   }
@@ -1654,6 +1656,10 @@ void displayMainScreen() {
   }
   uiRedrawLabel(122, 0, 42, theme::STATUS_H, stWifi, sizeof(stWifi), wifiStr, wifiCol, theme::BG,
                 UiFont::Small, UiHAlign::Center);
+
+  /* 10.16.2: логотип-бейдж Home Assistant рядом с WiFi — только при живой связи. */
+  uiRedrawLabel(94, 0, 26, theme::STATUS_H, stHa, sizeof(stHa), haIsOnline() ? "HA" : "",
+                theme::OK, theme::BG, UiFont::SmallB, UiHAlign::Center);
 
   // Mode: icon + label (right side). iconManualL / iconAutoL / iconMovingL.
   constexpr int16_t MODE_ICON_W = 20;
