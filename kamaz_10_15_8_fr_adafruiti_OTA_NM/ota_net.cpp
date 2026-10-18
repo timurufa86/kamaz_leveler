@@ -983,36 +983,55 @@ extern uint8_t taskIndex_Event, taskIndex_Button, taskIndex_Valve, taskIndex_Err
 static uint8_t s_otaFreedTasks[8];
 static uint8_t s_otaFreedCount = 0;
 
-void githubOtaFreeWorkerTasks() {
-  if (s_otaFreedCount > 0) return;
-  SemaphoreHandle_t guards[] = {xI2CMutex,       xValveMutex,   xDisplayMutex,
-                                xConfigMutex,    xStateMutex,   xCommandMutex,
-                                xTestMutex,      xCalibMutex,   ErrorHandler::mutex_,
-                                EventBus::mutex()};
-  constexpr uint8_t kGuards = sizeof(guards) / sizeof(guards[0]);
-  for (uint8_t i = 0; i < kGuards; i++) {
-    if (!guards[i]) continue;
-    if (xSemaphoreTake(guards[i], pdMS_TO_TICKS(250)) != pdTRUE) {
-      // A paused worker still holds a shared mutex: deleting it would deadlock
-      // the recreated task later, so keep the tasks and run as before.
-      // 10.15.6 fix: release everything already taken — the old code returned
-      // here without giving them back, which permanently deadlocked callers.
+/** 10.15.8: per-task guard — only skip a task whose own mutexes are still held by
+ *  a paused worker. The previous all-or-nothing guard skipped ALL freeing as soon
+ *  as any one of ten mutexes was busy (usually a task we do not even delete),
+ *  which made the +21.7KB headroom unreliable. */
+static bool otaTakeAll(const SemaphoreHandle_t *ms, uint8_t n) {
+  for (uint8_t i = 0; i < n; i++) {
+    if (!ms[i]) continue;
+    if (xSemaphoreTake(ms[i], pdMS_TO_TICKS(100)) != pdTRUE) {
       for (uint8_t j = 0; j < i; j++) {
-        if (guards[j]) xSemaphoreGive(guards[j]);
+        if (ms[j]) xSemaphoreGive(ms[j]);
       }
-      SERIAL_DBG("[OTA-MEM] worker holds mutex — task freeing skipped\n");
-      return;
+      return false;
     }
   }
-  for (uint8_t i = 0; i < kGuards; i++) {
-    if (guards[i]) xSemaphoreGive(guards[i]);
+  return true;
+}
+
+static void otaGiveAll(const SemaphoreHandle_t *ms, uint8_t n) {
+  for (uint8_t i = 0; i < n; i++) {
+    if (ms[i]) xSemaphoreGive(ms[i]);
   }
-  const uint8_t idxs[] = {taskIndex_Event, taskIndex_Button, taskIndex_Valve,
-                          taskIndex_ErrRec, taskIndex_Calib};
-  for (uint8_t idx : idxs) {
-    if (idx == 0xFF) continue;
-    if (TaskPool::destroyKeepSlot(idx) && s_otaFreedCount < sizeof(s_otaFreedTasks)) {
-      s_otaFreedTasks[s_otaFreedCount++] = idx;
+}
+
+void githubOtaFreeWorkerTasks() {
+  if (s_otaFreedCount > 0) return;
+  struct FreeJob {
+    uint8_t idx;
+    SemaphoreHandle_t ms[3];
+    uint8_t n;
+  };
+  const FreeJob jobs[] = {
+      {taskIndex_Event, {EventBus::mutex()}, 1},
+      {taskIndex_Button, {xDisplayMutex, xConfigMutex, xStateMutex}, 3},
+      {taskIndex_Valve, {xValveMutex}, 1},
+      {taskIndex_ErrRec, {ErrorHandler::mutex_}, 1},
+      {taskIndex_Calib, {xI2CMutex, xCalibMutex}, 2},
+  };
+  for (const FreeJob &job : jobs) {
+    if (job.idx == 0xFF) continue;
+    if (!otaTakeAll(job.ms, job.n)) {
+      SERIAL_DBG("[OTA-MEM] task %u holds mutex — skipped\n",
+                    static_cast<unsigned>(job.idx));
+      continue;
+    }
+    // The task is suspended, so it cannot grab the mutexes again between release
+    // and vTaskDelete().
+    otaGiveAll(job.ms, job.n);
+    if (TaskPool::destroyKeepSlot(job.idx) && s_otaFreedCount < sizeof(s_otaFreedTasks)) {
+      s_otaFreedTasks[s_otaFreedCount++] = job.idx;
     }
   }
   SERIAL_DBG("[OTA-MEM] freed %u worker tasks, heap=%u maxBlk=%u\n",
