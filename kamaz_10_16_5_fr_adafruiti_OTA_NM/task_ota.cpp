@@ -240,7 +240,10 @@ void otaTask(void *pvParameters) {
     GitHubOtaRequest ghReq = takeGitHubOtaRequest();
     if (ghReq == GitHubOtaRequest::CHECK_ONLY) {
       Logger::log(Logger::INFO, "GH-OTA", "Проверка обновлений (без установки)");
+      /* 10.16.5: освобождаем HTTP-сервер HA перед TLS (сокеты + ~5 КБ кучи). */
+      haOtaBegin();
       checkGitHubUpdate(false);
+      haOtaEnd();
       {
         MutexGuard guard(xDisplayMutex, pdMS_TO_TICKS(300));
         if (guard && menuVisible && gem.getCurrentMenuPage() == &otaPage) {
@@ -303,7 +306,11 @@ void otaTask(void *pvParameters) {
                     static_cast<unsigned>(ESP.getFreeHeap()),
                     static_cast<unsigned>(ESP.getMaxAllocHeap()),
                     static_cast<unsigned>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)));
+      /* 10.16.5: на время TLS-фетча останавливаем HTTP-сервер HA — иначе два
+         сетевых стека конкурируют за сокеты/кучу и меню выглядит «зависшим». */
+      haOtaBegin();
       fetchGitHubReleaseList();
+      haOtaEnd();
       SERIAL_DBG("[GH-OTA] FETCH_LIST done status=%s\n", otaListStatus);
       {
         MutexGuard guard(xDisplayMutex, pdMS_TO_TICKS(300));

@@ -1633,11 +1633,10 @@ void displayMainScreen() {
   static char stTemp[12] = "";
   static char stMode[16] = "";
   static char stWifi[10] = "";
-  static char stHa[8] = "";   // 10.16.2: бейдж «HA» слева от WiFi
   static float stTempDrawn = 999.0f;
   static uint16_t stEpoch = 0;
   if (stEpoch != g_displayEpoch) {
-    stTemp[0] = stMode[0] = stWifi[0] = stHa[0] = '\0';
+    stTemp[0] = stMode[0] = stWifi[0] = '\0';
     stTempDrawn = 999.0f;
     stEpoch = g_displayEpoch;
   }
@@ -1664,15 +1663,17 @@ void displayMainScreen() {
       wifiCol = theme::WARN;
     }
   }
-  /* 10.16.4: WiFi сжат до 120..150, чтобы освободить 150..168 под бейдж HA.
-     Раньше бейдж стоял в 94..120 — это область «СТАТ», которую
-     updateMainStatBadge() перерисовывает миганием (бейдж стирался). */
-  uiRedrawLabel(120, 0, 30, theme::STATUS_H, stWifi, sizeof(stWifi), wifiStr, wifiCol, theme::BG,
+  /* 10.16.5: WiFi 120..164, иконка HA 168..188 (перед иконкой режима 248). */
+  uiRedrawLabel(120, 0, 44, theme::STATUS_H, stWifi, sizeof(stWifi), wifiStr, wifiCol, theme::BG,
                 UiFont::Small, UiHAlign::Center);
 
-  /* 10.16.2: бейдж Home Assistant рядом с WiFi — только при живой связи. */
-  uiRedrawLabel(150, 0, 18, theme::STATUS_H, stHa, sizeof(stHa), haIsOnline() ? "HA" : "",
-                theme::OK, theme::BG, UiFont::SmallB, UiHAlign::Center);
+  /* 10.16.5: ИКОНКА Home Assistant рядом с WiFi (только при живой связи).
+     Вместо текста «HA» — битмап-домик iconHaL 20x20. */
+  if (haIsOnline()) {
+    drawIconL(168, 0, iconHaL, theme::OK);
+  } else {
+    tft.fillRect(168, 0, 20, theme::STATUS_H, theme::BG);
+  }
 
   // Mode: icon + label (right side). iconManualL / iconAutoL / iconMovingL.
   constexpr int16_t MODE_ICON_W = 20;

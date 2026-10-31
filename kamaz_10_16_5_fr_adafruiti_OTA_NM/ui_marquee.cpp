@@ -209,9 +209,10 @@ bool mqTick() {
 }
 
 void mqOnMenuPageEnter() {
+  /* 10.16.5: НЕ запускаем проверку GitHub при входе на страницу «Обновления».
+     Раньше вход сразу стартовал TLS-фетч в OTA-задаче; с включённой HA
+     (HTTP-сервер + TLS) это подвешивало меню/устройство. Проверка — только по
+     явным пунктам «Список прошивок» / «Установить последнюю». */
   GEMPage *page = gem.getCurrentMenuPage();
-  if (page == &otaPage && s_prevMenuPage != &otaPage) {
-    otaCheckUpdates();
-  }
   s_prevMenuPage = page;
 }
