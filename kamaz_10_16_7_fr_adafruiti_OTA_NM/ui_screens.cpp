@@ -1632,10 +1632,11 @@ void displayMainScreen() {
   /* --------------------------- статус-строка -------------------------- */
   static char stTemp[12] = "";
   static char stMode[16] = "";
+  static char stWifi[10] = "";
   static float stTempDrawn = 999.0f;
   static uint16_t stEpoch = 0;
   if (stEpoch != g_displayEpoch) {
-    stTemp[0] = stMode[0] = '\0';
+    stTemp[0] = stMode[0] = stWifi[0] = '\0';
     stTempDrawn = 999.0f;
     stEpoch = g_displayEpoch;
   }
@@ -1650,15 +1651,21 @@ void displayMainScreen() {
 
   updateMainStatBadge();
 
-  /* 10.16.6: Wi-Fi — иконка (цвет по состоянию) вместо текста «WiFi/AP/нет». */
-  uint16_t wifiIconCol = theme::TEXT_DIM;
+  /* 10.16.7: вернули текстовую надпись Wi-Fi (по просьбе); иконка HA — справа. */
+  const char *wifiStr = "нет";
+  uint16_t wifiCol = theme::TEXT_DIM;
   if (WiFi.status() == WL_CONNECTED) {
-    wifiIconCol = theme::OK;
+    wifiStr = "WiFi";
+    wifiCol = theme::OK;
   } else {
     const wifi_mode_t wm = WiFi.getMode();
-    if (wm == WIFI_AP || wm == WIFI_AP_STA) wifiIconCol = theme::WARN;
+    if (wm == WIFI_AP || wm == WIFI_AP_STA) {
+      wifiStr = "AP";
+      wifiCol = theme::WARN;
+    }
   }
-  drawIconL(144, 0, iconWifiL, wifiIconCol);
+  uiRedrawLabel(120, 0, 44, theme::STATUS_H, stWifi, sizeof(stWifi), wifiStr, wifiCol, theme::BG,
+                UiFont::Small, UiHAlign::Center);
 
   /* 10.16.5: ИКОНКА Home Assistant рядом с WiFi (только при живой связи).
      Вместо текста «HA» — битмап-домик iconHaL 20x20. */
