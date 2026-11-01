@@ -464,6 +464,9 @@ static void startServer() {
   haServer.on("/api/action", HTTP_POST, handleAction);
   haServer.onNotFound(handleNotFound);
   haServer.begin();
+  /* 10.16.8: modem-sleep давал потери пакетов и паузы до 10 с при опросе HA
+     (TCP-ретрансмиты) — на время работы HTTP-сервера сон Wi-Fi выключаем. */
+  WiFi.setSleep(false);
   haServerRunning = true;
   haServed = 0;
   Logger::log(Logger::INFO, "HA", "HTTP API: 80, /api/state");
@@ -473,6 +476,7 @@ static void startServer() {
 static void stopServer() {
   if (!haServerRunning) return;
   haServer.stop();
+  WiFi.setSleep(true);  /* 10.16.8: вернуть энергосбережение, когда API выключен */
   haServerRunning = false;
   Logger::log(Logger::INFO, "HA", "HTTP API остановлен");
   SERIAL_DBGLN("[HA] server stopped");
