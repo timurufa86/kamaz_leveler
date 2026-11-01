@@ -75,6 +75,34 @@ curl -X POST http://192.168.0.204/api/config \
 
 С токеном добавьте `-H 'X-Api-Key: <токен>'`.
 
+### Дашборд: кастомная шкала наклона
+
+В репозитории лежит `ha/kamaz-tilt.js` — карточка `custom:kamaz-tilt` с **зеркальной
+цветовой шкалой** относительно 0°: зелёный в центре, жёлтый, красный к краям,
+в обе стороны. Параметры: `entity`, `label`, `max` (10), `green` (0.5), `yellow` (1.5).
+
+Установка:
+1. Скопировать `kamaz-tilt.js` в `/config/www/`.
+2. Ресурс: Настройки → Панели → Ресурсы → добавить `/local/kamaz-tilt.js` (JavaScript-модуль),
+   либо через API: `lovelace/resources/create` с `url: /local/kamaz-tilt.js`, `res_type: module`.
+3. Перезапустить HA (каталог `/config/www` регистрируется на старте).
+
+Пример карточек:
+```yaml
+- type: custom:kamaz-tilt
+  entity: sensor.kamaz_angle_x
+  label: Крен
+  max: 10
+- type: custom:kamaz-tilt
+  entity: sensor.kamaz_angle_y
+  label: Тангаж
+  max: 10
+```
+
+Одна кнопка переключения АВТО/РУЧНОЙ — скрипт `kamaz_mode_toggle`
+(см. `ha/scripts_kamaz.yaml`): смотрит `sensor.kamaz_mode` и вызывает нужный
+`rest_command`. Добавьте в `/config/scripts.yaml` и перезагрузите скрипты.
+
 ### Поля `/api/state`
 
 `version, uptime_s, mode (AUTO|MANUAL|MOVEMENT), state, test_state, angles{x,y},

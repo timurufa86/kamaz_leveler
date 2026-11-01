@@ -1,0 +1,15 @@
+# Kamaz Leveler — вспомогательный скрипт HA (добавьте в /config/scripts.yaml)
+#
+# Переключение АВТО/РУЧНОЙ одной кнопкой: смотрит текущий режим и вызывает
+# соответствующий rest_command из пакета kamaz_leveler_package.yaml.
+kamaz_mode_toggle:
+  alias: "Kamaz: переключить АВТО/РУЧНОЙ"
+  icon: mdi:swap-horizontal
+  mode: single
+  sequence:
+    - choose:
+        - conditions: "{{ is_state('sensor.kamaz_mode', 'AUTO') }}"
+          sequence:
+            - action: rest_command.kamaz_set_manual
+      default:
+        - action: rest_command.kamaz_set_auto
