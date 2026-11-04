@@ -1,17 +1,20 @@
 name: firmware-build
 
 # Mirrors build.cmd: same sketch, FQBN, partition scheme and linker flag.
-# Libraries are pinned in .github/arduino-libraries.txt.
+# Libraries are pinned in .github/arduino-libraries.txt; GEM is vendored in ci/libraries
+# because the local copy is newer than the released 1.8.1.
 on:
   push:
     branches: [main, 'refactor/**']
     paths:
       - 'kamaz_10_16_8_fr_adafruiti_OTA_NM/**'
       - '.github/**'
+      - 'ci/**'
   pull_request:
     paths:
       - 'kamaz_10_16_8_fr_adafruiti_OTA_NM/**'
       - '.github/**'
+      - 'ci/**'
   workflow_dispatch:
 
 env:
@@ -56,6 +59,7 @@ jobs:
           arduino-cli compile \
             --fqbn "$FQBN" \
             --warnings none \
+            --libraries "$GITHUB_WORKSPACE/ci/libraries" \
             --build-path "$RUNNER_TEMP/build" \
             --build-property "compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition" \
             "$SKETCH"

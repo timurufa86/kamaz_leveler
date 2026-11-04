@@ -1,13 +1,15 @@
 # Libraries pinned to the versions the local build uses (extracted from fwbuild/compile_commands.json).
 # Format: <Library Manager name>@<version> — installed with `arduino-cli lib install`.
+# GEM is NOT listed: the local copy is a master snapshot newer than the released 1.8.1
+# (it adds GEMItem::setMultiplySep), so it is vendored in ci/libraries/GEM instead.
 Adafruit BusIO@1.17.4
-Adafruit GFX Library@1.12.6
 Adafruit ST7735 and ST7789 Library@1.11.0
 ArduinoJson@7.4.3
 EncButton@3.7.6
-GEM@1.8.1
 GyverFilters@3.2
 GyverIO@1.4.2
 MPU6050@1.4.5
 U8g2@2.36.19
 U8g2_for_Adafruit_GFX@1.8.0
+# last on purpose: Adafruit ST7735 pulls a newer GFX, and the pin must win
+Adafruit GFX Library@1.12.6
