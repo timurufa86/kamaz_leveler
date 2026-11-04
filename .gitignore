@@ -1,4 +1,4 @@
-﻿# --- OS / Editor ---
+# --- OS / Editor ---
 .DS_Store
 Thumbs.db
 *.swp
@@ -19,7 +19,8 @@ build_*/
 ota_release_*/
 
 # Compiler cache created inside the project by arduino-cli/IDE
-libraries/
+# root-anchored on purpose: an unanchored "libraries/" also matched ci/libraries
+/libraries/
 
 # --- Compiled objects / libraries ---
 *.o

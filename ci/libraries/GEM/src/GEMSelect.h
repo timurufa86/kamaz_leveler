@@ -1,0 +1,114 @@
+/*
+  GEMSelect - option select for GEM library.
+
+  GEM (a.k.a. Good Enough Menu) - Arduino library for creation of graphic multi-level menu with
+  editable menu items, such as variables (supports int, byte, float, double, bool, char[17] data types)
+  and option selects. User-defined callback function can be specified to invoke when menu item is saved.
+  
+  Supports buttons that can invoke user-defined actions and create action-specific
+  context, which can have its own enter (setup) and exit callbacks as well as loop function.
+
+  Supports:
+  - AltSerialGraphicLCD library by Jon Green (http://www.jasspa.com/serialGLCD.html);
+  - U8g2 library by olikraus (https://github.com/olikraus/U8g2_Arduino);
+  - Adafruit GFX library by Adafruit (https://github.com/adafruit/Adafruit-GFX-Library).
+
+  For documentation visit:
+  https://github.com/Spirik/GEM
+
+  Copyright (c) 2018-2026 Alexander 'Spirik' Spiridonov
+
+  This file is part of GEM library.
+
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 3 of the License, or (at your option) any later version.
+  
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+  
+  You should have received a copy of the GNU Lesser General Public License
+  along with this library.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#ifndef HEADER_GEMSELECT
+#define HEADER_GEMSELECT
+
+#include "config.h"
+#include "constants.h"
+
+// Forward declaration of necessary classes
+class GEMItem;
+
+// Declaration of SelectOptionInt type
+struct SelectOptionInt {
+  const char* name;    // Text label of the option as displayed in select
+  int val_int;         // Value of the option that is assigned to linked variable upon option selection
+};
+
+// Declaration of SelectOptionByte type
+struct SelectOptionByte {
+  const char* name;
+  byte val_byte;
+};
+
+// Declaration of SelectOptionChar type
+struct SelectOptionChar {
+  const char* name;
+  const char* val_char;
+};
+
+// Declaration of SelectOptionFloat type
+struct SelectOptionFloat {
+  const char* name;
+  float val_float;
+};
+
+// Declaration of SelectOptionDouble type
+struct SelectOptionDouble {
+  const char* name;
+  double val_double;
+};
+
+// Declaration of GEMSelect class
+class GEMSelect {
+  friend class GEM;
+  friend class GEM_u8g2;
+  friend class GEM_adafruit_gfx;
+  public:
+    /* 
+      @param 'length_' - length of the 'options_' array
+      @param 'options_' - array of the available options
+      @param 'loop_' (optional) - whether iteration over options should be looped
+      values GEM_LOOP (alias for true)
+      @param 'produceOptionNameByIndexCallback_' (optional) - pointer to callback function executed before option name is printed on the screen, allows to override option name being printed
+    */
+    GEMSelect(byte length_, SelectOptionInt* options_, bool loop_ = false, const char* (*produceOptionNameByIndexCallback_)(GEMSelect*, int, GEMItem*) = nullptr);
+    GEMSelect(byte length_, SelectOptionByte* options_, bool loop_ = false, const char* (*produceOptionNameByIndexCallback_)(GEMSelect*, int, GEMItem*) = nullptr);
+    GEMSelect(byte length_, SelectOptionChar* options_, bool loop_ = false, const char* (*produceOptionNameByIndexCallback_)(GEMSelect*, int, GEMItem*) = nullptr);
+    GEMSelect(byte length_, SelectOptionFloat* options_, bool loop_ = false, const char* (*produceOptionNameByIndexCallback_)(GEMSelect*, int, GEMItem*) = nullptr);
+    GEMSelect(byte length_, SelectOptionDouble* options_, bool loop_ = false, const char* (*produceOptionNameByIndexCallback_)(GEMSelect*, int, GEMItem*) = nullptr);
+    GEMSelect& setLoop(bool mode = true); // Explicitly set or unset loop mode
+    bool getLoop();                       // Get current value of loop mode
+    byte getType();                       // Get type of variable this select is suitable for
+    byte getLength();                     // Get total number of available options (options array length)
+    void* getOptions();                   // Get pointer to options array
+    GEMSelect& setOptions(void* options_);// Set options array
+    GEM_VIRTUAL int getSelectedOptionNum(void* variable);           // Get selected option index for supplied variable (make sure that variable value is compatible with available options)
+    GEM_VIRTUAL const char* getSelectedOptionName(void* variable);  // Get selected option name for supplied variable (make sure that variable value is compatible with available options)
+    GEM_VIRTUAL const char* getOptionNameByIndex(int index);  // Get option name by its index
+    GEMSelect& setProduceOptionNameByIndexCallback(const char* (*produceOptionNameByIndexCallback_)(GEMSelect* pSelect, int index, GEMItem* menuItem)); // Set callback that will be called before option name is printed on the screen
+    GEMSelect& removeProduceOptionNameByIndexCallback();      // Remove callback that was called before option name is printed on the screen
+  protected:
+    byte _type;
+    byte _length;
+    void* _options;
+    bool _loop = false;
+    GEM_VIRTUAL void setValue(void* variable, int index);     // Assign value of the selected option to supplied variable
+    const char* (*produceOptionNameByIndexCallback)(GEMSelect* pSelect, int index, GEMItem* menuItem) = nullptr;
+};
+  
+#endif
