@@ -6,6 +6,11 @@
 - Скетч: `kamaz_10_16_8_fr_adafruiti_OTA_NM/`
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
+## Аппаратная часть (PCB)
+
+Проект платы (KiCad 10, 2 слоя, корпус 15-8) лежит в [`hardware/`](hardware/README.md).
+Там же — документация, рендеры, производственные файлы и скрипты экспорта.
+
 ## Toolchain
 
 - **arduino-cli** 1.5.1+

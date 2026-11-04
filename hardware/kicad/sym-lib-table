@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+
+  (lib (name "kamaz_leveler") (type "KiCad") (uri "${KIPRJMOD}/kamaz_leveler.kicad_sym") (options "") (descr "")))
