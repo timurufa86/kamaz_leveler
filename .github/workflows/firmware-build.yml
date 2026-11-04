@@ -1,8 +1,8 @@
 name: firmware-build
 
 # Mirrors build.cmd: same sketch, FQBN, partition scheme and linker flag.
-# Libraries are pinned in .github/arduino-libraries.txt; GEM is vendored in ci/libraries
-# because the local copy is newer than the released 1.8.1.
+# The sketchbook is ci/ so that ci/libraries is the user library folder, exactly like
+# C:/my/libraries locally: registry libraries are installed there and GEM is vendored there.
 on:
   push:
     branches: [main, 'refactor/**']
@@ -37,6 +37,7 @@ jobs:
       - name: Configure arduino-cli
         run: |
           arduino-cli config init --overwrite
+          arduino-cli config set directories.user "$GITHUB_WORKSPACE/ci"
           arduino-cli config set board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli config set library.enable_unsafe_install true
 
@@ -53,13 +54,14 @@ jobs:
             arduino-cli lib install "$line"
             echo "::endgroup::"
           done < .github/arduino-libraries.txt
+          echo '--- libraries in the sketchbook ---'
+          arduino-cli lib list
 
       - name: Compile firmware
         run: |
           arduino-cli compile \
             --fqbn "$FQBN" \
             --warnings none \
-            --libraries "$GITHUB_WORKSPACE/ci/libraries" \
             --build-path "$RUNNER_TEMP/build" \
             --build-property "compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition" \
             "$SKETCH"
