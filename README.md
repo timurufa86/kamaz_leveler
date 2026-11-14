@@ -3,7 +3,8 @@
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
 - Базовая ветка разработки: **`2.x`** (старая линия; новая — `3.0.0`)
-- Скетч: `kamaz_2_16_8_fr_adafruiti_OTA_NM/`
+- Скетч старой линии: `kamaz_2_0_0_fr_adafruiti_OTA_NM/` (ESP32 classic, плата v2)
+- Скетч новой линии: `kamaz_3_0_0_fr_adafruiti_OTA_NM/` (ESP32-S3, плата v3)
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Аппаратная часть (PCB)
@@ -37,7 +38,7 @@
 arduino-cli compile --config-file arduino-cli.yaml `
   -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M" --warnings none --export-binaries `
   --build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition `
-  kamaz_2_16_8_fr_adafruiti_OTA_NM
+  kamaz_2_0_0_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
@@ -58,7 +59,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 
 Плата оснащена **4 МБ** флеш-памяти. Штатные OTA-слоты ядра (1.25 МБ) малы
 для скетча (~1.6 МБ), поэтому используется **своя схема разделов**
-(`kamaz_2_16_8_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
+(`kamaz_2_0_0_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
 |---|---|---|---|
@@ -73,6 +74,37 @@ arduino-cli compile --config-file arduino-cli.yaml `
 
 > ⚠️ **Смена карты флеша требует разовой прошивки по USB** (bootloader +
 > partitions + app). OTA с прежней 16-мегабайтной схемы разделы НЕ переносит.
+
+## Карта флеша (16 МБ, своя таблица разделов) — линия 3.0.0
+
+Плата v3 (ESP32-S3) оснащена **16 МБ** флеш-памяти. Штатная схема
+`PartitionScheme=default_8MB` содержит **один** слот приложения, поэтому OTA на
+ней невозможен. Используется **своя схема разделов**
+(`kamaz_3_0_0_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
+
+| Раздел | Смещение | Размер | Назначение |
+|---|---|---|---|
+| `nvs` | 0x9000 | 20 КБ | Wi-Fi/настройки IDF |
+| `otadata` | 0xe000 | 8 КБ | выбор OTA-слота |
+| `app0` (ota_0) | 0x10000 | **2 МБ** | основной слот прошивки |
+| `app1` (ota_1) | 0x210000 | **2 МБ** | слот для OTA-обновления |
+| `spiffs` | 0x410000 | 11.9 МБ | LittleFS (`/config.txt`) |
+| `coredump` | 0xFF0000 | 64 КБ | дамп при сбое |
+
+Образ ~1.65 МБ, запас роста ~350 КБ на слот. Сборка:
+`build_3_0_0.cmd` (FQBN `esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi`).
+
+> ⚠️ **Смена карты флеша требует разовой прошивки по USB** (bootloader +
+> partitions + app). OTA с прежней `default_8MB` схемы разделы НЕ переносит.
+
+## Две линии в одном репозитории (фильтр OTA по MAJOR)
+
+Обе линии публикуют ассеты `kamaz_leveler.bin` / `kamaz_leveler.bin.sha256` в
+одном репозитории, поэтому устройство фильтрует релизы по **MAJOR** из своего
+`VERSION` (`ota_list.cpp`, `releaseMatchesLocalMajor`): релиз с другим MAJOR или
+непарсящимся тегом пропускается с логом
+`[OTA] skip release v3.0.0 (major 3 != 2)`. Устройство 2.0.0 никогда не
+поставит образ 3.0.0 (ESP32-S3) и наоборот.
 
 ## Используемые библиотеки
 

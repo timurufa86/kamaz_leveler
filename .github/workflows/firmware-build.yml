@@ -1,31 +1,42 @@
 name: firmware-build
 
-# Mirrors build.cmd: same sketch, FQBN, partition scheme and linker flag.
+# Mirrors build.cmd (2.0.0, ESP32 classic) and build_3_0_0.cmd (3.0.0, ESP32-S3):
+# same FQBN per line, custom partition scheme per sketch, same linker flag.
 # The sketchbook is ci/ so that ci/libraries is the user library folder, exactly like
 # C:/my/libraries locally: registry libraries are installed there and GEM is vendored there.
 on:
   push:
-    branches: [main, 'refactor/**']
+    branches: [main, 'refactor/**', '2.x', '3.0.0']
     paths:
-      - 'kamaz_2_16_8_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_2_0_0_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_3_0_0_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   pull_request:
     paths:
-      - 'kamaz_2_16_8_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_2_0_0_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_3_0_0_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   workflow_dispatch:
 
 env:
-  SKETCH: kamaz_2_16_8_fr_adafruiti_OTA_NM
-  FQBN: esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
   ESP32_CORE_VERSION: 3.3.11
   ARDUINO_CLI_VERSION: 1.5.1
 
 jobs:
   compile:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # OLD line: v2 board, ESP32 classic, 4MB flash, custom table with 2x1.75MB OTA slots
+          - sketch: kamaz_2_0_0_fr_adafruiti_OTA_NM
+            fqbn: esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
+          # NEW line: v3 board, ESP32-S3, 16MB flash, custom table with 2x2MB OTA slots
+          - sketch: kamaz_3_0_0_fr_adafruiti_OTA_NM
+            fqbn: esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi
     steps:
       - uses: actions/checkout@v4
 
@@ -60,8 +71,15 @@ jobs:
       - name: Compile firmware
         run: |
           arduino-cli compile \
-            --fqbn "$FQBN" \
+            --fqbn "${{ matrix.fqbn }}" \
             --warnings none \
-            --build-path "$RUNNER_TEMP/build" \
+            --build-path "$RUNNER_TEMP/build-${{ matrix.sketch }}" \
             --build-property "compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition" \
-            "$SKETCH"
+            "${{ matrix.sketch }}"
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.sketch }}
+          path: ${{ runner.temp }}/build-${{ matrix.sketch }}/*.bin
+          if-no-files-found: warn

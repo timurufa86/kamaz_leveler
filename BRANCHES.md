@@ -7,8 +7,8 @@
 | Что | Значение |
 |---|---|
 | Плата | `hardware/kicad/` (104×54, ESP32 DevKitC) · вариант B `hardware/variants/devkitv1/` |
-| Прошивка | **`kamaz_2_16_8_fr_adafruiti_OTA_NM/`** (актуальная в линии 2.x) |
-| Версия | **2.16.8** (`VERSION = "V 2.16.8 FreeRTOS OTA"`) — бывшая 10.16.8 с перенумерованным MAJOR |
+| Прошивка | **`kamaz_2_0_0_fr_adafruiti_OTA_NM/`** (актуальная в линии 2.x) |
+| Версия | **2.0.0** (`VERSION = "V 2.0.0 FreeRTOS OTA"`) — бывшая 2.16.8, приведена к имени папки |
 | Git-ветки | **`2.x`** (рабочая), исторические `8.5.8`…`8.9.0`, `wip/ota-10.15.5` |
 | FQBN | `esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M` |
 | Особенности | клапаны и кнопки — напрямую на GPIO; PCAL9555A не используется |
@@ -24,7 +24,7 @@
 | Прошивка | **`kamaz_3_0_0_fr_adafruiti_OTA_NM/`** |
 | Версия | **3.0.0** (`VERSION = "V 3.0.0 FreeRTOS OTA"`) |
 | Git-ветка | **`3.0.0`** |
-| FQBN | `esp32:esp32:esp32s3` (FlashSize=16M, PSRAM=opi, PartitionScheme=default_8MB) |
+| FQBN | `esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi` (своя таблица разделов с двумя OTA-слотами по 2 МБ) |
 | Особенности | клапаны/кнопки/статусы — через PCAL9555APW (I²C 0x20); `/VLV_EN` = OE буфера; новые входы `/SPEED_PULSE`, `/PRES_SW`; S3 без GPIO 22–25 |
 
 ## Правила
