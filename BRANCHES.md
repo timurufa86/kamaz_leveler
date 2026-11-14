@@ -21,7 +21,7 @@
 | Что | Значение |
 |---|---|
 | Плата | `hardware/variants/esp32s3/` (104×54, **готовый вариант A**) и `hardware/variants/esp32s3_ruichi158/` (60×85,5, **RUICH 15-8**, рабочая) |
-| Прошивка | **`kamaz_3_0_0_fr_adafruiti_OTA_NM/`** |
+| Прошивка | **`kamaz_3_0_1_fr_adafruiti_OTA_NM/`** |
 | Версия | **3.0.0** (`VERSION = "V 3.0.0 FreeRTOS OTA"`) |
 | Git-ветка | **`3.0.0`** |
 | FQBN | `esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi` (своя таблица разделов с двумя OTA-слотами по 2 МБ) |

@@ -6,7 +6,7 @@ REM  Uses the project-local arduino-cli.yaml, which points the sketchbook at
 REM  C:\my so that libraries are resolved from C:\my\libraries.
 REM
 REM  This script builds the OLD line only (2.0.0, ESP32 classic, v2 board).
-REM  The NEW line (3.0.0, ESP32-S3, v3 board) has its own build_3_0_0.cmd.
+REM  The NEW line (3.0.0, ESP32-S3, v3 board) has its own build_3_0_1.cmd.
 REM
 REM  Usage:
 REM    build.cmd         ^<-- compile kamaz_2_0_0_fr_adafruiti_OTA_NM
