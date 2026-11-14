@@ -4,7 +4,7 @@
 
 ## Что уже есть
 
-- Репозиторий: `C:\my\for cursor\kamaz_leveler`, ветка `refactor/modular-firmware`, релиз **v10.16.8**.
+- Репозиторий: `C:\my\for cursor\kamaz_leveler`, ветка `2.x`, релиз **v10.16.8**.
 - Устройство №1: ESP32, прошивка **10.16.8**, статический IP **192.168.0.204**, SSID `lesnaya1/1`.
 - HA: **http://192.168.0.131:8123** (HA 2026.8.2 в Docker). SSH: `timur@192.168.0.131` (пароль у владельца).
 - Конфиг HA: `/root/.homeassistant` (в контейнере `/config`), контейнер `homeassistant`.

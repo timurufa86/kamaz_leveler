@@ -7,18 +7,18 @@ on:
   push:
     branches: [main, 'refactor/**']
     paths:
-      - 'kamaz_10_16_8_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_2_16_8_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   pull_request:
     paths:
-      - 'kamaz_10_16_8_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_2_16_8_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   workflow_dispatch:
 
 env:
-  SKETCH: kamaz_10_16_8_fr_adafruiti_OTA_NM
+  SKETCH: kamaz_2_16_8_fr_adafruiti_OTA_NM
   FQBN: esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
   ESP32_CORE_VERSION: 3.3.11
   ARDUINO_CLI_VERSION: 1.5.1
