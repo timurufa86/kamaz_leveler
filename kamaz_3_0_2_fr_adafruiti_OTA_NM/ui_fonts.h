@@ -27,16 +27,16 @@ enum class UiFont : uint8_t {
 
 inline const uint8_t *uiFontPtr(UiFont f) {
   switch (f) {
-    case UiFont::Tiny:     return u8g2_font_5x7_t_cyrillic;
+    case UiFont::Tiny:     return u8g2_font_5x8_t_cyrillic;   // 3.0.2: 5x8 читаемее 5x7 (+86 Б)
     case UiFont::Small:    return u8g2_font_6x13_t_cyrillic;
     case UiFont::SmallB:   return u8g2_font_6x13B_t_cyrillic;
     case UiFont::Body:     return u8g2_font_7x13_t_cyrillic;
     case UiFont::BodyWide: return u8g2_font_8x13_t_cyrillic;
     case UiFont::Uni16:    return u8g2_font_10x20_t_cyrillic;   // 3.0.1: unifont не используется (−6,6 КБ)
     case UiFont::Med:      return u8g2_font_10x20_t_cyrillic;
-    case UiFont::Large:    return u8g2_font_inr24_t_cyrillic;
-    case UiFont::XLarge:   return u8g2_font_inr24_t_cyrillic;    // 3.0.1: inr33 не используется (−9,8 КБ)
-    case UiFont::Huge:     return u8g2_font_inr24_t_cyrillic;    // 3.0.1: inr46 не используется (−14,3 КБ)
+    case UiFont::Large:    return u8g2_font_inr27_t_cyrillic;   // 3.0.2: главное значение крупнее (+0,9 КБ)
+    case UiFont::XLarge:   return u8g2_font_10x20_t_cyrillic;   // 3.0.2: inr33/inr24 не используются
+    case UiFont::Huge:     return u8g2_font_10x20_t_cyrillic;   // 3.0.2: inr46 не используется
   }
   return u8g2_font_6x13_t_cyrillic;
 }
