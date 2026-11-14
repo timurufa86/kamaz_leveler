@@ -1,19 +1,28 @@
-# Custom partition table for ESP32 with 4MB flash (used via PartitionScheme=custom).
+# Custom partition table for ESP32-S3 (v3 board) with 16MB flash (used via PartitionScheme=custom).
 #
-# Stock OTA slots on 4MB are only 1.25MB each — too small for this sketch (~1.42MB).
-# Layout:
-#   - two OTA app slots of 1.75MB each (~320KB headroom over current bin)
-#   - 384KB SPIFFS for LittleFS (/config.txt)
-#   - 64KB coredump
+# The stock PartitionScheme=default_8MB has a SINGLE app slot, so OTA is impossible.
+# This layout gives two equal OTA slots so the updater can write the inactive slot
+# and roll back if the new image fails to boot.
+#
+# Image is ~1.65MB, so 2MB per slot leaves ~350KB headroom.
+# All app offsets are 64KB-aligned (0x210000 = 33*64K, 0x410000 = 65*64K).
+#
+# Layout (16MB total):
+#   - nvs       20KB   WiFi/config in IDF NVS
+#   - otadata    8KB   boot slot selector
+#   - app0       2MB   factory/OTA slot 0
+#   - app1       2MB   OTA slot 1
+#   - spiffs     11.9MB LittleFS (/config.txt)
+#   - coredump   64KB  crash dump
 #
 # NOTE: changing the flash map requires a ONE-TIME USB re-flash of the whole
-# image (bootloader + partitions + app). OTA from the previous 16MB layout
-# will NOT move partitions.
+# image (bootloader + partitions + app). OTA from the previous default_8MB
+# layout will NOT move partitions.
 #
 # Name,   Type, SubType, Offset,   Size,     Flags
-nvs,      data, nvs,     0x9000,   0x5000,
-otadata,  data, ota,     0xe000,   0x2000,
-app0,     app,  ota_0,   0x10000,  0x1C0000,
-app1,     app,  ota_1,   0x1D0000, 0x1C0000,
-spiffs,   data, spiffs,  0x390000, 0x60000,
-coredump, data, coredump,0x3F0000, 0x10000,
+nvs,      data, nvs,      0x9000,   0x5000,
+otadata,  data, ota,      0xe000,   0x2000,
+app0,     app,  ota_0,    0x10000,  0x200000,
+app1,     app,  ota_1,    0x210000, 0x200000,
+spiffs,   data, spiffs,   0x410000, 0xBE0000,
+coredump, data, coredump, 0xFF0000, 0x10000,

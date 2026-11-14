@@ -5,8 +5,11 @@ REM
 REM  Uses the project-local arduino-cli.yaml, which points the sketchbook at
 REM  C:\my so that libraries are resolved from C:\my\libraries.
 REM
+REM  This script builds the OLD line only (2.0.0, ESP32 classic, v2 board).
+REM  The NEW line (3.0.0, ESP32-S3, v3 board) has its own build_3_0_0.cmd.
+REM
 REM  Usage:
-REM    build.cmd         ^<-- compile the current 10.15.x sketch
+REM    build.cmd         ^<-- compile kamaz_2_0_0_fr_adafruiti_OTA_NM
 REM    build.cmd COM5    ^<-- compile + upload to a board
 REM
 REM  The board uses a CUSTOM 4MB partition table (see
@@ -16,8 +19,8 @@ REM ============================================================================
 
 setlocal
 
-set SKETCH=kamaz_2_16_8_fr_adafruiti_OTA_NM
-REM Sketch folder 2_16_8; VERSION string = 2.16.8
+set SKETCH=kamaz_2_0_0_fr_adafruiti_OTA_NM
+REM Sketch folder 2_0_0; VERSION string = 2.0.0
 set FQBN=esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
 set CONFIG=arduino-cli.yaml
 set LINKFLAGS=-Wl,--allow-multiple-definition
@@ -43,4 +46,3 @@ if not "%~1"=="" (
 )
 
 endlocal
-

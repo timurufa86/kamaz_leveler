@@ -4,6 +4,7 @@
 #include "app_globals.h"
 #include "app_types.h"
 #include "semver_utils.h"
+#include "app_version.h"
 
 #include <WiFi.h>
 #include <LittleFS.h>
@@ -41,6 +42,31 @@ static bool copyDigestSha256(const char *digest, char *out, size_t outLen) {
     out[i] = c;
   }
   out[64] = '\0';
+  return true;
+}
+
+/** MAJOR of the running firmware, from VERSION ("V 3.0.0 FreeRTOS OTA"). */
+static int localVersionMajor() {
+  SemVer v{};
+  return parseSemVer(VERSION, v) ? v.major : -1;
+}
+
+/**
+ * Line guard: the 2.x (ESP32 classic) and 3.x (ESP32-S3) builds share one GitHub repo,
+ * so a release is eligible only when its MAJOR equals the running firmware's MAJOR.
+ * A tag that does not parse as semver is treated as ineligible — never offer it.
+ */
+static bool releaseMatchesLocalMajor(const char *tag, int localMajor) {
+  SemVer remote{};
+  if (!parseSemVer(tag, remote)) {
+    SERIAL_DBG("[OTA] skip release %s (not semver)\n", tag);
+    return false;
+  }
+  if (remote.major != localMajor) {
+    SERIAL_DBG("[OTA] skip release v%d.%d.%d (major %d != %d)\n", remote.major, remote.minor,
+               remote.patch, remote.major, localMajor);
+    return false;
+  }
   return true;
 }
 
@@ -89,11 +115,16 @@ static bool parseGitHubReleaseListFile(const char *path) {
 
   OtaRelease collected[OTA_FETCH_MAX];
   uint8_t collectedN = 0;
+  const int localMajor = localVersionMajor();
+  if (localMajor < 0) {
+    SERIAL_DBGLN("[OTA] VERSION не разобран — релизы не предлагаются");
+  }
   for (JsonObject rel : doc.as<JsonArray>()) {
     if (collectedN >= OTA_FETCH_MAX) break;
     OtaRelease r{};
     strlcpy(r.tag, rel["tag_name"] | "", sizeof(r.tag));
     if (r.tag[0] == '\0') continue;
+    if (!releaseMatchesLocalMajor(r.tag, localMajor)) continue;
 
     const char *published = rel["published_at"] | "";
     if (strlen(published) >= 10) {
@@ -185,7 +216,7 @@ bool fetchGitHubReleaseList() {
   if (menuVisible) displayDirty = true;
   // LIST via raw TLS GET (JSON to RAM then LittleFS). Install uses Update + CDN.
   constexpr char kReleasesUrl[] =
-      "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=3";
+      "https://api.github.com/repos/timurufa86/kamaz_leveler/releases?per_page=10";
   constexpr char kPath[] = "/gh_rels.json";
   SERIAL_DBG("[GH-OTA] Список releases, heap %u\n", static_cast<unsigned>(ESP.getFreeHeap()));
   const int code =

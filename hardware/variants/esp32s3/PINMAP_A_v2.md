@@ -79,7 +79,7 @@ IO19 и IO20 (USB Serial-JTAG), IO43 и IO44 (UART0).
 
 ## 4. Правка прошивки (3 строки, в этом цикле не применялась)
 
-`kamaz_2_16_8_fr_adafruiti_OTA_NM/app_pins.h`:
+`kamaz_2_0_0_fr_adafruiti_OTA_NM/app_pins.h`:
 
 ```
 PIN_OLED_SCL  22 -> 47

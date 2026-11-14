@@ -58,3 +58,6 @@ esp32.*/
 hardware/backups/
 hardware/kicad/*.kicad_prl
 hardware/kicad/*.lck
+
+# --- Локальные черновики/бэкапы трассировки (не версионируются) ---
+_work/
