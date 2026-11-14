@@ -1,0 +1,35 @@
+** Drc report for kamaz_leveler_s3.kicad_pcb **
+** Created on 2026-11-07T23:07:42 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 0 DRC violations **
+
+** Found 0 unconnected pads **
+
+** Found 4 Footprint errors **
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(92.7500 mm, 6.7500 mm): Footprint H2
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(11.2500 mm, 6.7500 mm): Footprint H1
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(11.2500 mm, 47.2500 mm): Footprint H3
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(92.7500 mm, 47.2500 mm): Footprint H4
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

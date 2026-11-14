@@ -1,0 +1,13 @@
+{
+ "board": "kamaz_leveler_s3.kicad_pcb",
+ "out": "kamaz_leveler_s3.kicad_pcb",
+ "add_vias": [
+  [
+   "/DISP_SCLK",
+   66.8,
+   50.3,
+   0.45,
+   0.2
+  ]
+ ]
+}

@@ -1,0 +1,89 @@
+** Drc report for kamaz_leveler_s3.kicad_pcb **
+** Created on 2026-11-07T22:58:55 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 1 DRC violations **
+[lib_footprint_mismatch]: Посад. место 'ESP32-S3-DevKitC-1_Socket_2x22_P2.54mm' не соответствует копии в библиотеке 'kamaz_leveler'
+    Local override; warning
+    @(102.3300 mm, 38.2600 mm): Footprint U7
+
+** Found 0 unconnected pads **
+
+** Found 21 Footprint errors **
+[net_conflict]: Цепь конт. пл. (/I2C_SDA) не соответствует цепи, заданной схемой (/DISP_BL)
+    Local override; warning
+    @(94.7100 mm, 38.2600 mm): PTH pad 4 [/I2C_SDA] of U7
+[net_conflict]: Цепь конт. пл. (/I2C_SCL) не соответствует цепи, заданной схемой (/DISP_CS)
+    Local override; warning
+    @(92.1700 mm, 38.2600 mm): PTH pad 5 [/I2C_SCL] of U7
+[net_conflict]: Цепь конт. пл. (/SPEED_PULSE) не соответствует цепи, заданной схемой (unconnected-(U7-IO6-Pad6))
+    Local override; warning
+    @(89.6300 mm, 38.2600 mm): PTH pad 6 [/SPEED_PULSE] of U7
+[net_conflict]: Цепь конт. пл. (/PRES_SW) не соответствует цепи, заданной схемой (unconnected-(U7-IO7-Pad7))
+    Local override; warning
+    @(87.0900 mm, 38.2600 mm): PTH pad 7 [/PRES_SW] of U7
+[net_conflict]: Цепь конт. пл. (/VLV_EN) не соответствует цепи, заданной схемой (unconnected-(U7-IO15-Pad8))
+    Local override; warning
+    @(84.5500 mm, 38.2600 mm): PTH pad 8 [/VLV_EN] of U7
+[net_conflict]: Цепь конт. пл. (/INT_MCU) не соответствует цепи, заданной схемой (/DISP_DC)
+    Local override; warning
+    @(82.0100 mm, 38.2600 mm): PTH pad 9 [/INT_MCU] of U7
+[net_conflict]: Цепь конт. пл. (unconnected-(U7-IO17-Pad10)) не соответствует цепи, заданной схемой (/DISP_RES)
+    Local override; warning
+    @(79.4700 mm, 38.2600 mm): PTH pad 10 [unconnected-(U7-IO17-Pad10)] of U7
+[net_conflict]: Цепь конт. пл. (unconnected-(U7-IO18-Pad11)) не соответствует цепи, заданной схемой (/DISP_SCLK)
+    Local override; warning
+    @(76.9300 mm, 38.2600 mm): PTH pad 11 [unconnected-(U7-IO18-Pad11)] of U7
+[net_conflict]: Цепь конт. пл. (unconnected-(U7-IO8-Pad12)) не соответствует цепи, заданной схемой (/SPEED_PULSE)
+    Local override; warning
+    @(74.3900 mm, 38.2600 mm): PTH pad 12 [unconnected-(U7-IO8-Pad12)] of U7
+[net_conflict]: Цепь конт. пл. (/DISP_BL) не соответствует цепи, заданной схемой (unconnected-(U7-IO9-Pad15))
+    Local override; warning
+    @(66.7700 mm, 38.2600 mm): PTH pad 15 [/DISP_BL] of U7
+[net_conflict]: Цепь конт. пл. (/DISP_CS) не соответствует цепи, заданной схемой (unconnected-(U7-IO10-Pad16))
+    Local override; warning
+    @(64.2300 mm, 38.2600 mm): PTH pad 16 [/DISP_CS] of U7
+[net_conflict]: Цепь конт. пл. (/DISP_SCLK) не соответствует цепи, заданной схемой (unconnected-(U7-IO12-Pad18))
+    Local override; warning
+    @(59.1500 mm, 38.2600 mm): PTH pad 18 [/DISP_SCLK] of U7
+[net_conflict]: Цепь конт. пл. (/DISP_DC) не соответствует цепи, заданной схемой (/INT_MCU)
+    Local override; warning
+    @(56.6100 mm, 38.2600 mm): PTH pad 19 [/DISP_DC] of U7
+[net_conflict]: Цепь конт. пл. (/DISP_RES) не соответствует цепи, заданной схемой (/VLV_EN)
+    Local override; warning
+    @(54.0700 mm, 38.2600 mm): PTH pad 20 [/DISP_RES] of U7
+[net_conflict]: Цепь конт. пл. (unconnected-(U7-IO38-Pad32)) не соответствует цепи, заданной схемой (/PRES_SW)
+    Local override; warning
+    @(79.4700 mm, 15.4000 mm): PTH pad 32 [unconnected-(U7-IO38-Pad32)] of U7
+[net_conflict]: Цепь конт. пл. (unconnected-(U7-IO47-Pad39)) не соответствует цепи, заданной схемой (/I2C_SCL)
+    Local override; warning
+    @(61.6900 mm, 15.4000 mm): PTH pad 39 [unconnected-(U7-IO47-Pad39)] of U7
+[net_conflict]: Цепь конт. пл. (unconnected-(U7-IO21-Pad40)) не соответствует цепи, заданной схемой (/I2C_SDA)
+    Local override; warning
+    @(59.1500 mm, 15.4000 mm): PTH pad 40 [unconnected-(U7-IO21-Pad40)] of U7
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(92.7500 mm, 6.7500 mm): Footprint H2
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(11.2500 mm, 6.7500 mm): Footprint H1
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(11.2500 mm, 47.2500 mm): Footprint H3
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(92.7500 mm, 47.2500 mm): Footprint H4
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

@@ -1,0 +1,165 @@
+--- kamaz_leveler_devkitv1.kicad_sch.bak_parityfix	2026-11-05 03:26:05.887771700 +0500
++++ kamaz_leveler_devkitv1.kicad_sch	2026-11-05 03:33:12.242993600 +0500
+@@ -13892,36 +13892,12 @@
+ 		)
+ 	)
+ 	(no_connect
+-		(at 72.39 254
+-		)
+-		(uuid "d397a7b9-801d-47cb-928b-5f4921d72be1"
+-		)
+-	)
+-	(no_connect
+ 		(at 72.39 256.54
+ 		)
+ 		(uuid "b6c03951-aa40-4bb0-96bc-a2cc1b0f9d20"
+ 		)
+ 	)
+ 	(no_connect
+-		(at 72.39 259.08
+-		)
+-		(uuid "3cb60272-476d-470c-bdf8-0ffe7b25caa1"
+-		)
+-	)
+-	(no_connect
+-		(at 72.39 271.78
+-		)
+-		(uuid "617f5f71-04b6-43d6-8592-86fe4e38dfbb"
+-		)
+-	)
+-	(no_connect
+-		(at 72.39 274.32
+-		)
+-		(uuid "d2491d67-237d-460d-968d-668a456b0390"
+-		)
+-	)
+-	(no_connect
+ 		(at 72.39 276.86
+ 		)
+ 		(uuid "37503dc9-beb9-460d-88f9-26f8cfd2f175"
+@@ -13973,6 +13949,30 @@
+ 		(at 72.39 251.46)
+ 		(uuid "b1ea86ef-6a67-4c0e-9364-43d6501644c4")
+ 	)
++	(no_connect
++		(at 72.39 266.7
++		)
++		(uuid "c59a73cd-006b-48f1-8c42-818d5133fa92"
++		)
++	)
++	(no_connect
++		(at 102.87 269.24
++		)
++		(uuid "b2caf5d5-afa9-42bd-9452-db8836f8013c"
++		)
++	)
++	(no_connect
++		(at 102.87 274.32
++		)
++		(uuid "c116bed7-5491-4bb3-972d-789197b9ca70"
++		)
++	)
++	(no_connect
++		(at 102.87 276.86
++		)
++		(uuid "f4a61a9d-10ac-4c36-8393-8d0e3acb6b43"
++		)
++	)
+ 	(wire
+ 		(pts
+ 			(xy 50.8 143.51
+@@ -16212,7 +16212,7 @@
+ 		)
+ 	)
+ 	(label "INT_MCU"
+-		(at 72.39 266.7 180
++		(at 72.39 261.62 180
+ 		)
+ 		(effects
+ 			(font
+@@ -16324,7 +16324,7 @@
+ 		)
+ 	)
+ 	(label "SPEED_PULSE"
+-		(at 72.39 261.62 180
++		(at 72.39 259.08 180
+ 		)
+ 		(effects
+ 			(font
+@@ -16590,28 +16590,28 @@
+ 		)
+ 	)
+ 	(label "DISP_RES"
+-		(at 102.87 264.16 0
++		(at 72.39 269.24 180
+ 		)
+ 		(effects
+ 			(font
+ 				(size 1.27 1.27
+ 				)
+ 			)
+-			(justify left bottom
++			(justify right bottom
+ 			)
+ 		)
+ 		(uuid "2bb4f8ef-8dde-4df4-bc91-f99f57e5cb64"
+ 		)
+ 	)
+ 	(label "DISP_BL"
+-		(at 102.87 276.86 0
++		(at 72.39 264.16 180
+ 		)
+ 		(effects
+ 			(font
+ 				(size 1.27 1.27
+ 				)
+ 			)
+-			(justify left bottom
++			(justify right bottom
+ 			)
+ 		)
+ 		(uuid "2e6912d0-331a-4548-93d3-f9172408cee4"
+@@ -16842,7 +16842,7 @@
+ 		)
+ 	)
+ 	(label "DISP_CS"
+-		(at 102.87 269.24 0
++		(at 102.87 264.16 0
+ 		)
+ 		(effects
+ 			(font
+@@ -17038,7 +17038,7 @@
+ 		)
+ 	)
+ 	(label "VLV_EN"
+-		(at 72.39 264.16 180
++		(at 72.39 274.32 180
+ 		)
+ 		(effects
+ 			(font
+@@ -17206,14 +17206,14 @@
+ 		)
+ 	)
+ 	(label "DISP_DC"
+-		(at 102.87 274.32 0
++		(at 72.39 271.78 180
+ 		)
+ 		(effects
+ 			(font
+ 				(size 1.27 1.27
+ 				)
+ 			)
+-			(justify left bottom
++			(justify right bottom
+ 			)
+ 		)
+ 		(uuid "6a079f8d-05eb-4b9e-9694-165f38bb27fa"
+@@ -17458,7 +17458,7 @@
+ 		)
+ 	)
+ 	(label "PRES_SW"
+-		(at 72.39 269.24 180
++		(at 72.39 254 180
+ 		)
+ 		(effects
+ 			(font

@@ -1,0 +1,150 @@
+--- kamaz_leveler_devkitv1.kicad_pcb.bak_parityfix	2026-11-05 03:26:05.923779900 +0500
++++ kamaz_leveler_devkitv1.kicad_pcb	2026-11-05 03:33:17.855493300 +0500
+@@ -3012,7 +3012,7 @@
+ 				)
+ 			)
+ 		)
+-		(property "Description" ""
++		(property "Description" "Unpolarized capacitor"
+ 			(at 0 0 0)
+ 			(layer "F.Fab")
+ 			(hide yes)
+@@ -3160,7 +3160,7 @@
+ 				)
+ 			)
+ 		)
+-		(property "Description" ""
++		(property "Description" "1A Low Dropout regulator, positive, 3.3V fixed output, SOT-223"
+ 			(at 0 0 180)
+ 			(unlocked yes)
+ 			(layer "F.Fab")
+@@ -12727,7 +12727,7 @@
+ 				)
+ 			)
+ 		)
+-		(property "Description" ""
++		(property "Description" "Unpolarized capacitor"
+ 			(at 0 0 270)
+ 			(layer "F.Fab")
+ 			(hide yes)
+@@ -13142,7 +13142,7 @@
+ 				)
+ 			)
+ 		)
+-		(property "Datasheet" ""
++		(property "Datasheet" "https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-devkitc.html"
+ 			(at 0 0 0)
+ 			(layer "F.Fab")
+ 			(hide yes)
+@@ -13249,6 +13249,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-EN-Pad1)")
+ 			(uuid "b256a0fc-eac5-438f-a35e-ce534bf7d793")
+ 		)
+ 		(pad "2" thru_hole oval
+@@ -13266,6 +13267,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO39-Pad3)")
+ 			(uuid "4d443011-d11e-42a8-be63-56ea070abe95")
+ 		)
+ 		(pad "4" thru_hole oval
+@@ -13301,6 +13303,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO33-Pad7)")
+ 			(uuid "d00c97fe-a65e-445c-ac4c-c0575533c431")
+ 		)
+ 		(pad "8" thru_hole oval
+@@ -13336,6 +13339,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO14-Pad11)")
+ 			(uuid "069d60d2-0ba1-40ce-bca9-23fcbfc517f1")
+ 		)
+ 		(pad "12" thru_hole oval
+@@ -13344,6 +13348,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO12-Pad12)")
+ 			(uuid "926bacea-9926-40fd-b814-9c670bba7404")
+ 		)
+ 		(pad "13" thru_hole oval
+@@ -13352,6 +13357,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO13-Pad13)")
+ 			(uuid "af655a36-7f8b-4d4c-ba68-cf028c0f737c")
+ 		)
+ 		(pad "14" thru_hole oval
+@@ -13397,6 +13403,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO1-Pad18)")
+ 			(uuid "a4e1c349-4013-4483-b044-522507395053")
+ 		)
+ 		(pad "19" thru_hole oval
+@@ -13405,6 +13412,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO3-Pad19)")
+ 			(uuid "fd42b277-a1ac-4dd3-9299-bba48e8fb571")
+ 		)
+ 		(pad "20" thru_hole oval
+@@ -13440,6 +13448,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO5-Pad23)")
+ 			(uuid "d697b336-3160-436d-b999-e139cf029248")
+ 		)
+ 		(pad "24" thru_hole oval
+@@ -13448,6 +13457,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO17-Pad24)")
+ 			(uuid "c91827c7-f7ae-4d1d-bdcb-ace68647fe5a")
+ 		)
+ 		(pad "25" thru_hole oval
+@@ -13456,6 +13466,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO16-Pad25)")
+ 			(uuid "8ed414b5-edef-473e-a0a9-e9edfa8f98ed")
+ 		)
+ 		(pad "26" thru_hole oval
+@@ -13464,6 +13475,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO4-Pad26)")
+ 			(uuid "3e3eca9e-3a57-4861-b3ab-a520c70f7de6")
+ 		)
+ 		(pad "27" thru_hole oval
+@@ -13472,6 +13484,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO2-Pad27)")
+ 			(uuid "7828dab0-723f-4c2f-a7e8-a0bb5ec07550")
+ 		)
+ 		(pad "28" thru_hole oval
+@@ -13480,6 +13493,7 @@
+ 			(drill 1)
+ 			(layers "*.Cu" "*.Mask")
+ 			(remove_unused_layers no)
++			(net "unconnected-(U7-IO15-Pad28)")
+ 			(uuid "0ef6c245-8ab6-47a2-a9d9-9b5926878d4c")
+ 		)
+ 		(pad "29" thru_hole oval

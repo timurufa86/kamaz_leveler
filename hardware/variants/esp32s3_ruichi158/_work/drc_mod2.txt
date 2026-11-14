@@ -1,0 +1,222 @@
+** Drc report for kamaz_leveler_ruichi158.kicad_pcb **
+** Created on 2026-11-11T23:31:25 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 31 DRC violations **
+[shorting_items]: Элементы замыкают две цепи (цепи <без цепи> и /VALVE_DEFL)
+    Local override; error
+    @(-15.4550 mm, -4.9550 mm): Pad 2 [<no net>] of D10 on F.Cu
+    @(-15.5963 mm, -5.7535 mm): Track [/VALVE_DEFL] on F.Cu, length 2.9034 mm
+[shorting_items]: Элементы замыкают две цепи (цепи <без цепи> и /VALVE_DEFL)
+    Local override; error
+    @(-15.4550 mm, -4.9550 mm): Pad 2 [<no net>] of D10 on F.Cu
+    @(-15.5792 mm, -5.7350 mm): Track [/VALVE_DEFL] on F.Cu, length 1.7944 mm
+[shorting_items]: Элементы замыкают две цепи (цепи <без цепи> и /VALVE_INFL)
+    Local override; error
+    @(-22.9550 mm, -0.9550 mm): Pad 2 [<no net>] of D9 on F.Cu
+    @(-20.2000 mm, 0.2500 mm): Track [/VALVE_INFL] on F.Cu, length 6.3514 mm
+[shorting_items]: Элементы замыкают две цепи (цепи /VALVE_BUB4 и <без цепи>)
+    Local override; error
+    @(12.7000 mm, -14.1500 mm): Track [/VALVE_BUB4] on F.Cu, length 12.1004 mm
+    @(16.2450 mm, -14.1650 mm): Pad 1 [<no net>] of D1 on F.Cu
+[shorting_items]: Элементы замыкают две цепи (цепи <без цепи> и /VALVE_BUB3)
+    Local override; error
+    @(18.2950 mm, -4.7050 mm): Pad 2 [<no net>] of D7 on F.Cu
+    @(18.2412 mm, -5.4850 mm): Track [/VALVE_BUB3] on F.Cu, length 1.8349 mm
+[shorting_items]: Элементы замыкают две цепи (цепи <без цепи> и /VALVE_BUB3)
+    Local override; error
+    @(18.2950 mm, -4.7050 mm): Pad 2 [<no net>] of D7 on F.Cu
+    @(18.2412 mm, -5.4850 mm): Track [/VALVE_BUB3] on F.Cu, length 0.9982 mm
+[shorting_items]: Элементы замыкают две цепи (цепи <без цепи> и /VALVE_BUB1)
+    Local override; error
+    @(-15.4550 mm, -0.9550 mm): Pad 2 [<no net>] of D5 on F.Cu
+    @(-14.9723 mm, -1.7350 mm): Track [/VALVE_BUB1] on F.Cu, length 1.5320 mm
+[shorting_items]: Элементы замыкают две цепи (цепи <без цепи> и +12V)
+    Local override; error
+    @(15.4950 mm, -4.7050 mm): Pad 1 [<no net>] of D7 on F.Cu
+    @(14.0913 mm, -5.4850 mm): Track [+12V] on F.Cu, length 3.2837 mm
+[shorting_items]: Элементы замыкают две цепи (цепи +12V и <без цепи>)
+    Local override; error
+    @(-25.8845 mm, -5.7407 mm): Track [+12V] on F.Cu, length 4.0251 mm
+    @(-25.7550 mm, -4.9550 mm): Pad 1 [<no net>] of D6 on F.Cu
+[shorting_items]: Элементы замыкают две цепи (цепи +12V и <без цепи>)
+    Local override; error
+    @(-25.5000 mm, -1.7500 mm): Track [+12V] on F.Cu, length 2.1213 mm
+    @(-25.7550 mm, -0.9550 mm): Pad 1 [<no net>] of D9 on F.Cu
+[shorting_items]: Элементы замыкают две цепи (цепи +12V и <без цепи>)
+    Local override; error
+    @(16.5000 mm, -0.7500 mm): Track [+12V] on F.Cu, length 0.4752 mm
+    @(15.4950 mm, -0.7050 mm): Pad 1 [<no net>] of D8 on F.Cu
+[clearance]: Нарушение зазора ( зазор 0,1500 mm; текущий 0,0800 mm)
+    Local override; error
+    @(-25.4000 mm, -6.5500 mm): Track [+12V] on F.Cu, length 0.9499 mm
+    @(-25.7550 mm, -4.9550 mm): Pad 1 [<no net>] of D6 on F.Cu
+[clearance]: Нарушение зазора ( зазор 0,1500 mm; текущий 0,0800 mm)
+    Local override; error
+    @(18.1351 mm, -1.4850 mm): Track [/VALVE_BUB4] on F.Cu, length 1.6265 mm
+    @(18.2950 mm, -0.7050 mm): Pad 2 [<no net>] of D8 on F.Cu
+[clearance]: Нарушение зазора ( зазор 0,1500 mm; текущий 0,0934 mm)
+    Local override; error
+    @(-26.2771 mm, -1.7477 mm): Track [+12V] on F.Cu, length 0.7771 mm
+    @(-25.7550 mm, -0.9550 mm): Pad 1 [<no net>] of D9 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(14.0913 mm, -5.4850 mm): Track [+12V] on F.Cu, length 3.2837 mm
+    @(15.4950 mm, -4.7050 mm): Pad 1 [<no net>] of D7 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(-20.2000 mm, 0.2500 mm): Track [/VALVE_INFL] on F.Cu, length 6.3514 mm
+    @(-22.9550 mm, -0.9550 mm): Pad 2 [<no net>] of D9 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(-15.5963 mm, -5.7535 mm): Track [/VALVE_DEFL] on F.Cu, length 2.9034 mm
+    @(-15.4550 mm, -4.9550 mm): Pad 2 [<no net>] of D10 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(-15.5792 mm, -5.7350 mm): Track [/VALVE_DEFL] on F.Cu, length 1.7944 mm
+    @(-15.4550 mm, -4.9550 mm): Pad 2 [<no net>] of D10 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(-14.9723 mm, -1.7350 mm): Track [/VALVE_BUB1] on F.Cu, length 1.5320 mm
+    @(-15.4550 mm, -0.9550 mm): Pad 2 [<no net>] of D5 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(16.5000 mm, -0.7500 mm): Track [+12V] on F.Cu, length 0.4752 mm
+    @(15.4950 mm, -0.7050 mm): Pad 1 [<no net>] of D8 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(-25.5000 mm, -1.7500 mm): Track [+12V] on F.Cu, length 2.1213 mm
+    @(-25.7550 mm, -0.9550 mm): Pad 1 [<no net>] of D9 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(18.2412 mm, -5.4850 mm): Track [/VALVE_BUB3] on F.Cu, length 0.9982 mm
+    @(18.2950 mm, -4.7050 mm): Pad 2 [<no net>] of D7 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(18.2412 mm, -5.4850 mm): Track [/VALVE_BUB3] on F.Cu, length 1.8349 mm
+    @(18.2950 mm, -4.7050 mm): Pad 2 [<no net>] of D7 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(-25.8845 mm, -5.7407 mm): Track [+12V] on F.Cu, length 4.0251 mm
+    @(-25.7550 mm, -4.9550 mm): Pad 1 [<no net>] of D6 on F.Cu
+[solder_mask_bridge]: Апертура передней паяльной маски объединяет элементы с различ. цепями
+    Rule: мин. ширина маски из параметров платы; error
+    @(12.7000 mm, -14.1500 mm): Track [/VALVE_BUB4] on F.Cu, length 12.1004 mm
+    @(16.2450 mm, -14.1650 mm): Pad 1 [<no net>] of D1 on F.Cu
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(-19.3000 mm, -2.7500 mm): Track [+12V] on F.Cu, length 1.0457 mm
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(-21.8605 mm, -5.7350 mm): Track [/VALVE_BUB2] on F.Cu, length 1.7938 mm
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(18.1351 mm, -1.4850 mm): Track [/VALVE_BUB4] on F.Cu, length 1.6265 mm
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(13.6722 mm, -38.8704 mm): Track [/+24V_IN] on B.Cu, length 2.4842 mm
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(23.5686 mm, -36.9730 mm): Track [/VIN_FUSED] on B.Cu, length 0.8128 mm
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(17.2000 mm, -28.2500 mm): Track [/VIN_FUSED] on B.Cu, length 11.7121 mm
+
+** Found 3 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-29.4500 mm, -39.7500 mm): Zone 'GND_F.Cu' [GND] on F.Cu, priority 0
+    @(-29.4500 mm, -39.7500 mm): Zone 'GND_F.Cu' [GND] on F.Cu, priority 0
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-27.2000 mm, 0.5000 mm): Zone 'P3V3_B.Cu' [+3V3] on B.Cu, priority 1
+    @(-27.2000 mm, 0.5000 mm): Zone 'P3V3_F.Cu' [+3V3] on F.Cu, priority 1
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+
+** Found 23 Footprint errors **
+[footprint_symbol_mismatch]: Значение (D1) не соответствует значению символа (1.5KE36CA)
+    Local override; warning
+    @(16.2450 mm, -16.3150 mm): Footprint D1
+[footprint_symbol_field_mismatch]: Поле 'Datasheet' отличается (Плата: '', Схема: 'https://www.vishay.com/docs/88301/15ke.pdf')
+    Local override; warning
+    @(16.2450 mm, -16.3150 mm): Footprint D1
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (+24V)
+    Local override; warning
+    @(16.2450 mm, -14.1650 mm): Pad 1 [<no net>] of D1 on F.Cu
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (GND)
+    Local override; warning
+    @(16.2450 mm, -18.4650 mm): Pad 2 [<no net>] of D1 on F.Cu
+[footprint_symbol_field_mismatch]: Поле 'Datasheet' отличается (Плата: '', Схема: 'https://www.vishay.com/docs/88751/ss32.pdf')
+    Local override; warning
+    @(-16.8550 mm, -0.9550 mm): Footprint D5
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (+12V)
+    Local override; warning
+    @(-18.2550 mm, -0.9550 mm): Pad 1 [<no net>] of D5 on F.Cu
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (/VALVE_BUB1)
+    Local override; warning
+    @(-15.4550 mm, -0.9550 mm): Pad 2 [<no net>] of D5 on F.Cu
+[footprint_symbol_field_mismatch]: Поле 'Datasheet' отличается (Плата: '', Схема: 'https://www.vishay.com/docs/88751/ss32.pdf')
+    Local override; warning
+    @(-24.3550 mm, -4.9550 mm): Footprint D6
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (+12V)
+    Local override; warning
+    @(-25.7550 mm, -4.9550 mm): Pad 1 [<no net>] of D6 on F.Cu
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (/VALVE_BUB2)
+    Local override; warning
+    @(-22.9550 mm, -4.9550 mm): Pad 2 [<no net>] of D6 on F.Cu
+[footprint_symbol_field_mismatch]: Поле 'Datasheet' отличается (Плата: '', Схема: 'https://www.vishay.com/docs/88751/ss32.pdf')
+    Local override; warning
+    @(16.8950 mm, -4.7050 mm): Footprint D7
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (+12V)
+    Local override; warning
+    @(15.4950 mm, -4.7050 mm): Pad 1 [<no net>] of D7 on F.Cu
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (/VALVE_BUB3)
+    Local override; warning
+    @(18.2950 mm, -4.7050 mm): Pad 2 [<no net>] of D7 on F.Cu
+[footprint_symbol_field_mismatch]: Поле 'Datasheet' отличается (Плата: '', Схема: 'https://www.vishay.com/docs/88751/ss32.pdf')
+    Local override; warning
+    @(16.8950 mm, -0.7050 mm): Footprint D8
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (+12V)
+    Local override; warning
+    @(15.4950 mm, -0.7050 mm): Pad 1 [<no net>] of D8 on F.Cu
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (/VALVE_BUB4)
+    Local override; warning
+    @(18.2950 mm, -0.7050 mm): Pad 2 [<no net>] of D8 on F.Cu
+[footprint_symbol_field_mismatch]: Поле 'Datasheet' отличается (Плата: '', Схема: 'https://www.vishay.com/docs/88751/ss32.pdf')
+    Local override; warning
+    @(-24.3550 mm, -0.9550 mm): Footprint D9
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (+12V)
+    Local override; warning
+    @(-25.7550 mm, -0.9550 mm): Pad 1 [<no net>] of D9 on F.Cu
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (/VALVE_INFL)
+    Local override; warning
+    @(-22.9550 mm, -0.9550 mm): Pad 2 [<no net>] of D9 on F.Cu
+[footprint_symbol_field_mismatch]: Поле 'Datasheet' отличается (Плата: '', Схема: 'https://www.vishay.com/docs/88751/ss32.pdf')
+    Local override; warning
+    @(-16.8550 mm, -4.9550 mm): Footprint D10
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (+12V)
+    Local override; warning
+    @(-18.2550 mm, -4.9550 mm): Pad 1 [<no net>] of D10 on F.Cu
+[net_conflict]: У конт. пл. отсутствует цепь, заданная схемой (/VALVE_DEFL)
+    Local override; warning
+    @(-15.4550 mm, -4.9550 mm): Pad 2 [<no net>] of D10 on F.Cu
+[net_conflict]: Цепь конт. пл. (/VIN_FUSED) не соответствует цепи, заданной схемой (/+24V_IN)
+    Local override; warning
+    @(-5.5550 mm, -31.9050 mm): Pad 1 [/VIN_FUSED] of L4 on F.Cu
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

@@ -1,0 +1,6 @@
+083374c027cbd8fb1ff0 kamaz_leveler_s3.kicad_pro
+8a36ea6a5cf98620248a kamaz_leveler_s3.kicad_prl
+e477f688b7042b4c6365 kamaz_leveler_s3.kicad_sch
+a116502dbf248c2ba529 kamaz_leveler_s3.kicad_pcb
+0b2bdf9e5096b3066c25 kamaz_leveler_hw.kicad_dru
+022b9c37768806cc5d93 kamaz_leveler_hw.pretty/ESP32-S3-DevKitC-1_Socket_2x22_P2.54mm.kicad_mod

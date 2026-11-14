@@ -1,0 +1,508 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-11-05T03:26:56",
+    "ignored_checks": [
+        {
+            "description": "Courtyards overlap",
+            "key": "courtyards_overlap"
+        },
+        {
+            "description": "Footprint has no courtyard defined",
+            "key": "missing_courtyard"
+        },
+        {
+            "description": "Track endpoint not centered on via",
+            "key": "track_not_centered_on_via"
+        },
+        {
+            "description": "Tuning profile track geometries",
+            "key": "tuning_profile_track_geometries"
+        },
+        {
+            "description": "Footprint doesn't match symbol's footprint filters",
+            "key": "footprint_filters_mismatch"
+        },
+        {
+            "description": "Silkscreen clearance",
+            "key": "silk_overlap"
+        },
+        {
+            "description": "Silkscreen clipped by solder mask",
+            "key": "silk_over_copper"
+        },
+        {
+            "description": "Silkscreen clipped by board edge",
+            "key": "silk_edge_clearance"
+        },
+        {
+            "description": "PTH inside courtyard",
+            "key": "pth_inside_courtyard"
+        },
+        {
+            "description": "Footprint component type doesn't match footprint pads",
+            "key": "footprint_type_mismatch"
+        }
+    ],
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "10.0.7",
+    "schematic_parity": [
+        {
+            "description": "Поле 'Description' отличается (Плата: '', Схема: 'Unpolarized capacitor')",
+            "items": [
+                {
+                    "description": "Посад. место C15",
+                    "pos": {
+                        "x": 76.0,
+                        "y": 46.675
+                    },
+                    "uuid": "d223e436-93f7-4c52-b599-af26a54aabd4"
+                }
+            ],
+            "severity": "warning",
+            "type": "footprint_symbol_field_mismatch"
+        },
+        {
+            "description": "Поле 'Description' отличается (Плата: '', Схема: 'Unpolarized capacitor')",
+            "items": [
+                {
+                    "description": "Посад. место C16",
+                    "pos": {
+                        "x": 88.1,
+                        "y": 42.9
+                    },
+                    "uuid": "3e0cb57d-6af6-4382-a493-7b98aa5c195d"
+                }
+            ],
+            "severity": "warning",
+            "type": "footprint_symbol_field_mismatch"
+        },
+        {
+            "description": "Поле 'Datasheet' отличается (Плата: '', Схема: 'https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-devkitc.html')",
+            "items": [
+                {
+                    "description": "Посад. место U7",
+                    "pos": {
+                        "x": 61.64,
+                        "y": 15.5
+                    },
+                    "uuid": "d434b9e3-15ec-45cc-9552-5c701901cacf"
+                }
+            ],
+            "severity": "warning",
+            "type": "footprint_symbol_field_mismatch"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-EN-Pad1))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 1 [<no net>] у U7",
+                    "pos": {
+                        "x": 97.2,
+                        "y": 15.5
+                    },
+                    "uuid": "b256a0fc-eac5-438f-a35e-ce534bf7d793"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/PRES_SW) не соответствует цепи, заданной схемой (unconnected-(U7-IO36-Pad2))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 2 [/PRES_SW] у U7",
+                    "pos": {
+                        "x": 94.66,
+                        "y": 15.5
+                    },
+                    "uuid": "08cf2813-4481-4ee7-b762-daf376972948"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO39-Pad3))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 3 [<no net>] у U7",
+                    "pos": {
+                        "x": 92.12,
+                        "y": 15.5
+                    },
+                    "uuid": "4d443011-d11e-42a8-be63-56ea070abe95"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/SPEED_PULSE) не соответствует цепи, заданной схемой (unconnected-(U7-IO34-Pad4))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 4 [/SPEED_PULSE] у U7",
+                    "pos": {
+                        "x": 89.58,
+                        "y": 15.5
+                    },
+                    "uuid": "85b3d2ad-6f82-4af9-82bb-f06ceb70d138"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/INT_MCU) не соответствует цепи, заданной схемой (/SPEED_PULSE)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 5 [/INT_MCU] у U7",
+                    "pos": {
+                        "x": 87.04,
+                        "y": 15.5
+                    },
+                    "uuid": "825dd86d-0d3d-431e-834c-08405fbf562e"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/DISP_BL) не соответствует цепи, заданной схемой (/VLV_EN)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 6 [/DISP_BL] у U7",
+                    "pos": {
+                        "x": 84.5,
+                        "y": 15.5
+                    },
+                    "uuid": "419e1dcc-1e6f-462e-aa98-81305d87a779"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (/INT_MCU)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 7 [<no net>] у U7",
+                    "pos": {
+                        "x": 81.96,
+                        "y": 15.5
+                    },
+                    "uuid": "d00c97fe-a65e-445c-ac4c-c0575533c431"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/DISP_RES) не соответствует цепи, заданной схемой (/PRES_SW)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 8 [/DISP_RES] у U7",
+                    "pos": {
+                        "x": 79.42,
+                        "y": 15.5
+                    },
+                    "uuid": "75470f42-c331-4860-9cbb-6da4a6d653bb"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/DISP_DC) не соответствует цепи, заданной схемой (unconnected-(U7-IO26-Pad9))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 9 [/DISP_DC] у U7",
+                    "pos": {
+                        "x": 76.88,
+                        "y": 15.5
+                    },
+                    "uuid": "2332bbd1-4338-4244-a37c-d06eab97adb2"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/VLV_EN) не соответствует цепи, заданной схемой (unconnected-(U7-IO27-Pad10))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 10 [/VLV_EN] у U7",
+                    "pos": {
+                        "x": 74.34,
+                        "y": 15.5
+                    },
+                    "uuid": "0b36889b-d420-42c1-a196-14f4b435ff1b"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO14-Pad11))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 11 [<no net>] у U7",
+                    "pos": {
+                        "x": 71.8,
+                        "y": 15.5
+                    },
+                    "uuid": "069d60d2-0ba1-40ce-bca9-23fcbfc517f1"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO12-Pad12))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 12 [<no net>] у U7",
+                    "pos": {
+                        "x": 69.26,
+                        "y": 15.5
+                    },
+                    "uuid": "926bacea-9926-40fd-b814-9c670bba7404"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO13-Pad13))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 13 [<no net>] у U7",
+                    "pos": {
+                        "x": 66.72,
+                        "y": 15.5
+                    },
+                    "uuid": "af655a36-7f8b-4d4c-ba68-cf028c0f737c"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO1-Pad18))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 18 [<no net>] у U7",
+                    "pos": {
+                        "x": 92.12,
+                        "y": 40.9
+                    },
+                    "uuid": "a4e1c349-4013-4483-b044-522507395053"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO3-Pad19))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 19 [<no net>] у U7",
+                    "pos": {
+                        "x": 89.58,
+                        "y": 40.9
+                    },
+                    "uuid": "fd42b277-a1ac-4dd3-9299-bba48e8fb571"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Цепь конт. пл. (/DISP_CS) не соответствует цепи, заданной схемой (/DISP_RES)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 21 [/DISP_CS] у U7",
+                    "pos": {
+                        "x": 84.5,
+                        "y": 40.9
+                    },
+                    "uuid": "831179c6-83d8-44db-99ce-f118f85f39e2"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (/DISP_CS)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 23 [<no net>] у U7",
+                    "pos": {
+                        "x": 79.42,
+                        "y": 40.9
+                    },
+                    "uuid": "d697b336-3160-436d-b999-e139cf029248"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO17-Pad24))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 24 [<no net>] у U7",
+                    "pos": {
+                        "x": 76.88,
+                        "y": 40.9
+                    },
+                    "uuid": "c91827c7-f7ae-4d1d-bdcb-ace68647fe5a"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (/DISP_DC)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 25 [<no net>] у U7",
+                    "pos": {
+                        "x": 74.34,
+                        "y": 40.9
+                    },
+                    "uuid": "8ed414b5-edef-473e-a0a9-e9edfa8f98ed"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (/DISP_BL)",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 26 [<no net>] у U7",
+                    "pos": {
+                        "x": 71.8,
+                        "y": 40.9
+                    },
+                    "uuid": "3e3eca9e-3a57-4861-b3ab-a520c70f7de6"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO2-Pad27))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 27 [<no net>] у U7",
+                    "pos": {
+                        "x": 69.26,
+                        "y": 40.9
+                    },
+                    "uuid": "7828dab0-723f-4c2f-a7e8-a0bb5ec07550"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "У конт. пл. отсутствует цепь, заданная схемой (unconnected-(U7-IO15-Pad28))",
+            "items": [
+                {
+                    "description": "PTH конт. пл. 28 [<no net>] у U7",
+                    "pos": {
+                        "x": 66.72,
+                        "y": 40.9
+                    },
+                    "uuid": "0ef6c245-8ab6-47a2-a9d9-9b5926878d4c"
+                }
+            ],
+            "severity": "warning",
+            "type": "net_conflict"
+        },
+        {
+            "description": "Поле 'Description' отличается (Плата: '', Схема: '1A Low Dropout regulator, positive, 3.3V fixed output, SOT-223')",
+            "items": [
+                {
+                    "description": "Посад. место U8",
+                    "pos": {
+                        "x": 84.0,
+                        "y": 47.0
+                    },
+                    "uuid": "44ab12c9-eda2-44d2-ab99-09037813b43c"
+                }
+            ],
+            "severity": "warning",
+            "type": "footprint_symbol_field_mismatch"
+        },
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H2",
+                    "pos": {
+                        "x": 92.75,
+                        "y": 6.75
+                    },
+                    "uuid": "0b58c48b-a9d6-41d6-b213-7b61093b9d43"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        },
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H1",
+                    "pos": {
+                        "x": 11.25,
+                        "y": 6.75
+                    },
+                    "uuid": "3267079e-6ee0-435e-9c83-987331c15d31"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        },
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H3",
+                    "pos": {
+                        "x": 11.25,
+                        "y": 47.25
+                    },
+                    "uuid": "3727dd69-9863-4ebd-913f-9bd336e72a54"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        },
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H4",
+                    "pos": {
+                        "x": 92.75,
+                        "y": 47.25
+                    },
+                    "uuid": "dcb00709-f813-40c3-8720-7576abce3bdb"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        }
+    ],
+    "source": "kamaz_leveler_devkitv1.kicad_pcb",
+    "unconnected_items": [],
+    "violations": []
+}

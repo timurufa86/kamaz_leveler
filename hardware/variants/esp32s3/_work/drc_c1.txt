@@ -1,0 +1,57 @@
+** Drc report for s3.kicad_pcb **
+** Created on 2026-11-07T22:40:23 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 9 DRC violations **
+[clearance]: Нарушение зазора ( зазор 0,1500 mm; текущий 0,1371 mm)
+    Local override; error
+    @(48.6700 mm, 51.7300 mm): PTH pad 1 [+3V3] of J6
+    @(50.6000 mm, 51.8000 mm): Track [/I2C_SDA] on B.Cu, length 1.4142 mm
+[starved_thermal]: Неполное подключение терморазгрузки к зоне (слой F.Cu; зоны мин. кол-во мостиков 2; текущее 1)
+    Local override; error
+    @(3.0000 mm, 0.5000 mm): Zone 'GND_POUR_F' [GND] on F.Cu, priority 0
+    @(42.4656 mm, 44.7411 mm): Pad 2 [GND] of C18 on F.Cu
+[starved_thermal]: Неполное подключение терморазгрузки к зоне (слой F.Cu; зоны мин. кол-во мостиков 2; текущее 1)
+    Local override; error
+    @(3.0000 mm, 0.5000 mm): Zone 'GND_POUR_F' [GND] on F.Cu, priority 0
+    @(51.5300 mm, 15.4000 mm): PTH pad 43 [GND] of U7
+[hole_to_hole]: Сверленое отверстие слишком близко к другому отверстию (заданные ограничения платы мин. 0,2500 mm; текущий 0,0140 mm)
+    Rule: заданные ограничения платы; warning
+    @(51.2100 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J6
+    @(50.6000 mm, 51.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[hole_to_hole]: Сверленое отверстие слишком близко к другому отверстию (заданные ограничения платы мин. 0,2500 mm; текущий 0,0000 mm)
+    Rule: заданные ограничения платы; warning
+    @(38.0000 mm, 51.6000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+    @(38.0500 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J4
+[hole_to_hole]: Сверленое отверстие слишком близко к другому отверстию (заданные ограничения платы мин. 0,2500 mm; текущий 0,0140 mm)
+    Rule: заданные ограничения платы; warning
+    @(51.2100 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J6
+    @(50.6000 mm, 51.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[hole_to_hole]: Сверленое отверстие слишком близко к другому отверстию (заданные ограничения платы мин. 0,2500 mm; текущий 0,0000 mm)
+    Rule: заданные ограничения платы; warning
+    @(38.0000 mm, 51.6000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+    @(38.0500 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J4
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(36.4303 mm, 10.3828 mm): Footprint D1
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(102.3300 mm, 38.2600 mm): Footprint U7
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

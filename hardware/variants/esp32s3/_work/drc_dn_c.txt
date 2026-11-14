@@ -1,0 +1,45 @@
+** Drc report for t_dn_c.kicad_pcb **
+** Created on 2026-11-07T22:48:34 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 5 DRC violations **
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(60.4000 mm, 25.2000 mm): Via [/I2C_SCL] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(53.4000 mm, 18.2000 mm): Via [/I2C_SCL] on F.Cu - B.Cu
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(36.4303 mm, 10.3828 mm): Footprint D1
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(102.3300 mm, 38.2600 mm): Footprint U7
+[copper_sliver]: Тонкий участок меди (B.Cu)
+    Local override; warning
+
+** Found 2 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(53.3848 mm, 17.2050 mm): Pad 2 [/I2C_SCL] of R21 on B.Cu
+    @(60.4000 mm, 25.2000 mm): Track [/I2C_SCL] on F.Cu, length 9.8995 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(53.7500 mm, 51.7300 mm): Track [/I2C_SCL] on F.Cu, length 1.7500 mm
+    @(60.4000 mm, 25.2000 mm): Track [/I2C_SCL] on F.Cu, length 9.8995 mm
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

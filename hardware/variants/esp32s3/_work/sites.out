@@ -1,0 +1,1 @@
+C:\jenkins\workspace\build-win-10.0-stable\.build\kicad\pcbnew\pcb_track.cpp(387): assert "false" failed in GetWidth(): Warning: PCB_VIA::GetWidth called without a layer argument

@@ -1,0 +1,1 @@
+{'D5': '40V 3A Schottky Diode, SMA', 'D6': '40V 3A Schottky Diode, SMA', 'D7': '40V 3A Schottky Diode, SMA', 'D8': '40V 3A Schottky Diode, SMA', 'D9': '40V 3A Schottky Diode, SMA', 'D10': '40V 3A Schottky Diode, SMA'}

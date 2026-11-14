@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Kamaz Leveler — вариант A (ESP32-S3), 104,0 × 54,0 мм</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin:0; padding:24px 28px 40px; background:#f2f4f7; color:#16202c;
+         font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+  h1 { font-size:20px; margin:0 0 4px; font-weight:650; }
+  .sub { color:#5b6b7d; margin:0 0 18px; font-size:13.5px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:1100px){ .grid{grid-template-columns:1fr;} }
+  figure { margin:0; background:#fff; border:1px solid #d8dee6; border-radius:12px;
+           padding:12px 12px 8px; box-shadow:0 1px 2px rgba(16,32,48,.06); }
+  figure img { width:100%; height:auto; display:block; border-radius:8px; }
+  figcaption { font-size:13px; color:#5b6b7d; padding:8px 2px 2px; }
+  table { border-collapse:collapse; margin-top:20px; background:#fff; border:1px solid #d8dee6;
+          border-radius:12px; overflow:hidden; font-size:13.5px; }
+  th,td { text-align:left; padding:7px 14px; border-bottom:1px solid #e6eaf0; }
+  th { background:#eef2f7; font-weight:600; }
+  tr:last-child td { border-bottom:none; }
+  td.n { font-variant-numeric:tabular-nums; }
+  code { background:#eef2f7; padding:1px 5px; border-radius:5px; font-size:12.5px; }
+</style>
+</head>
+<body>
+  <h1>Kamaz Leveler — вариант A, ревизия v2</h1>
+  <p class="sub">Носитель 104,0 × 54,0 мм · 2 слоя · 1,6 мм · R3 · сокет ESP32-S3-DevKitC-1 (44 контакта) · DRC 0/0 · ERC 0/0</p>
+
+  <div class="grid">
+    <figure>
+      <img src="render_top_crop.jpg" alt="Вид сверху">
+      <figcaption><b>Вид сверху (верхняя сторона).</b> Два ряда по 22 гнезда — сокет модуля; антенный торец
+      справа, шелк «ANTENNA END» теперь внутри контура. J1/J2 — питание и клапаны слева, J3…J8 — сигнальные разъёмы снизу, U8 (AMS1117) справа снизу.</figcaption>
+    </figure>
+    <figure>
+      <img src="render_bot_crop.jpg" alt="Вид снизу">
+      <figcaption><b>Вид снизу (нижняя сторона).</b> Основная масса SMD — снизу: 309 площадок против 98 сквозных.
+      Блокировочные ёмкости стоят под модулем намеренно (двор под модулем в проекте отключён).</figcaption>
+    </figure>
+  </div>
+
+  <table>
+    <tr><th>Параметр</th><th>Значение</th></tr>
+    <tr><td>Контур платы</td><td class="n">104,00 × 54,00 мм (со штрихом 104,10 × 54,10)</td></tr>
+    <tr><td>Толщина / слоёв меди</td><td class="n">1,60 мм / 2 (F.Cu, B.Cu)</td></tr>
+    <tr><td>Крепёж</td><td class="n">4 × NPTH Ø2,2 мм, сетка 81,5 × 40,5</td></tr>
+    <tr><td>Корпус</td><td class="n">GAINTA G308MF</td></tr>
+    <tr><td>Компонентов / площадок</td><td class="n">116 / 411 (98 сквозных + 309 SMD + 4 NPTH)</td></tr>
+    <tr><td>Дорожек / переходов</td><td class="n">906 отрезков / 283 перехода (медь 2020,33 мм)</td></tr>
+    <tr><td>Медиана отрезка</td><td class="n">1,2074 мм</td></tr>
+    <tr><td>Производство</td><td><code>variants/esp32s3/production/</code> — 20 файлов</td></tr>
+  </table>
+</body>
+</html>

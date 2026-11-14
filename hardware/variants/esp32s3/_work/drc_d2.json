@@ -1,0 +1,118 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-11-05T05:03:26",
+    "ignored_checks": [
+        {
+            "description": "Courtyards overlap",
+            "key": "courtyards_overlap"
+        },
+        {
+            "description": "Footprint has no courtyard defined",
+            "key": "missing_courtyard"
+        },
+        {
+            "description": "Track endpoint not centered on via",
+            "key": "track_not_centered_on_via"
+        },
+        {
+            "description": "Tuning profile track geometries",
+            "key": "tuning_profile_track_geometries"
+        },
+        {
+            "description": "Footprint doesn't match symbol's footprint filters",
+            "key": "footprint_filters_mismatch"
+        },
+        {
+            "description": "Silkscreen clearance",
+            "key": "silk_overlap"
+        },
+        {
+            "description": "Silkscreen clipped by solder mask",
+            "key": "silk_over_copper"
+        },
+        {
+            "description": "Silkscreen clipped by board edge",
+            "key": "silk_edge_clearance"
+        },
+        {
+            "description": "PTH inside courtyard",
+            "key": "pth_inside_courtyard"
+        },
+        {
+            "description": "Footprint component type doesn't match footprint pads",
+            "key": "footprint_type_mismatch"
+        }
+    ],
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "10.0.7",
+    "schematic_parity": [
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H2",
+                    "pos": {
+                        "x": 92.75,
+                        "y": 6.75
+                    },
+                    "uuid": "0b58c48b-a9d6-41d6-b213-7b61093b9d43"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        },
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H1",
+                    "pos": {
+                        "x": 11.25,
+                        "y": 6.75
+                    },
+                    "uuid": "3267079e-6ee0-435e-9c83-987331c15d31"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        },
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H3",
+                    "pos": {
+                        "x": 11.25,
+                        "y": 47.25
+                    },
+                    "uuid": "3727dd69-9863-4ebd-913f-9bd336e72a54"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        },
+        {
+            "description": "Extra footprint",
+            "items": [
+                {
+                    "description": "Посад. место H4",
+                    "pos": {
+                        "x": 92.75,
+                        "y": 47.25
+                    },
+                    "uuid": "dcb00709-f813-40c3-8720-7576abce3bdb"
+                }
+            ],
+            "severity": "warning",
+            "type": "extra_footprint"
+        }
+    ],
+    "source": "kamaz_leveler_s3.kicad_pcb",
+    "unconnected_items": [],
+    "violations": []
+}

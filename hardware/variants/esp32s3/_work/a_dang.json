@@ -1,0 +1,35 @@
+{
+ "board": "C:\\my\\for cursor\\kamaz_leveler\\hardware\\variants\\esp32s3\\kamaz_leveler_s3.kicad_pcb",
+ "delete_uuids": [
+  "8c86ccd8-827a-4791-a468-f67587ae8a06",
+  "18b83805-4efb-46e4-a3ee-cb3667d33d14",
+  "dff5ba89-efc5-4557-b290-f23b4745ab46",
+  "4ba753d0-08a7-4fb1-a5a6-17b7a462eb36"
+ ],
+ "delete_filter": [
+  {
+   "net": "/DISP_BL",
+   "layer": "B.Cu",
+   "box": [
+    67.7,
+    39.2,
+    71.4,
+    40.8
+   ]
+  },
+  {
+   "net": "+5V",
+   "layer": "B.Cu",
+   "box": [
+    89.25,
+    40.55,
+    90.95,
+    41.25
+   ]
+  }
+ ],
+ "add_tracks": [],
+ "add_vias": [],
+ "refill": true,
+ "save": true
+}

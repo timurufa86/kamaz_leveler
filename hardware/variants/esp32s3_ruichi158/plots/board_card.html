@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Kamaz Leveler — 60×85,5 (RUICH 15-8), расстановка</title>
+<style>
+  :root{color-scheme:light} body{margin:0;padding:20px 24px 36px;background:#f2f4f7;color:#16202c;
+  font:14px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+  h1{font-size:19px;margin:0 0 3px;font-weight:650} .sub{color:#5b6b7d;font-size:13px;margin:0 0 16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px} @media(max-width:1100px){.grid{grid-template-columns:1fr}}
+  figure{margin:0;background:#fff;border:1px solid #d8dee6;border-radius:12px;padding:12px 12px 8px}
+  figure img{width:100%;height:auto;border-radius:8px;background:#fff}
+  figcaption{font-size:13px;color:#5b6b7d;padding:8px 2px 2px}
+  table{border-collapse:collapse;margin-top:16px;background:#fff;border:1px solid #d8dee6;border-radius:12px;
+        overflow:hidden;font-size:13px;width:100%}
+  th,td{text-align:left;padding:6px 12px;border-bottom:1px solid #e6eaf0} th{background:#eef2f7;font-weight:600}
+  tr:last-child td{border-bottom:none} td.n{font-variant-numeric:tabular-nums}
+  .ok{color:#1f6b3a;font-weight:600} .warn{color:#a05a00;font-weight:600}
+</style></head><body>
+<h1>Kamaz Leveler — плата 60 × 85,5 мм (RUICH 15-8)</h1>
+<p class="sub">Расстановка варианта A (ESP32-S3) · только размещение, меди нет · DRC <span class="ok">0 нарушений</span> · 290 ratsnest (норма до разводки)</p>
+
+<div class="grid">
+  <figure><img src="place_top.png" alt="Верх"><figcaption><b>Верхняя сторона.</b> Модуль ESP32-S3 вертикально, антенный торец к верхней грани. Внизу — силовая часть (электролиты, дроссели, диод, предохранитель), разъёмы J1/J2 внизу, J3–J6 вверху, J7/J8 на правой грани.</figcaption></figure>
+  <figure><img src="place_bottom.png" alt="Низ"><figcaption><b>Нижняя сторона.</b> Основная масса пассива и силовых ключей; плотность по дворам ~70% от полезной площади.</figcaption></figure>
+</div>
+
+<table>
+<tr><th>Проверка «всё влезает»</th><th>Значение</th></tr>
+<tr><td>Полезная площадь (5130 − углы R3 − 4 паза)</td><td class="n">4944 мм²</td></tr>
+<tr><td>Сумма тел всех 116 корпусов</td><td class="n">2867 мм² (58%)</td></tr>
+<tr><td>Сумма дворов</td><td class="n">3457 мм² (70%)</td></tr>
+<tr><td>Без модуля U7 (он над платой, под ним низкие детали)</td><td class="n">тела 1262 мм² (25,5%)</td></tr>
+<tr><td>Итог</td><td><span class="ok">влезает с запасом</span>, ограничение — геометрия (модуль 63×26 вертикально, высокие детали вне его зоны)</td></tr>
+<tr><th>DRC</th><th>Значение</th></tr>
+<tr><td>Нарушений / замыканий / зазоров</td><td class="n">0 / 0 / 0</td></tr>
+<tr><td>Неподключённых (ratsnest)</td><td class="n">290 — ожидаемо, разводки нет</td></tr>
+<tr><td>Соответствие схеме (parity)</td><td class="n">0 (H1..H4 удалены, поэтому 0, а не 4)</td></tr>
+</table>
+</body></html>

@@ -1,0 +1,70 @@
+** Drc report for kamaz_leveler_ruichi158.kicad_pcb **
+** Created on 2026-11-11T22:29:02 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 7 DRC violations **
+[shorting_items]: Элементы замыкают две цепи (цепи /ST_U4_34 и /BUT2)
+    Local override; error
+    @(-17.9000 mm, 7.3500 mm): Track [/ST_U4_34] on B.Cu, length 7.1000 mm
+    @(-18.0000 mm, 14.3500 mm): Via [/BUT2] on F.Cu - B.Cu
+[shorting_items]: Элементы замыкают две цепи (цепи /ST_U4_34 и /BUT2)
+    Local override; error
+    @(-17.9000 mm, 14.4500 mm): Via [/ST_U4_34] on F.Cu - B.Cu
+    @(-18.0000 mm, 14.3500 mm): Track [/BUT2] on F.Cu, length 1.5556 mm
+[shorting_items]: Элементы замыкают две цепи (цепи /ST_U4_34 и /BUT2)
+    Local override; error
+    @(-17.9000 mm, 14.4500 mm): Track [/ST_U4_34] on F.Cu, length 0.9000 mm
+    @(-18.0000 mm, 14.3500 mm): Track [/BUT2] on F.Cu, length 1.5556 mm
+[shorting_items]: Элементы замыкают две цепи (цепи /ST_U4_34 и /BUT2)
+    Local override; error
+    @(-17.9000 mm, 14.4500 mm): Via [/ST_U4_34] on F.Cu - B.Cu
+    @(-18.0000 mm, 14.3500 mm): Via [/BUT2] on F.Cu - B.Cu
+[shorting_items]: Элементы замыкают две цепи (цепи /BUT2 и /ST_U4_34)
+    Local override; error
+    @(-18.0000 mm, 15.1500 mm): Track [/BUT2] on B.Cu, length 0.8000 mm
+    @(-17.9000 mm, 7.3500 mm): Track [/ST_U4_34] on B.Cu, length 7.1000 mm
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(-16.5000 mm, 19.8500 mm): Track [/BUT2] on B.Cu, length 0.5797 mm
+[hole_to_hole]: Сверленое отверстие слишком близко к другому отверстию (заданные ограничения платы мин. 0,2500 mm; текущий 0,0000 mm)
+    Rule: заданные ограничения платы; warning
+    @(-17.9000 mm, 14.4500 mm): Via [/ST_U4_34] on F.Cu - B.Cu
+    @(-18.0000 mm, 14.3500 mm): Via [/BUT2] on F.Cu - B.Cu
+
+** Found 5 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-29.4500 mm, -39.7500 mm): Zone 'GND_F.Cu' [GND] on F.Cu, priority 0
+    @(-29.4500 mm, -39.7500 mm): Zone 'GND_F.Cu' [GND] on F.Cu, priority 0
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-29.4500 mm, -39.7500 mm): Zone 'GND_B.Cu' [GND] on B.Cu, priority 0
+    @(11.4300 mm, 40.7105 mm): PTH pad 23 [GND] of U7
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-27.2000 mm, 0.5000 mm): Zone 'P3V3_F.Cu' [+3V3] on F.Cu, priority 1
+    @(-27.2000 mm, 0.5000 mm): Zone 'P3V3_B.Cu' [+3V3] on B.Cu, priority 1
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

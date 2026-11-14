@@ -1,0 +1,29 @@
+** Drc report for s3.kicad_pcb **
+** Created on 2026-11-07T22:57:55 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 2 DRC violations **
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(36.4303 mm, 10.3828 mm): Footprint D1
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(102.3300 mm, 38.2600 mm): Footprint U7
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

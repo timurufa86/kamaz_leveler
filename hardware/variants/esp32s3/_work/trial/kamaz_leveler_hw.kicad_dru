@@ -1,0 +1,9 @@
+(version 1)
+(rule "EP clearance U1 U2"
+  (condition "A.Reference == 'U1' && B.Reference == 'U1'")
+  (constraint clearance (min 0.05mm))
+)
+(rule "EP clearance U2 U2"
+  (condition "A.Reference == 'U2' && B.Reference == 'U2'")
+  (constraint clearance (min 0.05mm))
+)

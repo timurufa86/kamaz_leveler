@@ -1,0 +1,84 @@
+** Drc report for t_dn_d.kicad_pcb **
+** Created on 2026-11-07T22:48:40 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 11 DRC violations **
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(40.2000 mm, 48.0000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(43.6000 mm, 41.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(55.2000 mm, 39.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(51.0000 mm, 41.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(55.2000 mm, 43.2000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(52.6000 mm, 33.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(39.2000 mm, 45.6000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(52.0000 mm, 42.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(54.0000 mm, 44.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(36.4303 mm, 10.3828 mm): Footprint D1
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(102.3300 mm, 38.2600 mm): Footprint U7
+
+** Found 7 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(38.0500 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J4
+    @(39.6000 mm, 47.6000 mm): Track [/I2C_SDA] on F.Cu, length 0.7211 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(43.8000 mm, 42.0000 mm): Track [/I2C_SDA] on F.Cu, length 0.2828 mm
+    @(39.2000 mm, 45.6000 mm): Track [/I2C_SDA] on F.Cu, length 1.0000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(46.6144 mm, 34.1457 mm): Pad 2 [/I2C_SDA] of R20 on B.Cu
+    @(52.6000 mm, 33.8000 mm): Track [/I2C_SDA] on F.Cu, length 14.4250 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(51.0000 mm, 41.4000 mm): Track [/I2C_SDA] on F.Cu, length 5.4332 mm
+    @(52.0000 mm, 42.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(51.2100 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J6
+    @(54.0000 mm, 44.4000 mm): Track [/I2C_SDA] on F.Cu, length 2.8284 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(55.2000 mm, 43.2000 mm): Track [/I2C_SDA] on F.Cu, length 3.4000 mm
+    @(52.6000 mm, 33.8000 mm): Track [/I2C_SDA] on F.Cu, length 14.4250 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(55.2000 mm, 43.2000 mm): Track [/I2C_SDA] on F.Cu, length 3.4000 mm
+    @(54.0000 mm, 44.4000 mm): Track [/I2C_SDA] on F.Cu, length 2.8284 mm
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

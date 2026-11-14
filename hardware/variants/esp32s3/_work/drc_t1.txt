@@ -1,0 +1,165 @@
+** Drc report for t_delB.kicad_pcb **
+** Created on 2026-11-07T22:47:53 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 18 DRC violations **
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(40.2000 mm, 48.0000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(43.6000 mm, 41.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(55.2000 mm, 39.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(51.0000 mm, 41.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(55.2000 mm, 43.2000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(52.6000 mm, 33.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(39.2000 mm, 45.6000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(52.0000 mm, 42.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(54.0000 mm, 44.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(60.4000 mm, 25.2000 mm): Via [/I2C_SCL] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(53.4000 mm, 18.2000 mm): Via [/I2C_SCL] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(78.3666 mm, 24.2724 mm): Via [/PRES_SW] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(74.4000 mm, 41.4000 mm): Via [/SPEED_PULSE] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(66.7045 mm, 46.9643 mm): Via [/DISP_MOSI] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(41.2000 mm, 42.8000 mm): Via [/VLV_EN] on F.Cu - B.Cu
+[via_dangling]: Via is not connected or connected on only one layer
+    Local override; warning
+    @(49.4000 mm, 43.0000 mm): Via [/VLV_EN] on F.Cu - B.Cu
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(36.4303 mm, 10.3828 mm): Footprint D1
+[lib_footprint_issues]: Текущая конфигурация не включает библиотеку посадочных мест 'kamaz_leveler'
+    Local override; warning
+    @(102.3300 mm, 38.2600 mm): Footprint U7
+
+** Found 22 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(38.0500 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J4
+    @(39.6000 mm, 47.6000 mm): Track [/I2C_SDA] on F.Cu, length 0.7211 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(43.6000 mm, 41.8000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+    @(39.2000 mm, 45.6000 mm): Track [/I2C_SDA] on F.Cu, length 1.0000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(46.6144 mm, 34.1457 mm): Pad 2 [/I2C_SDA] of R20 on B.Cu
+    @(52.6000 mm, 33.8000 mm): Track [/I2C_SDA] on F.Cu, length 14.4250 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(51.0000 mm, 41.4000 mm): Track [/I2C_SDA] on F.Cu, length 5.4332 mm
+    @(52.0000 mm, 42.4000 mm): Via [/I2C_SDA] on F.Cu - B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(51.2100 mm, 51.7300 mm): PTH pad 2 [/I2C_SDA] of J6
+    @(54.0000 mm, 44.4000 mm): Track [/I2C_SDA] on F.Cu, length 2.8284 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(55.2000 mm, 43.2000 mm): Track [/I2C_SDA] on F.Cu, length 3.4000 mm
+    @(52.6000 mm, 33.8000 mm): Track [/I2C_SDA] on F.Cu, length 14.4250 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(55.2000 mm, 43.2000 mm): Track [/I2C_SDA] on F.Cu, length 3.4000 mm
+    @(54.0000 mm, 44.4000 mm): Track [/I2C_SDA] on F.Cu, length 2.8284 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(53.3848 mm, 17.2050 mm): Pad 2 [/I2C_SCL] of R21 on B.Cu
+    @(60.4000 mm, 25.2000 mm): Track [/I2C_SCL] on F.Cu, length 9.8995 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(53.7500 mm, 49.9800 mm): Track [/I2C_SCL] on F.Cu, length 13.1600 mm
+    @(60.4000 mm, 25.2000 mm): Via [/I2C_SCL] on F.Cu - B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(79.4700 mm, 15.4000 mm): Track [/PRES_SW] on F.Cu, length 8.9407 mm
+    @(78.0951 mm, 26.4556 mm): Pad 2 [/PRES_SW] of R41 on B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(80.3005 mm, 8.7373 mm): Track [/PRES_SW] on F.Cu, length 4.7525 mm
+    @(78.4966 mm, 7.6648 mm): Pad 2 [/PRES_SW] of R42 on B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(77.0700 mm, 51.7300 mm): PTH pad 7 [/DISP_CS] of J5
+    @(92.1700 mm, 38.2600 mm): PTH pad 5 [/DISP_CS] of U7
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(92.1700 mm, 38.2600 mm): PTH pad 5 [/DISP_CS] of U7
+    @(77.9434 mm, 22.1284 mm): Pad 2 [/DISP_CS] of R18 on B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(74.5300 mm, 51.7300 mm): PTH pad 6 [/DISP_DC] of J5
+    @(82.0100 mm, 38.2600 mm): PTH pad 9 [/DISP_DC] of U7
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(71.9900 mm, 51.7300 mm): PTH pad 5 [/DISP_RES] of J5
+    @(79.4700 mm, 38.2600 mm): PTH pad 10 [/DISP_RES] of U7
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(66.9100 mm, 51.7300 mm): PTH pad 3 [/DISP_SCLK] of J5
+    @(76.9300 mm, 38.2600 mm): PTH pad 11 [/DISP_SCLK] of U7
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(74.4000 mm, 41.4000 mm): Track [/SPEED_PULSE] on F.Cu, length 0.8485 mm
+    @(74.3900 mm, 38.2600 mm): PTH pad 12 [/SPEED_PULSE] of U7
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(61.6900 mm, 38.2600 mm): PTH pad 17 [/DISP_MOSI] of U7
+    @(66.7045 mm, 46.9643 mm): Track [/DISP_MOSI] on F.Cu, length 5.5000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(40.9642 mm, 31.6072 mm): Pad 19 [/VLV_EN] of U5 on B.Cu
+    @(42.2342 mm, 40.9072 mm): Pad 1 [/VLV_EN] of U5 on B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(42.2342 mm, 40.9072 mm): Pad 1 [/VLV_EN] of U5 on B.Cu
+    @(41.2000 mm, 42.8000 mm): Via [/VLV_EN] on F.Cu - B.Cu
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(48.4946 mm, 40.8349 mm): Pad 2 [/VLV_EN] of R38 on B.Cu
+    @(54.0700 mm, 38.2600 mm): PTH pad 20 [/VLV_EN] of U7
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(49.4000 mm, 43.0000 mm): Track [/VLV_EN] on F.Cu, length 3.0067 mm
+    @(48.4946 mm, 40.8349 mm): Pad 2 [/VLV_EN] of R38 on B.Cu
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

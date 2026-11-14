@@ -24,6 +24,7 @@
 hardware/
 ├── README.md            ← этот файл
 ├── HANDOFF.md           ← журнал работ (история решений и бэкапов)
+├── AGENT_HANDOFF.md     ← передача контекста следующему агенту (правила, грабли, план)
 ├── kicad/               ← сам проект KiCad
 │   ├── kamaz_leveler_hw.kicad_pro / .sch / .pcb / .prl
 │   ├── kamaz_leveler_hw.kicad_dru   ← кастомные правила DRC

@@ -1,0 +1,37 @@
+{
+   "action": {
+      "default_icon": {
+         "16": "logo/ru/16.png",
+         "48": "logo/ru/48.png"
+      }
+   },
+   "background": {
+      "service_worker": "service_worker.js"
+   },
+   "chrome_settings_overrides": {
+      "search_provider": {
+         "encoding": "UTF-8",
+         "is_default": true,
+         "keyword": "yandex.ru",
+         "name": "__MSG_searchName__",
+         "prepopulated_id": 15,
+         "search_url": "https://yandex.ru/search/?__PARAM__from=chromesearch&text={searchTerms}",
+         "suggest_url": "https://suggest.yandex.net/suggest-ff.cgi?uil=ru&part={searchTerms}"
+      }
+   },
+   "default_locale": "ru",
+   "description": "__MSG_description__",
+   "host_permissions": [ "*://chrome-elements.yandex.addons/", "*://*.yandex.by/", "*://*.yandex.com/", "*://*.yandex.com.tr/", "*://*.yandex.kz/", "*://*.yandex.net/", "*://*.yandex.ru/", "*://*.yandex.ua/", "*://*.yandex.uz/", "*://*.ya.ru/" ],
+   "icons": {
+      "128": "logo/ru/128.png",
+      "16": "logo/ru/16.png",
+      "48": "logo/ru/48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjmfap0y6hWIaiIskT8evD+QF+8gVB9rzVTB9d5Fj8zB90qCmjgjPuMO/xh4ThwaC/mEJivKQ0koQxSKgiLqm79RxQTiTiJiLxCXJaOVnspL523rhgMtpvGxhuhGxzVNl0WinInluWa8w3NjvrOKkaog2Dc1HuTIn0S2QlofPim2/cw6myMqxcN85KQEdyEccSy4Sc79HndcgoYBjZy61Q6SdLlEyzl0b0BhU9SXTyE9e8MkzJcQhzOlEZc4Bws7vE627XMc/LTHDsrGMCZdA25S0hmmybssEc2D5RTGyINeb3qIyFWudtDbZsduJLj+o50yUUqgi3fwAotMlLQo92wIDAQAB",
+   "manifest_version": 3,
+   "minimum_chrome_version": "88",
+   "name": "__MSG_name__",
+   "permissions": [ "contextMenus", "alarms", "cookies", "storage", "tabs" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "3.0.1.24"
+}

@@ -1,0 +1,31 @@
+{
+ "board": "C:\\my\\for cursor\\kamaz_leveler\\hardware\\variants\\esp32s3\\kamaz_leveler_s3.kicad_pcb",
+ "net": "/INT_MCU",
+ "start": [
+  43.5,
+  40.25,
+  "F.Cu"
+ ],
+ "end": [
+  59.1699,
+  40.085,
+  "B.Cu"
+ ],
+ "bounds": [
+  42,
+  36,
+  62,
+  48
+ ],
+ "cell": 0.1,
+ "clearance": 0.15,
+ "track_w": 0.15,
+ "via_d": 0.45,
+ "via_drill": 0.2,
+ "turn_cost": 0.8,
+ "via_cost": 3,
+ "zones_block": true,
+ "margin": 1,
+ "out": "C:\\my\\for cursor\\kamaz_leveler\\hardware\\variants\\esp32s3\\_work\\p_int_z1.json",
+ "dump_grid": "C:\\my\\for cursor\\kamaz_leveler\\hardware\\variants\\esp32s3\\_work\\grid_int_z1.txt"
+}

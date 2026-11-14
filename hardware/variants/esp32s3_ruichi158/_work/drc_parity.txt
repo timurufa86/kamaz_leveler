@@ -1,0 +1,65 @@
+** Drc report for kamaz_leveler_ruichi158.kicad_pcb **
+** Created on 2026-11-11T23:31:57 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 0 DRC violations **
+
+** Found 3 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-29.4500 mm, -39.7500 mm): Zone 'GND_F.Cu' [GND] on F.Cu, priority 0
+    @(-29.4500 mm, -39.7500 mm): Zone 'GND_F.Cu' [GND] on F.Cu, priority 0
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-27.2000 mm, 0.5000 mm): Zone 'P3V3_B.Cu' [+3V3] on B.Cu, priority 1
+    @(-27.2000 mm, 0.5000 mm): Zone 'P3V3_F.Cu' [+3V3] on F.Cu, priority 1
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+    @(-24.5000 mm, -13.5000 mm): Zone 'P12V_B.Cu' [+12V] on B.Cu, priority 2
+
+** Found 10 Footprint errors **
+[footprint_symbol_mismatch]: Значение (D1) не соответствует значению символа (1.5KE36CA)
+    Local override; warning
+    @(16.2450 mm, -16.3150 mm): Footprint D1
+[footprint_symbol_mismatch]: kamaz_leveler:D_DO-201AD_P15.24mm_Horizontal_Pad2.0_Drill1.3 не соответствует посад. месту, указанному символом (Diode_SMD:D_SMB)
+    Local override; warning
+    @(16.2450 mm, -16.3150 mm): Footprint D1
+[footprint_symbol_mismatch]: Diode_SMD:D_SMA не соответствует посад. месту, указанному символом (Diode_SMD:D_SOD-123F)
+    Local override; warning
+    @(-16.8550 mm, -0.9550 mm): Footprint D5
+[footprint_symbol_mismatch]: Diode_SMD:D_SMA не соответствует посад. месту, указанному символом (Diode_SMD:D_SOD-123F)
+    Local override; warning
+    @(-24.3550 mm, -4.9550 mm): Footprint D6
+[footprint_symbol_mismatch]: Diode_SMD:D_SMA не соответствует посад. месту, указанному символом (Diode_SMD:D_SOD-123F)
+    Local override; warning
+    @(16.8950 mm, -4.7050 mm): Footprint D7
+[footprint_symbol_mismatch]: Diode_SMD:D_SMA не соответствует посад. месту, указанному символом (Diode_SMD:D_SOD-123F)
+    Local override; warning
+    @(16.8950 mm, -0.7050 mm): Footprint D8
+[footprint_symbol_mismatch]: Diode_SMD:D_SMA не соответствует посад. месту, указанному символом (Diode_SMD:D_SOD-123F)
+    Local override; warning
+    @(-24.3550 mm, -0.9550 mm): Footprint D9
+[footprint_symbol_mismatch]: Diode_SMD:D_SMA не соответствует посад. месту, указанному символом (Diode_SMD:D_SOD-123F)
+    Local override; warning
+    @(-16.8550 mm, -4.9550 mm): Footprint D10
+[net_conflict]: Цепь конт. пл. (/VIN_FUSED) не соответствует цепи, заданной схемой (/+24V_IN)
+    Local override; warning
+    @(-5.5550 mm, -31.9050 mm): Pad 1 [/VIN_FUSED] of L4 on F.Cu
+[extra_footprint]: Extra footprint
+    Local override; warning
+    @(14.9350 mm, -35.3350 mm): Footprint F1
+
+** Ignored checks **
+    - Courtyards overlap
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Silkscreen clearance
+    - Silkscreen clipped by solder mask
+    - Silkscreen clipped by board edge
+    - PTH inside courtyard
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **
