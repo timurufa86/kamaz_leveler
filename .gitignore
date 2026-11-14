@@ -73,3 +73,7 @@ _work_*.cmd
 runs/
 *.csv
 !hardware/**/*.csv
+
+# --- Временные отчёты проверок ---
+_drc_*.txt
+_erc_*.txt
