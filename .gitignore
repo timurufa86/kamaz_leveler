@@ -68,3 +68,8 @@ _work_*.py
 _work_*.html
 _work_*.png
 _work_*.cmd
+
+# --- Отладочные прогоны и данные тестов ---
+runs/
+*.csv
+!hardware/**/*.csv
