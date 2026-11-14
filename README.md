@@ -3,7 +3,7 @@
 Прошивка системы выравнивания пневмоподвески (ESP32 + FreeRTOS + GitHub OTA).
 
 - Базовая ветка разработки: **`2.x`** (старая линия; новая — `3.0.0`)
-- Скетч старой линии: `kamaz_2_0_1_fr_adafruiti_OTA_NM/` (ESP32 classic, плата v2)
+- Скетч старой линии: `kamaz_2_0_2_fr_adafruiti_OTA_NM/` (ESP32 classic, плата v2)
 - Скетч новой линии: `kamaz_3_0_0_fr_adafruiti_OTA_NM/` (ESP32-S3, плата v3)
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
@@ -38,7 +38,7 @@
 arduino-cli compile --config-file arduino-cli.yaml `
   -b "esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M" --warnings none --export-binaries `
   --build-property compiler.c.elf.extra_flags=-Wl,--allow-multiple-definition `
-  kamaz_2_0_1_fr_adafruiti_OTA_NM
+  kamaz_2_0_2_fr_adafruiti_OTA_NM
 ```
 
 > `--warnings none` обязателен: библиотека GEM 1.8.1 содержит функцию без
@@ -59,7 +59,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 
 Плата оснащена **4 МБ** флеш-памяти. Штатные OTA-слоты ядра (1.25 МБ) малы
 для скетча (~1.6 МБ), поэтому используется **своя схема разделов**
-(`kamaz_2_0_1_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
+(`kamaz_2_0_2_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
 |---|---|---|---|
