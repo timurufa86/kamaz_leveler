@@ -6,16 +6,14 @@ name: firmware-build
 # C:/my/libraries locally: registry libraries are installed there and GEM is vendored there.
 on:
   push:
-    branches: [main, 'refactor/**', '2.x', '3.0.0']
+    branches: ['2.0.1']
     paths:
-      - 'kamaz_2_0_0_fr_adafruiti_OTA_NM/**'
-      - 'kamaz_3_0_0_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_2_0_1_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   pull_request:
     paths:
-      - 'kamaz_2_0_0_fr_adafruiti_OTA_NM/**'
-      - 'kamaz_3_0_0_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_2_0_1_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   workflow_dispatch:
@@ -31,12 +29,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # OLD line: v2 board, ESP32 classic, 4MB flash, custom table with 2x1.75MB OTA slots
-          - sketch: kamaz_2_0_0_fr_adafruiti_OTA_NM
+          - sketch: kamaz_2_0_1_fr_adafruiti_OTA_NM
             fqbn: esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
-          # NEW line: v3 board, ESP32-S3, 16MB flash, custom table with 2x2MB OTA slots
-          - sketch: kamaz_3_0_0_fr_adafruiti_OTA_NM
-            fqbn: esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi
     steps:
       - uses: actions/checkout@v4
 

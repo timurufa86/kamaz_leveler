@@ -9,7 +9,7 @@ REM  This script builds the OLD line only (2.0.0, ESP32 classic, v2 board).
 REM  The NEW line (3.0.0, ESP32-S3, v3 board) has its own build_3_0_0.cmd.
 REM
 REM  Usage:
-REM    build.cmd         ^<-- compile kamaz_2_0_0_fr_adafruiti_OTA_NM
+REM    build.cmd         ^<-- compile kamaz_2_0_1_fr_adafruiti_OTA_NM
 REM    build.cmd COM5    ^<-- compile + upload to a board
 REM
 REM  The board uses a CUSTOM 4MB partition table (see
@@ -19,7 +19,7 @@ REM ============================================================================
 
 setlocal
 
-set SKETCH=kamaz_2_0_0_fr_adafruiti_OTA_NM
+set SKETCH=kamaz_2_0_1_fr_adafruiti_OTA_NM
 REM Sketch folder 2_0_0; VERSION string = 2.0.0
 set FQBN=esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M
 set CONFIG=arduino-cli.yaml

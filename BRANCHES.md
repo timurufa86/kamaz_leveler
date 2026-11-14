@@ -7,7 +7,7 @@
 | Что | Значение |
 |---|---|
 | Плата | `hardware/kicad/` (104×54, ESP32 DevKitC) · вариант B `hardware/variants/devkitv1/` |
-| Прошивка | **`kamaz_2_0_0_fr_adafruiti_OTA_NM/`** (актуальная в линии 2.x) |
+| Прошивка | **`kamaz_2_0_1_fr_adafruiti_OTA_NM/`** (актуальная в линии 2.x) |
 | Версия | **2.0.0** (`VERSION = "V 2.0.0 FreeRTOS OTA"`) — бывшая 2.16.8, приведена к имени папки |
 | Git-ветки | **`2.x`** (рабочая), исторические `8.5.8`…`8.9.0`, `wip/ota-10.15.5` |
 | FQBN | `esp32:esp32:esp32:PartitionScheme=custom,FlashSize=4M` |
