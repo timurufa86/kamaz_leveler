@@ -1,19 +1,19 @@
 name: firmware-build
 
-# Mirrors build.cmd (2.0.0, ESP32 classic) and build_3_2_0.cmd (3.0.0, ESP32-S3):
+# Mirrors build.cmd (2.0.0, ESP32 classic) and build_3_2_1.cmd (3.0.0, ESP32-S3):
 # same FQBN per line, custom partition scheme per sketch, same linker flag.
 # The sketchbook is ci/ so that ci/libraries is the user library folder, exactly like
 # C:/my/libraries locally: registry libraries are installed there and GEM is vendored there.
 on:
   push:
-    branches: ['3.2.0']
+    branches: ['3.2.1']
     paths:
-      - 'kamaz_3_2_0_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_3_2_1_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   pull_request:
     paths:
-      - 'kamaz_3_2_0_fr_adafruiti_OTA_NM/**'
+      - 'kamaz_3_2_1_fr_adafruiti_OTA_NM/**'
       - '.github/**'
       - 'ci/**'
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - sketch: kamaz_3_2_0_fr_adafruiti_OTA_NM
+          - sketch: kamaz_3_2_1_fr_adafruiti_OTA_NM
             fqbn: esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi
     steps:
       - uses: actions/checkout@v4

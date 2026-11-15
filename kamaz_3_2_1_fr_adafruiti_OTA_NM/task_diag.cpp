@@ -274,18 +274,20 @@ static void presPoll() {
       (uint32_t)(now - s_presChangeMs) >= debounce) {
     s_presStableHigh = s_presRawHigh;
     if (s_presStableHigh) {
-      SERIAL_DBGLN("[DIAG] PRES_SW: контакт разомкнут — критическое давление");
+      SERIAL_DBGLN("[DIAG] PRES_SW: контакт разомкнут — норма");
     } else {
-      SERIAL_DBGLN("[DIAG] PRES_SW: контакт замкнут — норма");
+      SERIAL_DBGLN("[DIAG] PRES_SW: контакт ЗАМКНУТ — критическое давление в ресивере");
     }
   }
-  /* Публикуем состояние только когда опция включена: при выключенном контроле
-     висящий в воздухе вход (нет датчика) не должен давать «критично» в HA. */
+  /* 3.2.1: полярность — контакт ЗАМЫКАЕТСЯ при низком давлении (активный низкий):
+   *   замкнут (LOW)  = авария, разомкнут (HIGH, подтяжка R41) = норма.
+   * Публикуем состояние только когда опция включена: при выключенном контроле
+   * висящий вход (нет датчика) не должен давать «критично» в HA. */
   const bool enabled = ConfigManager::getPresSwEnabled();
-  presSwCritical = enabled && s_presStableHigh;
+  presSwCritical = enabled && !s_presStableHigh;
   presSwOk = !presSwCritical;
 
-  const bool want = enabled && s_presStableHigh;
+  const bool want = presSwCritical;
 
   /* 3.2.0: по флагу меню останавливаем АВТО при срабатывании сухого контакта
    * (один раз на переход «норма -> критично», чтобы не дёргать переключение). */

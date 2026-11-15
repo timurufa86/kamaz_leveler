@@ -110,14 +110,14 @@ void resetSystemErrors() {
 
             case ErrorHandler::Error::LOW_RECEIVER:
                 {
-                    /* 3.1.0: ошибка ресивера держится, пока сухой контакт разомкнут
-                     * (давление критическое). Снимается только при замкнутом контакте. */
+                    /* 3.1.0: ошибка ресивера держится, пока сухой контакт замкнут
+                     * (давление критическое, активный низкий). Снимается при размыкании. */
                     extern bool presSwCritical;
                     if (presSwCritical) {
                         shouldClear = false;
-                        SERIAL_DBGLN("[SYSTEM] LOW_RECEIVER сохранена (сухой контакт разомкнут)");
+                        SERIAL_DBGLN("[SYSTEM] LOW_RECEIVER сохранена (сухой контакт ЗАМКНУТ)");
                     } else {
-                        SERIAL_DBGLN("[SYSTEM] LOW_RECEIVER будет удалена (контакт замкнут)");
+                        SERIAL_DBGLN("[SYSTEM] LOW_RECEIVER будет удалена (контакт разомкнут)");
                     }
                     break;
                 }

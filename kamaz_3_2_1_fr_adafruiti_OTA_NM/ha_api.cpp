@@ -204,7 +204,7 @@ static void buildStateJson(String &out) {
       if (fmask & DIAG_ST_LINES[i].mask) fa.add(DIAG_ST_LINES[i].name);
     }
 
-    /* Сухой контакт PRES_SW (NC): замкнут = норма. */
+    /* Сухой контакт PRES_SW (активный низкий): замкнут = низкое давление в ресивере. */
     doc["pres_sw_enabled"] = ConfigManager::getPresSwEnabled();
     doc["pres_sw_ok"] = presSwOk;
     doc["pres_sw_critical"] = presSwCritical;

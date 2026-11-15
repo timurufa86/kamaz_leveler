@@ -47,6 +47,6 @@ bool diagSpeedUsingPcnt();   // true = аппаратный PCNT, false = ISR-ф
 uint32_t diagSpeedPulsesTotal();
 
 /* ── Сухой контакт давления (PRES_SW, NC) ── */
-extern bool presSwOk;        // контакт замкнут (LOW) — давление в норме
-extern bool presSwCritical;  // контакт разомкнут (HIGH) — критическое давление
+extern bool presSwOk;        // 3.2.1: контакт разомкнут (HIGH) — давление в норме
+extern bool presSwCritical;  // 3.2.1: контакт ЗАМКНУТ (LOW) — критическое давление в ресивере
 extern bool presSwRawHigh;   // сырой уровень входа (для TEST PRES)
