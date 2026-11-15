@@ -1696,6 +1696,14 @@ void displayMainScreen() {
     tft.fillRect(168, 0, 20, theme::STATUS_H, theme::BG);
   }
 
+  /* 3.3.0: предупреждение — низкое давление в ресивере (сухой контакт PRES_SW).
+   * Не блокирует экран (в отличие от аварии по JHM1200) — только иконка в статус-баре. */
+  if (presSwCritical) {
+    drawIconL(192, 0, iconError, theme::WARN);
+  } else {
+    tft.fillRect(192, 0, 20, theme::STATUS_H, theme::BG);
+  }
+
   // Mode: icon + label (right side). iconManualL / iconAutoL / iconMovingL.
   constexpr int16_t MODE_ICON_W = 20;
   constexpr int16_t MODE_GAP = 2;

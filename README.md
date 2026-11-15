@@ -4,7 +4,7 @@
 
 - Базовая ветка разработки: **`2.x`** (старая линия; новая — `3.0.0`)
 - Скетч старой линии: `kamaz_2_0_0_fr_adafruiti_OTA_NM/` (ESP32 classic, плата v2)
-- Скетч новой линии: `kamaz_3_2_2_fr_adafruiti_OTA_NM/` (ESP32-S3, плата v3)
+- Скетч новой линии: `kamaz_3_3_0_fr_adafruiti_OTA_NM/` (ESP32-S3, плата v3)
 - Репозиторий: https://github.com/timurufa86/kamaz_leveler
 
 ## Аппаратная часть (PCB)
@@ -80,7 +80,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 Плата v3 (ESP32-S3) оснащена **16 МБ** флеш-памяти. Штатная схема
 `PartitionScheme=default_8MB` содержит **один** слот приложения, поэтому OTA на
 ней невозможен. Используется **своя схема разделов**
-(`kamaz_3_2_2_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
+(`kamaz_3_3_0_fr_adafruiti_OTA_NM/partitions.csv`, `PartitionScheme=custom`):
 
 | Раздел | Смещение | Размер | Назначение |
 |---|---|---|---|
@@ -92,7 +92,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 | `coredump` | 0xFF0000 | 64 КБ | дамп при сбое |
 
 Образ ~1.65 МБ, запас роста ~350 КБ на слот. Сборка:
-`build_3_2_2.cmd` (FQBN `esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi`).
+`build_3_3_0.cmd` (FQBN `esp32:esp32:esp32s3:PartitionScheme=custom,FlashSize=16M,PSRAM=opi`).
 
 > ⚠️ **Смена карты флеша требует разовой прошивки по USB** (bootloader +
 > partitions + app). OTA с прежней `default_8MB` схемы разделы НЕ переносит.
@@ -119,7 +119,7 @@ arduino-cli compile --config-file arduino-cli.yaml `
 | Adafruit ADS1X15 | 2.6.2 |
 | EncButton | 3.7.6 |
 | GEM | 1.8.1 |
-| GyverFilters | 3.2.2 |
+| GyverFilters | 3.3.0 |
 | MPU6050 | 1.4.5 |
 | U8g2_for_Adafruit_GFX | 1.8.0 |
 | U8g2 (только как источник шрифтов, напрямую не подключается) | 2.36.19 |

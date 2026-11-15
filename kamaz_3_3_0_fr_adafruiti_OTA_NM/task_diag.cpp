@@ -302,6 +302,8 @@ static void presPoll() {
       s_presErrRaised = true;
       s_presRefreshMs = now;
       ErrorHandler::handleError(ErrorHandler::Error::LOW_RECEIVER, PRES_MSG);
+      Logger::log(Logger::WARNING, "PRES_SW", "Низкое давление в ресивере (сухой контакт)");
+      displayDirty = true;   // 3.3.0: сразу показать иконку-предупреждение в статус-баре
     } else if ((uint32_t)(now - s_presRefreshMs) >= DIAG_ERR_REFRESH_MS) {
       s_presRefreshMs = now;
       ErrorHandler::updateErrorTime(ErrorHandler::Error::LOW_RECEIVER);
@@ -309,6 +311,8 @@ static void presPoll() {
   } else if (s_presErrRaised) {
     s_presErrRaised = false;
     ErrorHandler::markErrorCleared(ErrorHandler::Error::LOW_RECEIVER);
+    Logger::log(Logger::INFO, "PRES_SW", "Давление в ресивере восстановилось");
+    displayDirty = true;   // 3.3.0: убрать иконку-предупреждение
   }
 }
 
