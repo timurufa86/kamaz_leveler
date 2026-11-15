@@ -81,7 +81,7 @@ bool presSwCritical = false;
 bool presSwRawHigh  = false;
 
 static constexpr const char *PRES_MSG =
-    "Давление критическое (<0,5-1 бар), не обязательно 0";
+    "Давление в ресивере критическое (<0,5-1 бар), не обязательно 0";
 
 /* ====================  Датчик скорости: инициализация  ==================== */
 
@@ -289,14 +289,14 @@ static void presPoll() {
     if (!s_presErrRaised) {
       s_presErrRaised = true;
       s_presRefreshMs = now;
-      ErrorHandler::handleError(ErrorHandler::Error::LOW_PRESSURE, PRES_MSG);
+      ErrorHandler::handleError(ErrorHandler::Error::LOW_RECEIVER, PRES_MSG);
     } else if ((uint32_t)(now - s_presRefreshMs) >= DIAG_ERR_REFRESH_MS) {
       s_presRefreshMs = now;
-      ErrorHandler::updateErrorTime(ErrorHandler::Error::LOW_PRESSURE);
+      ErrorHandler::updateErrorTime(ErrorHandler::Error::LOW_RECEIVER);
     }
   } else if (s_presErrRaised) {
     s_presErrRaised = false;
-    ErrorHandler::markErrorCleared(ErrorHandler::Error::LOW_PRESSURE);
+    ErrorHandler::markErrorCleared(ErrorHandler::Error::LOW_RECEIVER);
   }
 }
 

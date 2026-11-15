@@ -33,7 +33,7 @@ extern int   cfg_getInflateDelay();
 extern int   cfg_getReleaseDelay();
 
 /* ── ErrorHandler / TaskMonitor bridge functions (defined in .ino) ── */
-enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
+enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, LOW_RECEIVER, COUNT };
 extern bool cfg_errorIsActive(uint8_t err);
 extern void cfg_errorMarkCleared(uint8_t err);
 extern void cfg_taskMonitorUpdate(uint8_t idx);

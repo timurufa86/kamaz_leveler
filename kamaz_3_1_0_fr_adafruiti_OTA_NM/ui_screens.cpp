@@ -48,7 +48,7 @@ extern char sta_ssid[33];
 extern int otaProgress;
 extern char otaStatus[32];
 
-enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
+enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, LOW_RECEIVER, COUNT };
 
 extern bool cfg_errorHasUiBlocking();
 extern bool cfg_errorHasActive();
@@ -1057,6 +1057,10 @@ void displayErrorScreen() {
       case EH_Error::LOW_PRESSURE:
         line1 = "НИЗКОЕ ДАВЛЕНИЕ";
         line2 = "В МАГИСТРАЛИ";
+        break;
+      case EH_Error::LOW_RECEIVER:
+        line1 = "НИЗКОЕ ДАВЛЕНИЕ";
+        line2 = "В РЕСИВЕРЕ";
         break;
       case EH_Error::MPU:
         line1 = "ОШИБКА MPU6050";

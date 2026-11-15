@@ -22,6 +22,7 @@ public:
     VALVE,
     WATCHDOG,
     OTA,
+    LOW_RECEIVER,   // 3.1.0: сухой контакт PRES_SW — давление в ресивере критическое
     COUNT
   };
 

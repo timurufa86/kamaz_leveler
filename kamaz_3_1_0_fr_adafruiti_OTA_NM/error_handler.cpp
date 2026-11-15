@@ -8,6 +8,7 @@
 /* Numeric codes used by modules (app_types.h) must match this enum exactly. */
 static_assert((uint8_t)ErrorHandler::Error::NONE == ERR_NONE_CODE, "ERR_NONE_CODE != ErrorHandler::Error::NONE");
 static_assert((uint8_t)ErrorHandler::Error::LOW_PRESSURE == ERR_LOW_PRESSURE_CODE, "ERR_LOW_PRESSURE_CODE mismatch");
+static_assert((uint8_t)ErrorHandler::Error::LOW_RECEIVER == ERR_LOW_RECEIVER_CODE, "ERR_LOW_RECEIVER_CODE mismatch");
 static_assert((uint8_t)ErrorHandler::Error::MPU == ERR_MPU_CODE, "ERR_MPU_CODE mismatch");
 static_assert((uint8_t)ErrorHandler::Error::SENSOR == ERR_SENSOR_CODE, "ERR_SENSOR_CODE mismatch");
 static_assert((uint8_t)ErrorHandler::Error::VALVE == ERR_VALVE_CODE, "ERR_VALVE_CODE mismatch");
@@ -103,6 +104,20 @@ void resetSystemErrors() {
                     } else {
                         SERIAL_DBG("[SYSTEM] LOW_PRESSURE будет удалена (МП %.2f, порог %.2f)\n",
                                       localMaster, masterLow);
+                    }
+                    break;
+                }
+
+            case ErrorHandler::Error::LOW_RECEIVER:
+                {
+                    /* 3.1.0: ошибка ресивера держится, пока сухой контакт разомкнут
+                     * (давление критическое). Снимается только при замкнутом контакте. */
+                    extern bool presSwCritical;
+                    if (presSwCritical) {
+                        shouldClear = false;
+                        SERIAL_DBGLN("[SYSTEM] LOW_RECEIVER сохранена (сухой контакт разомкнут)");
+                    } else {
+                        SERIAL_DBGLN("[SYSTEM] LOW_RECEIVER будет удалена (контакт замкнут)");
                     }
                     break;
                 }

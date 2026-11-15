@@ -16,6 +16,7 @@ constexpr uint8_t ERR_SENSOR_CODE       = 3;
 constexpr uint8_t ERR_VALVE_CODE        = 4;
 constexpr uint8_t ERR_WATCHDOG_CODE     = 5;
 constexpr uint8_t ERR_OTA_CODE          = 6;
+constexpr uint8_t ERR_LOW_RECEIVER_CODE = 7;   // 3.1.0: низкое давление в ресивере (сухой контакт)
 
 /* ───── IMU / Pressure queue payloads ───── */
 

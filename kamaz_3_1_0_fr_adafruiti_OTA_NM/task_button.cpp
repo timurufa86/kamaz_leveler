@@ -41,7 +41,7 @@ extern char sta_ssid[33];
 void resetSystemErrors();
 void saveWiFiConfig();
 
-enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
+enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, LOW_RECEIVER, COUNT };
 
 extern bool cfg_errorHasUiBlocking();
 extern bool cfg_errorHasActive();

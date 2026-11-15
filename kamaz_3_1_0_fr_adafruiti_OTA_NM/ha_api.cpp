@@ -67,6 +67,7 @@ static const char *stateName(SystemState s) {
 static const char *errName(ErrorHandler::Error e) {
   switch (e) {
     case ErrorHandler::Error::LOW_PRESSURE: return "LOW_PRESSURE";
+    case ErrorHandler::Error::LOW_RECEIVER: return "LOW_RECEIVER";
     case ErrorHandler::Error::MPU: return "MPU";
     case ErrorHandler::Error::SENSOR: return "SENSOR";
     case ErrorHandler::Error::VALVE: return "VALVE";

@@ -24,7 +24,7 @@ void saveMenuSettings();
 
 volatile MenuReq g_menuReq = MenuReq::None;
 
-enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, COUNT };
+enum class EH_Error : uint8_t { NONE = 0, LOW_PRESSURE, MPU, SENSOR, VALVE, WATCHDOG, OTA, LOW_RECEIVER, COUNT };
 
 extern bool cfg_errorHasUiBlocking();
 extern bool cfg_errorHasActive();
