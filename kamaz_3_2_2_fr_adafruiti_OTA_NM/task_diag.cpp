@@ -289,19 +289,13 @@ static void presPoll() {
 
   const bool want = presSwCritical;
 
-  /* 3.2.0: по флагу меню останавливаем АВТО при срабатывании сухого контакта
-   * (один раз на переход «норма -> критично», чтобы не дёргать переключение). */
-  static bool s_presAutoStopped = false;
-  if (want) {
-    if (!s_presAutoStopped && ConfigManager::getPresSwStopAuto()) {
-      s_presAutoStopped = true;
-      if (currentSystemMode == SystemMode::AUTO) {
-        switchSystemMode(SystemMode::MANUAL, "PRES_SW");
-        SERIAL_DBGLN("[DIAG] PRES_SW: сработал — АВТО остановлено, режим РУЧНОЙ");
-      }
-    }
-  } else {
-    s_presAutoStopped = false;
+  /* 3.2.1: при срабатывании сухого контакта (замкнут = низкое давление в ресивере)
+   * и включённой галочке «Стоп АВТО при СК» система переходит из АВТО в РУЧНОЙ.
+   * Защёлка не нужна: после перехода режим уже не AUTO, повторно не сработает.
+   * Если оператор снова включит АВТО при замкнутом контакте — снова переключим. */
+  if (want && ConfigManager::getPresSwStopAuto() && currentSystemMode == SystemMode::AUTO) {
+    switchSystemMode(SystemMode::MANUAL, "PRES_SW");
+    SERIAL_DBGLN("[DIAG] PRES_SW: сработал при АВТО — переключено в РУЧНОЙ режим");
   }
   if (want) {
     if (!s_presErrRaised) {
