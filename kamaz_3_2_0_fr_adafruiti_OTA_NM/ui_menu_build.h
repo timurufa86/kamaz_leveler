@@ -55,6 +55,7 @@ extern bool  editHaEnabled;
 extern bool  editSpeedEnabled;
 extern float editSpeedCoeff;
 extern bool  editPresSwEnabled;
+extern bool  editPresSwStopAuto;   // 3.2.0: стоп АВТО при срабатывании СК
 extern int   editMoveDuration;
 extern int   editMoveSettle;
 extern int   editMoveCheck;

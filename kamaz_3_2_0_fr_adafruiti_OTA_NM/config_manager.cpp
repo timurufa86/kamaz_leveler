@@ -235,6 +235,7 @@ void saveMenuSettings() {
   ConfigManager::setSpeedEnabled(editSpeedEnabled);      // 3.0.0
   ConfigManager::setSpeedCoeff(editSpeedCoeff);          // 3.0.0
   ConfigManager::setPresSwEnabled(editPresSwEnabled);    // 3.0.0
+  ConfigManager::setPresSwStopAuto(editPresSwStopAuto);  // 3.2.0
 
   const bool saved = saveConfig();
   if (!saved) {

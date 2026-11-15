@@ -136,6 +136,7 @@ bool  editHaEnabled;
 bool  editSpeedEnabled;
 float editSpeedCoeff;
 bool  editPresSwEnabled;
+bool  editPresSwStopAuto;   // 3.2.0
 int   editMoveDuration;       // длительность ожидания движения, с
 int   editMoveSettle;         // время успокоения после движения, с
 int   editMoveCheck;          // период проверки давления после движения, с
@@ -433,6 +434,7 @@ void setup() {
   editSpeedEnabled = ConfigManager::getSpeedEnabled();
   editSpeedCoeff = constrain(ConfigManager::getSpeedCoeff(), 0.01f, 100.0f);
   editPresSwEnabled = ConfigManager::getPresSwEnabled();
+  editPresSwStopAuto = ConfigManager::getPresSwStopAuto();   // 3.2.0
   editMoveDuration = constrain(ConfigManager::getMovementDurationSec(), 20, 300);
   editMoveSettle = constrain(ConfigManager::getMovementSettleSec(), 20, 300);
   editMoveCheck = constrain(ConfigManager::getMovementCheckSec(), 20, 600);

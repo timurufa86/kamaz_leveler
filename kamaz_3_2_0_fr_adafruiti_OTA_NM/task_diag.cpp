@@ -11,6 +11,7 @@
 #include "pcal9555.h"
 #include "task_pool.h"
 #include "valve_ctrl.h"
+#include "mode_ctrl.h"   // 3.2.0: остановка АВТО при срабатывании СК
 
 #include "driver/pulse_cnt.h"
 #include "esp_err.h"
@@ -285,6 +286,21 @@ static void presPoll() {
   presSwOk = !presSwCritical;
 
   const bool want = enabled && s_presStableHigh;
+
+  /* 3.2.0: по флагу меню останавливаем АВТО при срабатывании сухого контакта
+   * (один раз на переход «норма -> критично», чтобы не дёргать переключение). */
+  static bool s_presAutoStopped = false;
+  if (want) {
+    if (!s_presAutoStopped && ConfigManager::getPresSwStopAuto()) {
+      s_presAutoStopped = true;
+      if (currentSystemMode == SystemMode::AUTO) {
+        switchSystemMode(SystemMode::MANUAL, "PRES_SW");
+        SERIAL_DBGLN("[DIAG] PRES_SW: сработал — АВТО остановлено, режим РУЧНОЙ");
+      }
+    }
+  } else {
+    s_presAutoStopped = false;
+  }
   if (want) {
     if (!s_presErrRaised) {
       s_presErrRaised = true;

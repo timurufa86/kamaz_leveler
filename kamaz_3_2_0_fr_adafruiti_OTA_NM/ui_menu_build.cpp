@@ -650,6 +650,17 @@ void initGEM() {
         }
     });
     pressurePage.addMenuItem(itemPresSw);
+    /* 3.2.0: по флагу останавливать АВТО при срабатывании сухого контакта ресивера. */
+    static GEMItem itemPresSwStopAuto("Стоп АВТО при СК", editPresSwStopAuto, [](GEMCallbackData data) {
+        void *ptr = data.pMenuItem->getLinkedVariablePointer();
+        if (ptr) {
+            editPresSwStopAuto = *(bool *)ptr;
+            settingsChanged = true;
+            displayDirty = true;
+            SERIAL_DBG("[MENU] Стоп АВТО при СК: %s\n", editPresSwStopAuto ? "вкл" : "выкл");
+        }
+    });
+    pressurePage.addMenuItem(itemPresSwStopAuto);
     pressurePage.addMenuItem(itemPresSwState);
 
     // --- Автовыравнивание (основные + Расширенные) ---

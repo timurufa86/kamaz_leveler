@@ -12,7 +12,7 @@
 #include "event_bus.h"
 #include "ui_menu_build.h"
 
-constexpr uint32_t CONFIG_FORMAT_VERSION = 13;   // 13: датчик скорости + сухой контакт PRES_SW
+constexpr uint32_t CONFIG_FORMAT_VERSION = 14;   // 14: стоп АВТО при срабатывании СК ресивера
 
 class ConfigManager {
 private:
@@ -107,6 +107,7 @@ private:
     float speedCoeff = 1.0f;         // км/ч на 1 Гц (0.01…100.00) — данные некалиброванные
     bool  presSwEnabled = false;     // контроль давления по сухому контакту (NC)
     int   presSwDebounceMs = 50;     // антидребезг PRES_SW, мс (10…500)
+    bool  presSwStopAuto = false;    // 3.2.0: останавливать АВТО при срабатывании СК
   };
 
   static Config currentConfig;
@@ -306,6 +307,7 @@ public:
     val = doc["speedCoeff"] | 1.0f;
     currentConfig.speedCoeff = constrain(val, 0.01f, 100.0f);
     currentConfig.presSwEnabled = (bool)(doc["presSwEnabled"] | false);
+    currentConfig.presSwStopAuto = (bool)(doc["presSwStopAuto"] | false);   // 3.2.0
     currentConfig.presSwDebounceMs =
         constrain((int)(doc["presSwDebounceMs"] | 50), 10, 500);
     // Миграция старых заводских пресетов > ослабленный баланс 10.1.28
@@ -505,6 +507,7 @@ public:
     dst["speedEnabled"] = currentConfig.speedEnabled;
     dst["speedCoeff"] = currentConfig.speedCoeff;
     dst["presSwEnabled"] = currentConfig.presSwEnabled;
+    dst["presSwStopAuto"] = currentConfig.presSwStopAuto;   // 3.2.0
     dst["presSwDebounceMs"] = currentConfig.presSwDebounceMs;
   }
 
@@ -522,7 +525,7 @@ public:
         "gyroBumpThreshold", "accelThreshold", "imuMotionDet", "backlightOffMin",
         "frameMs", "redrawAngleThr", "redrawPressureThr", "haEnabled",
         /* 3.0.0: скорость и сухой контакт давления */
-        "speedEnabled", "speedCoeff", "presSwEnabled"};
+        "speedEnabled", "speedCoeff", "presSwEnabled", "presSwStopAuto"};
     for (const char *k : keys) {
       if (strcmp(k, key) == 0) return true;
     }
@@ -624,6 +627,7 @@ public:
     takeB("speedEnabled", currentConfig.speedEnabled);
     takeF("speedCoeff", currentConfig.speedCoeff, 0.01f, 100.0f);
     takeB("presSwEnabled", currentConfig.presSwEnabled);
+    takeB("presSwStopAuto", currentConfig.presSwStopAuto);   // 3.2.0
 
     // Cross-field (как в load()): min < max, цели движения в пределах, fine < coarse.
     if (currentConfig.pressureMin >= currentConfig.pressureMax) {
@@ -862,6 +866,8 @@ public:
   static bool  getPresSwEnabled() { return currentConfig.presSwEnabled; }
   static void  setPresSwEnabled(bool v) { currentConfig.presSwEnabled = v; }
   static int   getPresSwDebounceMs() { return currentConfig.presSwDebounceMs; }
+  static bool  getPresSwStopAuto() { return currentConfig.presSwStopAuto; }
+  static void  setPresSwStopAuto(bool v) { currentConfig.presSwStopAuto = v; }
   static void  setPresSwDebounceMs(int v) {
     currentConfig.presSwDebounceMs = constrain(v, 10, 500);
   }

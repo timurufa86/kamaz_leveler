@@ -147,9 +147,11 @@ public:
     return error == Error::VALVE;
   }
 
-  /** Полноэкранная ошибка: MPU/OTA не блокируют главный экран. */
+  /** Полноэкранная ошибка. MPU/OTA не блокируют главный экран.
+   *  3.2.0: LOW_RECEIVER (сухой контакт ресивера) — предупреждение-информирование,
+   *  а не блокирующая авария; блокирует только контроль по JHM1200 (LOW_PRESSURE). */
   static bool isUiBlockingError(Error error) {
-    return error != Error::MPU && error != Error::OTA;
+    return error != Error::MPU && error != Error::OTA && error != Error::LOW_RECEIVER;
   }
 
   static bool hasUiBlockingErrors() {
